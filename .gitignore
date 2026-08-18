@@ -1,0 +1,7 @@
+.idea
+.venv
+cmake-build-*
+build*
+/install/
+AGENTS.md
+TODO.md
