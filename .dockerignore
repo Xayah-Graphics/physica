@@ -6,5 +6,9 @@
 !cmake/**
 !reconstruction/
 !reconstruction/**
+!fluids/
+!fluids/**
+!deformables/
+!deformables/**
 !examples/
 !examples/**
