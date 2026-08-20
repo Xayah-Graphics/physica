@@ -1,0 +1,63 @@
+spectra 37 "Smoke" {
+    active camera=1 film=1 sampler=1
+
+    volumes {
+        grid 1 "Double-Jet Thermal Smoke" {
+            domain 0 0 0 1 1.5 1
+            rendering density-field="density" temperature-field="temperature" {
+                sigma-a rgb-unbounded 0.22 0.25 0.30
+                sigma-s rgb-unbounded 0.96 0.90 0.80
+                emission rgb-illuminant 0 0 0
+                density-scale 4
+                anisotropy 0.28
+            }
+        }
+    }
+
+    lights {
+        point 1 "Key Light" {
+            intensity rgb-illuminant 42 45 50
+            transform {
+                row 1 0 0 2.5
+                row 0 1 0 3
+                row 0 0 1 2.5
+                row 0 0 0 1
+            }
+        }
+        infinite 2 "Environment" {
+            radiance rgb-illuminant 0.025 0.03 0.04
+        }
+    }
+
+    cameras {
+        perspective 1 "Overview" {
+            transform {
+                row 0.8804711 -0.07914866 0.4674464 1.9
+                row 0 0.9859662 0.16694514 1.2
+                row -0.4740998 -0.14699037 0.8681147 3.1
+                row 0 0 0 1
+            }
+            vertical-fov 35
+            near-plane 0.01
+            far-plane 20
+        }
+    }
+
+    films {
+        film 1 "Display" gbuffer=#true {
+            resolution 1920 1080
+            filter gaussian radius-x=1.5 radius-y=1.5
+        }
+    }
+
+    samplers {
+        sampler 1 "Sampler" kind="pmj02bn" samples=256 seed=20260809
+    }
+
+    simulation seed=20260809 {
+        clock step-seconds=0.008333333333333333
+        system "smoke" "Smoke" provider="physica.example.fluids.gas.smoke" {
+            scene-bind "smoke" 1
+        }
+    }
+}

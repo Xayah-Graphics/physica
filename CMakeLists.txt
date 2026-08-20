@@ -53,6 +53,8 @@ endif ()
 # ============================================================================
 add_subdirectory(reconstruction/dataset)
 add_subdirectory(reconstruction/instant-ngp)
+add_subdirectory(fluids/gas/smoke)
 if (PHYSICA_EXAMPLES)
     add_subdirectory(examples/reconstruction/instant-ngp)
+    add_subdirectory(examples/fluids/gas/smoke)
 endif ()
