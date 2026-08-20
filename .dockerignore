@@ -1,0 +1,9 @@
+**
+!VERSION
+!CMakeLists.txt
+!LICENSE
+!main.cpp
+!cmake/
+!cmake/**
+!reconstruction/
+!reconstruction/**

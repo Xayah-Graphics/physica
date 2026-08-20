@@ -1,0 +1,53 @@
+name: Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows, MSVC, CUDA
+    runs-on: windows-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install latest CMake and CUDA
+        shell: pwsh
+        run: |
+          winget install --id Kitware.CMake --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+          winget install --id Nvidia.CUDA --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+
+          "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $cudaRoot = Get-ChildItem "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA" -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          "CUDA_PATH=$($cudaRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CUDACXX=$($cudaRoot.FullName)\bin\nvcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          (Join-Path $cudaRoot.FullName "bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Enter Visual Studio developer environment
+        shell: pwsh
+        run: |
+          $installation = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $developerCommand = Join-Path $installation "Common7\Tools\VsDevCmd.bat"
+          cmd /d /s /c "`"$developerCommand`" -arch=x64 -host_arch=x64 && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build cmake-build-release --parallel 30

@@ -1,0 +1,48 @@
+name: Arch Build
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Arch Linux, GCC, CUDA
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    container:
+      image: archlinux:latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install latest build toolchain
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel cmake cuda git ninja
+          echo "/opt/cuda/bin" >> "${GITHUB_PATH}"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Configure
+        run: |
+          cmake -S . -B cmake-build-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc
+
+      - name: Build
+        run: cmake --build cmake-build-release --parallel 30
