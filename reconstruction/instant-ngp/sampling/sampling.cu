@@ -1,10 +1,10 @@
-#include "../cuda/density_activation.cuh"
-#include "../cuda/random.cuh"
 #include "kernels.h"
 #include <algorithm>
 #include <cuda/algorithm>
 #include <cuda/launch>
 #include <cuda/std/algorithm>
+#include <cuda/std/cmath>
+#include <cuda/std/random>
 #include <cuda/std/span>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -45,6 +45,14 @@ struct SamplingLayout final {
 } // namespace physica::reconstruction::instant_ngp
 
 namespace physica::reconstruction::instant_ngp::cuda_detail {
+inline constexpr std::uint32_t sampling_random_domain = 1u;
+
+enum class SamplingRandomSequence : std::uint32_t {
+    density_grid,
+    training_pixel,
+    raymarch,
+};
+
 inline __device__ std::uint32_t morton_expand_3d(std::uint32_t value) {
     value = (value * 0x00010001u) & 0xFF0000FFu;
     value = (value * 0x00000101u) & 0x0F00F00Fu;
@@ -231,7 +239,9 @@ __global__ void generate_density_grid_samples_kernel(const std::uint32_t sample_
     const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i >= sample_count) return;
 
-    ::cuda::std::philox4x32 random = make_random_engine(seed, RandomStream::density_grid, density_grid_ema_step * 2u + phase, i);
+    ::cuda::std::philox4x32 random{seed};
+    random.set_counter({sampling_random_domain, static_cast<std::uint32_t>(SamplingRandomSequence::density_grid), density_grid_ema_step * 2u + phase, i});
+    ::cuda::std::uniform_real_distribution<float> unit_distribution;
 
     std::uint32_t idx = 0u;
     for (std::uint32_t j = 0u; j < 10u; ++j) {
@@ -244,9 +254,9 @@ __global__ void generate_density_grid_samples_kernel(const std::uint32_t sample_
     const std::uint32_t z = morton_compact_3d(idx >> 2u);
 
     float* coord = sample_coords + static_cast<std::uint64_t>(i) * 7u;
-    coord[0] = (static_cast<float>(x) + random_float(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
-    coord[1] = (static_cast<float>(y) + random_float(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
-    coord[2] = (static_cast<float>(z) + random_float(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
+    coord[0] = (static_cast<float>(x) + unit_distribution(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
+    coord[1] = (static_cast<float>(y) + unit_distribution(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
+    coord[2] = (static_cast<float>(z) + unit_distribution(random)) / static_cast<float>(SamplingLayout<sampling_cuda_shape>::nerf_grid_size);
     coord[3] = SamplingLayout<sampling_cuda_shape>::min_cone_stepsize;
     coord[4] = 0.5f;
     coord[5] = 0.5f;
@@ -258,7 +268,7 @@ __global__ void splat_density_grid_samples_kernel(const std::uint32_t sample_cou
     const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i >= sample_count) return;
 
-    const float thickness = exponential_density(__half2float(density_output[i])) * SamplingLayout<sampling_cuda_shape>::min_cone_stepsize;
+    const float thickness = ::cuda::std::exp(__half2float(density_output[i])) * SamplingLayout<sampling_cuda_shape>::min_cone_stepsize;
     atomicMax(reinterpret_cast<unsigned int*>(density_grid_scratch + density_grid_indices[i]), __float_as_uint(thickness));
 }
 
@@ -311,9 +321,11 @@ __global__ void generate_training_samples_kernel(const std::uint32_t rays_per_ba
     const std::uint32_t image = static_cast<std::uint32_t>((static_cast<std::uint64_t>(i) * frame_count) / rays_per_batch) % frame_count;
     const float* frame_camera = camera + static_cast<std::uint64_t>(image) * 12u;
 
-    ::cuda::std::philox4x32 pixel_random = make_random_engine(seed, RandomStream::training_pixel, current_step, i);
-    float u = random_float(pixel_random);
-    float v = random_float(pixel_random);
+    ::cuda::std::philox4x32 pixel_random{seed};
+    pixel_random.set_counter({sampling_random_domain, static_cast<std::uint32_t>(SamplingRandomSequence::training_pixel), current_step, i});
+    ::cuda::std::uniform_real_distribution<float> unit_distribution;
+    float u = unit_distribution(pixel_random);
+    float v = unit_distribution(pixel_random);
     const std::uint32_t pixel_x = ::cuda::std::min(static_cast<std::uint32_t>(u * static_cast<float>(width)), width - 1u);
     const std::uint32_t pixel_y = ::cuda::std::min(static_cast<std::uint32_t>(v * static_cast<float>(height)), height - 1u);
     if constexpr (SamplingLayout<sampling_cuda_shape>::snap_to_pixel_centers) {
@@ -325,8 +337,9 @@ __global__ void generate_training_samples_kernel(const std::uint32_t rays_per_ba
     float tmin = 0.0f;
     if (!intersect_unit_aabb(ray.origin, ray.direction, tmin)) return;
 
-    ::cuda::std::philox4x32 raymarch_random = make_random_engine(seed, RandomStream::raymarch, current_step, i);
-    const float start_t = tmin + random_float(raymarch_random) * SamplingLayout<sampling_cuda_shape>::min_cone_stepsize;
+    ::cuda::std::philox4x32 raymarch_random{seed};
+    raymarch_random.set_counter({sampling_random_domain, static_cast<std::uint32_t>(SamplingRandomSequence::raymarch), current_step, i});
+    const float start_t = tmin + unit_distribution(raymarch_random) * SamplingLayout<sampling_cuda_shape>::min_cone_stepsize;
     const std::uint32_t numsteps = count_occupied_samples(ray, start_t, occupancy);
     if (numsteps == 0u) return;
 

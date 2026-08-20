@@ -14,8 +14,6 @@ target_sources(
         network/network.cpp
         sampling/sampling.cpp
         rendering/rendering.cpp
-        cuda/density_activation.cuh
-        cuda/random.cuh
         network/kernels.h
         network/network.cu
         sampling/kernels.h

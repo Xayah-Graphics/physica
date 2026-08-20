@@ -1,8 +1,8 @@
-#include "../cuda/density_activation.cuh"
-#include "../cuda/random.cuh"
 #include "kernels.h"
 #include <cuda/algorithm>
 #include <cuda/launch>
+#include <cuda/std/cmath>
+#include <cuda/std/random>
 #include <cuda/std/span>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -21,6 +21,12 @@ struct RenderingLayout final {
 } // namespace physica::reconstruction::instant_ngp
 
 namespace physica::reconstruction::instant_ngp::cuda_detail {
+inline constexpr std::uint32_t rendering_random_domain = 2u;
+
+enum class RenderingRandomSequence : std::uint32_t {
+    background,
+};
+
 inline __device__ float sigmoid(const float value) {
     return 1.0f / (1.0f + expf(-value));
 }
@@ -82,7 +88,7 @@ __global__ void accumulate_evaluation_loss_kernel(const std::uint32_t tile_pixel
             const float rgb_x = sigmoid(__half2float(output[0u]));
             const float rgb_y = sigmoid(__half2float(output[1u]));
             const float rgb_z = sigmoid(__half2float(output[2u]));
-            const float density = exponential_density(__half2float(output[3u]));
+            const float density = ::cuda::std::exp(__half2float(output[3u]));
             const float alpha = 1.0f - __expf(-density * coord[3u]);
             const float weight = alpha * transmittance;
             rgb_ray.x += weight * rgb_x;
@@ -143,7 +149,7 @@ __global__ void compute_training_loss_and_compact_kernel(const std::uint32_t ray
             const float rgb_x = sigmoid(__half2float(output[0u]));
             const float rgb_y = sigmoid(__half2float(output[1u]));
             const float rgb_z = sigmoid(__half2float(output[2u]));
-            const float density = exponential_density(__half2float(output[3u]));
+            const float density = ::cuda::std::exp(__half2float(output[3u]));
             const float alpha = 1.0f - __expf(-density * coord_in[3u]);
             const float weight = alpha * transmittance;
             rgb_ray.x += weight * rgb_x;
@@ -155,8 +161,10 @@ __global__ void compute_training_loss_and_compact_kernel(const std::uint32_t ray
         }
 
         const std::uint32_t target_pixel_index = target_pixel_indices_in[i];
-        ::cuda::std::philox4x32 background_random = make_random_engine(seed, RandomStream::background, current_step, target_pixel_index);
-        const float3 background_color = {random_float(background_random), random_float(background_random), random_float(background_random)};
+        ::cuda::std::philox4x32 background_random{seed};
+        background_random.set_counter({rendering_random_domain, static_cast<std::uint32_t>(RenderingRandomSequence::background), current_step, target_pixel_index});
+        ::cuda::std::uniform_real_distribution<float> unit_distribution;
+        const float3 background_color = {unit_distribution(background_random), unit_distribution(background_random), unit_distribution(background_random)};
         const float4 texel = read_premultiplied_linear_rgba(target_pixel_index, pixels);
         const float3 background_linear = srgb_to_linear(background_color);
         const float3 rgb_target = linear_to_srgb({texel.x + (1.0f - texel.w) * background_linear.x, texel.y + (1.0f - texel.w) * background_linear.y, texel.z + (1.0f - texel.w) * background_linear.z});
@@ -200,7 +208,7 @@ __global__ void compute_training_loss_and_compact_kernel(const std::uint32_t ray
                 const float mlp_rgb_z = __half2float(output[2u]);
                 const float mlp_density = __half2float(output[3u]);
                 const float3 rgb = {sigmoid(mlp_rgb_x), sigmoid(mlp_rgb_y), sigmoid(mlp_rgb_z)};
-                const float density = exponential_density(mlp_density);
+                const float density = ::cuda::std::exp(mlp_density);
                 const float alpha = 1.0f - __expf(-density * dt);
                 const float weight = alpha * transmittance;
                 rgb_ray2.x += weight * rgb.x;
@@ -214,7 +222,7 @@ __global__ void compute_training_loss_and_compact_kernel(const std::uint32_t ray
                 dloss_doutput[1u] = __float2half(scaled_loss * (dloss_by_drgb.y * rgb_activation_derivative(mlp_rgb_y)));
                 dloss_doutput[2u] = __float2half(scaled_loss * (dloss_by_drgb.z * rgb_activation_derivative(mlp_rgb_z)));
 
-                const float density_derivative = expf(::cuda::std::clamp(mlp_density, static_cast<float>(-15.0F), static_cast<float>(15.0F)));
+                const float density_derivative = ::cuda::std::exp(::cuda::std::clamp(mlp_density, static_cast<float>(-15.0F), static_cast<float>(15.0F)));
                 const float dloss_by_dmlp = density_derivative * (dt * (gradient.x * (transmittance * rgb.x - suffix.x) + gradient.y * (transmittance * rgb.y - suffix.y) + gradient.z * (transmittance * rgb.z - suffix.z)));
                 dloss_doutput[3u] = __float2half(scaled_loss * dloss_by_dmlp + (mlp_density > -10.0F && depth < 0.1F ? 1e-4F : 0.0f));
                 dloss_doutput += RenderingLayout<rendering_cuda_shape>::network_output_width;

@@ -1,9 +1,9 @@
-#include "../cuda/random.cuh"
 #include "kernels.h"
 #include <cublasLt.h>
 #include <cuda/algorithm>
 #include <cuda/launch>
 #include <cuda/std/algorithm>
+#include <cuda/std/random>
 #include <cuda/std/span>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
@@ -111,6 +111,13 @@ struct NetworkLayout final {
 } // namespace physica::reconstruction::instant_ngp
 
 namespace physica::reconstruction::instant_ngp::cuda_detail {
+inline constexpr std::uint32_t network_random_domain = 0u;
+
+enum class NetworkRandomSequence : std::uint32_t {
+    grid_parameters,
+    mlp_parameters,
+};
+
 inline __device__ std::uint32_t grid_index(const std::uint32_t hashmap_size, const std::uint32_t resolution, const std::uint32_t x, const std::uint32_t y, const std::uint32_t z) {
     const std::uint64_t dense_size = static_cast<std::uint64_t>(resolution) * resolution * resolution;
     if (dense_size <= hashmap_size) return static_cast<std::uint32_t>(x + static_cast<std::uint64_t>(y) * resolution + static_cast<std::uint64_t>(z) * resolution * resolution);
@@ -255,8 +262,10 @@ __global__ void cast_params_to_half_kernel(const float* __restrict__ params_full
 __global__ void initialize_grid_params_kernel(const std::uint32_t seed, float* __restrict__ params_full_precision, __half* __restrict__ params, __half* __restrict__ param_gradients) {
     const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.grid_param_count) return;
-    ::cuda::std::philox4x32 random = make_random_engine(seed, RandomStream::grid_parameters, 0u, i);
-    const float value = random_float(random) * 2e-4f - 1e-4f;
+    ::cuda::std::philox4x32 random{seed};
+    random.set_counter({network_random_domain, static_cast<std::uint32_t>(NetworkRandomSequence::grid_parameters), 0u, i});
+    ::cuda::std::uniform_real_distribution<float> unit_distribution;
+    const float value = unit_distribution(random) * 2e-4f - 1e-4f;
     params_full_precision[i] = value;
     params[i] = static_cast<__half>(value);
     param_gradients[i] = static_cast<__half>(0.0f);
@@ -278,8 +287,10 @@ __global__ void initialize_mlp_params_kernel(const std::uint32_t seed, float* __
     else
         scale = sqrtf(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::network_output_width + NetworkLayout<network_cuda_shape>::mlp_width));
 
-    ::cuda::std::philox4x32 random = make_random_engine(seed, RandomStream::mlp_parameters, 0u, i);
-    const float value = random_float(random) * 2.0f * scale - scale;
+    ::cuda::std::philox4x32 random{seed};
+    random.set_counter({network_random_domain, static_cast<std::uint32_t>(NetworkRandomSequence::mlp_parameters), 0u, i});
+    ::cuda::std::uniform_real_distribution<float> unit_distribution;
+    const float value = unit_distribution(random) * 2.0f * scale - scale;
     params_full_precision[i] = value;
     params[i] = static_cast<__half>(value);
     param_gradients[i] = static_cast<__half>(0.0f);
