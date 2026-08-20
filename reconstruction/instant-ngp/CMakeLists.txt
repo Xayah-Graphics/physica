@@ -1,0 +1,39 @@
+physica_require_dependency(nlohmann_json)
+
+add_library(physica-instant-ngp)
+target_sources(
+        physica-instant-ngp
+        PRIVATE
+        instant_ngp.cpp
+        scene/scene.cpp
+        network/network.cpp
+        sampling/sampling.cpp
+        rendering/rendering.cpp
+        cuda/density_activation.cuh
+        cuda/random.cuh
+        network/kernels.h
+        network/network.cu
+        sampling/kernels.h
+        sampling/sampling.cu
+        rendering/kernels.h
+        rendering/rendering.cu
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        instant_ngp.ixx
+        scene/scene.ixx
+        network/network.ixx
+        sampling/sampling.ixx
+        rendering/rendering.ixx
+)
+target_link_libraries(
+        physica-instant-ngp
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::cudart
+        CUDA::cublasLt
+        physica-dataset-multiview
+        PRIVATE
+        CUDA::cublas
+        nlohmann_json::nlohmann_json
+)
+set_property(TARGET physica-instant-ngp PROPERTY CXX_MODULE_STD ON)

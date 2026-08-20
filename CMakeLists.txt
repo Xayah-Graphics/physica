@@ -19,6 +19,11 @@ set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(PHYSICA_BUILD_INSTANT_NGP "Build instant-ngp" ON)
+
+include(cmake/Dependencies.cmake)
+physica_require_dependency(cccl)
+
 if (MSVC)
     add_compile_options(
             $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
@@ -26,11 +31,13 @@ if (MSVC)
     )
 endif ()
 
+add_subdirectory(reconstruction)
 
-# ============================================================================
-# Dependencies
-# ============================================================================
-find_package(CUDAToolkit 13 REQUIRED)
-
-add_executable(physica main.cpp)
-set_property(TARGET physica PROPERTY CXX_MODULE_STD ON)
+if (PHYSICA_BUILD_INSTANT_NGP)
+    add_executable(physica main.cpp)
+    target_link_libraries(physica PRIVATE physica-instant-ngp physica-dataset-nerf-synthetic)
+    set_property(TARGET physica PROPERTY CXX_MODULE_STD ON)
+    if (MSVC)
+        target_link_options(physica PRIVATE "/WHOLEARCHIVE:${CMAKE_CURRENT_BINARY_DIR}/@cmake_cxx_std.lib")
+    endif ()
+endif ()
