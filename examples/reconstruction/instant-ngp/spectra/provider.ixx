@@ -25,6 +25,7 @@ struct Provider final {
         spectra::sdk::hash_grid_radiance_field<"field">(),
         spectra::sdk::metric<"step", std::uint32_t>("Step", {}, "Training"),
         spectra::sdk::metric<"loss", float>("Loss", {}, "Training", true),
+        spectra::sdk::metric<"psnr", float>("PSNR", "dB", "Training", true),
         spectra::sdk::metric<"sample-efficiency", float>("Sample efficiency", {}, "Training", true),
         spectra::sdk::metric<"occupancy", float>("Occupancy", {}, "Training", true)
     );
@@ -49,6 +50,7 @@ private:
         reconstruction::instant_ngp::nerf_synthetic_rendering_shape
     >* instant_ngp{};
     reconstruction::instant_ngp::OptimizationStats training{};
+    float psnr = std::numeric_limits<float>::quiet_NaN();
 };
 
 Provider::Provider(const Settings source, const std::filesystem::path& assets) : settings(source), dataset(reconstruction::dataset::nerf_synthetic::load(assets / "../../../data/nerf-synthetic/lego", {.frame_sets = {"train"}})) {}
@@ -92,10 +94,12 @@ void Provider::reset(const std::uint64_t seed) {
     delete instant_ngp;
     instant_ngp = replacement;
     training = {};
+    psnr = std::numeric_limits<float>::quiet_NaN();
 }
 
 void Provider::step(double) {
     training = instant_ngp->optimize(1u);
+    psnr = -10.0F * std::log10(training.loss);
 }
 
 void Provider::publish(spectra::sdk::cuda::Output& output) {
@@ -117,6 +121,7 @@ void Provider::publish(spectra::sdk::cuda::Output& output) {
 
     frame.metric<"step">().upload(training.end_step);
     frame.metric<"loss">().upload(training.loss);
+    frame.metric<"psnr">().upload(psnr);
     frame.metric<"sample-efficiency">().upload(training.sample_efficiency);
     frame.metric<"occupancy">().upload(training.occupancy_ratio);
     frame.commit();

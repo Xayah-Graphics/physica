@@ -2,9 +2,7 @@ spectra 37 "Instant NGP Lego" {
     active camera=1 film=1 sampler=1
 
     neural-fields {
-        hash-grid-radiance-field 1 "Radiance Field" {
-            diagnostics occupancy-grid=#true
-        }
+        hash-grid-radiance-field 1 "Radiance Field"
     }
 
     cameras {

@@ -8,9 +8,6 @@ target_link_libraries(
         physica-instant-ngp
         physica-dataset-nerf-synthetic
 )
-if (MSVC)
-    target_link_options(physica-example-instant-ngp-cli PRIVATE "/WHOLEARCHIVE:${PROJECT_BINARY_DIR}/@cmake_cxx_std.lib")
-endif ()
 
 # ============================================================================
 # Spectra Visualization
@@ -47,7 +44,4 @@ if (PHYSICA_BUILD_SPECTRA)
             VERBATIM
     )
     add_dependencies(physica-example-instant-ngp-spectra physica-example-instant-ngp-spectra-bundle)
-    if (MSVC)
-        target_link_options(physica-example-instant-ngp-spectra PRIVATE "/WHOLEARCHIVE:${PROJECT_BINARY_DIR}/@cmake_cxx_std.lib")
-    endif ()
 endif ()
