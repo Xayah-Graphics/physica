@@ -6,9 +6,9 @@ module;
 
 export module physica.reconstruction.instant_ngp.sampling;
 
+import std;
 import physica.reconstruction.instant_ngp.network;
 import physica.reconstruction.instant_ngp.scene;
-import std;
 
 export namespace physica::reconstruction::instant_ngp {
 struct SamplingShape final {
@@ -74,6 +74,10 @@ struct SamplingState final {
     std::uint32_t inference_sample_count = 0u;
 };
 
+struct SamplingDeviceState final {
+    std::span<const std::uint8_t> occupancy;
+};
+
 template <SamplingShape Shape, NetworkShape NetworkSpec>
 struct Sampling final {
     static_assert(Shape.occupancy_grid_size == 128u, "Only a 128^3 occupancy grid is implemented.");
@@ -90,9 +94,6 @@ struct Sampling final {
     static_assert(Shape.snap_to_pixel_centers, "Only pixel-center ray sampling is implemented.");
     static_assert(NetworkSpec.training_batch_size == 1u << 18u, "Only a 2^18 training batch is implemented.");
     static_assert(NetworkSpec.inference_capacity == (1u << 18u) * 16u, "Only the current sample capacity is implemented.");
-    static_assert(sizeof(Sample) == 7uz * sizeof(float));
-
-    inline static constexpr std::uint32_t grid_cell_count = Shape.occupancy_grid_size * Shape.occupancy_grid_size * Shape.occupancy_grid_size;
 
     explicit Sampling(::cuda::stream_ref stream);
 
@@ -104,8 +105,11 @@ struct Sampling final {
     std::uint32_t adapt(std::uint32_t generated_sample_count, std::uint32_t requested_compacted_sample_count);
     SamplingState download() const;
     void upload(const SamplingState& state);
+    [[nodiscard]] SamplingDeviceState device_state() const noexcept;
 
 private:
+    inline static constexpr std::uint32_t grid_cell_count = Shape.occupancy_grid_size * Shape.occupancy_grid_size * Shape.occupancy_grid_size;
+
     ::cuda::stream_ref stream;
     ::cuda::device_buffer<Sample> samples;
     ::cuda::device_buffer<Ray> rays;

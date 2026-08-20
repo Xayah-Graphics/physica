@@ -1,6 +1,5 @@
 module;
 
-#include <cublasLt.h>
 #include <cuda/__functional/call_or.h>
 #include <cuda/buffer>
 #include <cuda/stream>
@@ -44,21 +43,13 @@ struct EvaluationStats final {
     float elapsed_ms = 0.0F;
 };
 
-struct InstantNGPShape final {
-    NetworkShape network;
-    SamplingShape sampling;
-    RenderingShape rendering;
-
-    constexpr bool operator==(const InstantNGPShape&) const = default;
+struct InstantNGPDeviceState final {
+    void* stream = nullptr;
+    NetworkDeviceState network;
+    SamplingDeviceState sampling;
 };
 
-inline constexpr InstantNGPShape nerf_synthetic_shape{
-    .network = nerf_synthetic_network_shape,
-    .sampling = nerf_synthetic_sampling_shape,
-    .rendering = nerf_synthetic_rendering_shape,
-};
-
-template <InstantNGPShape Shape>
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
 struct InstantNGP final {
     TrainingState state;
 
@@ -74,14 +65,15 @@ struct InstantNGP final {
     EvaluationStats evaluate(std::uint32_t frame_set);
     void save(const std::filesystem::path& path) const;
     void load(const std::filesystem::path& path);
+    [[nodiscard]] InstantNGPDeviceState device_state() const noexcept;
 
 private:
     ::cuda::stream stream;
     Scene scene;
-    Network<Shape.network> network;
-    Sampling<Shape.sampling, Shape.network> sampling;
-    Rendering<Shape.rendering, Shape.network> rendering;
+    Network<NetworkSpec> network;
+    Sampling<SamplingSpec, NetworkSpec> sampling;
+    Rendering<RenderingSpec, NetworkSpec> rendering;
 };
 
-extern template struct InstantNGP<nerf_synthetic_shape>;
+extern template struct InstantNGP<nerf_synthetic_network_shape, nerf_synthetic_sampling_shape, nerf_synthetic_rendering_shape>;
 } // namespace physica::reconstruction::instant_ngp

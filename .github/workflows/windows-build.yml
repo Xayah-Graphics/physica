@@ -47,7 +47,7 @@ jobs:
 
       - name: Configure
         shell: pwsh
-        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DPHYSICA_BUILD_SPECTRA=OFF
 
       - name: Build
         run: cmake --build cmake-build-release --parallel 30

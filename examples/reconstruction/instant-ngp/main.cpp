@@ -1,7 +1,5 @@
-#include <cublasLt.h>
 #include <cuda/__functional/call_or.h>
 #include <cuda/buffer>
-#include <cuda/stream>
 
 import std;
 import physica.reconstruction.dataset.nerf_synthetic;
@@ -12,20 +10,22 @@ int main() {
     constexpr std::uint32_t report_interval     = 100u;
     constexpr std::uint32_t evaluation_interval = 1'000u;
     constexpr std::uint32_t seed                = 1337u;
-    constexpr float         scene_scale         = 0.33F;
 
     const std::filesystem::path dataset_path = "data/nerf-synthetic/lego";
     const std::filesystem::path output_path  = "output/instant-ngp/lego";
     std::filesystem::create_directories(output_path);
 
-    constexpr physica::reconstruction::instant_ngp::InstantNGPShape shape = physica::reconstruction::instant_ngp::nerf_synthetic_shape;
     const physica::reconstruction::dataset::multiview::Dataset dataset = physica::reconstruction::dataset::nerf_synthetic::load(dataset_path, {.frame_sets = {"train", "val"}});
-    physica::reconstruction::instant_ngp::InstantNGP<shape>    instant_ngp{dataset, 0u, 0u, scene_scale, seed};
+    physica::reconstruction::instant_ngp::InstantNGP<
+        physica::reconstruction::instant_ngp::nerf_synthetic_network_shape,
+        physica::reconstruction::instant_ngp::nerf_synthetic_sampling_shape,
+        physica::reconstruction::instant_ngp::nerf_synthetic_rendering_shape
+    > instant_ngp{dataset, 0u, 0u, 0.33F, seed};
 
     float best_psnr = std::numeric_limits<float>::lowest();
     while (instant_ngp.state.step < training_steps) {
-        const std::uint32_t                                           iterations = (std::min)(report_interval, training_steps - instant_ngp.state.step);
-        const physica::reconstruction::instant_ngp::OptimizationStats training   = instant_ngp.optimize(iterations);
+        const std::uint32_t iterations = (std::min)(report_interval, training_steps - instant_ngp.state.step);
+        const physica::reconstruction::instant_ngp::OptimizationStats training = instant_ngp.optimize(iterations);
         std::println("train step={:>6} loss={:.7f} rays={} samples={}/{} efficiency={:.2f}% occupancy={:.2f}% time={:.2f}ms", training.end_step, training.loss, training.rays, training.compacted_samples, training.generated_samples, training.sample_efficiency * 100.0F, training.occupancy_ratio * 100.0F, training.elapsed_ms);
 
         if (training.end_step % evaluation_interval != 0u || training.end_step == training_steps) continue;

@@ -115,6 +115,19 @@ void Network<Shape>::upload(const NetworkState& state) {
 }
 
 template <NetworkShape Shape>
+NetworkDeviceState Network<Shape>::device_state() const noexcept {
+    return {
+        .hash_grid = {parameters.data() + grid_offset, grid_count},
+        .density_input = {parameters.data() + density_input_offset, density_input_count},
+        .density_hidden = {parameters.data() + density_hidden_offset, density_hidden_count},
+        .density_output = {parameters.data() + density_output_offset, density_output_count},
+        .color_input = {parameters.data() + color_input_offset, color_input_count},
+        .color_hidden = {parameters.data() + color_hidden_offset, color_hidden_count},
+        .color_output = {parameters.data() + color_output_offset, color_output_count},
+    };
+}
+
+template <NetworkShape Shape>
 Network<Shape>::CublasLtMatmulPlans::~CublasLtMatmulPlans() noexcept {
     for (std::size_t index = 0uz; index < cublaslt_matmul_plan_count; ++index) {
         if (output_descriptors[index] != nullptr) cublasLtMatrixLayoutDestroy(output_descriptors[index]);

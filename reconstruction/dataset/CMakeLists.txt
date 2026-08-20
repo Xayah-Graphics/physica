@@ -1,6 +1,12 @@
+# ============================================================================
+# Dependencies
+# ============================================================================
 physica_require_dependency(nlohmann_json)
 physica_require_dependency(stb)
 
+# ============================================================================
+# Multiview Dataset
+# ============================================================================
 add_library(physica-dataset-multiview)
 target_sources(
         physica-dataset-multiview
@@ -8,8 +14,10 @@ target_sources(
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         multiview.ixx
 )
-set_property(TARGET physica-dataset-multiview PROPERTY CXX_MODULE_STD ON)
 
+# ============================================================================
+# NeRF Synthetic Dataset
+# ============================================================================
 add_library(physica-dataset-nerf-synthetic)
 target_sources(
         physica-dataset-nerf-synthetic
@@ -27,4 +35,3 @@ target_link_libraries(
         nlohmann_json::nlohmann_json
         physica::stb
 )
-set_property(TARGET physica-dataset-nerf-synthetic PROPERTY CXX_MODULE_STD ON)

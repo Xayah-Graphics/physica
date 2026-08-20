@@ -7,10 +7,10 @@ module;
 
 module physica.reconstruction.instant_ngp.rendering;
 
+import std;
 import physica.reconstruction.instant_ngp.network;
 import physica.reconstruction.instant_ngp.sampling;
 import physica.reconstruction.instant_ngp.scene;
-import std;
 
 namespace physica::reconstruction::instant_ngp {
 template <NetworkShape NetworkSpec>

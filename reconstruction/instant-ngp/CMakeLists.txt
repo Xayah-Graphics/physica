@@ -1,11 +1,16 @@
+# ============================================================================
+# Dependencies
+# ============================================================================
 physica_require_dependency(nlohmann_json)
 
+# ============================================================================
+# Instant-NGP
+# ============================================================================
 add_library(physica-instant-ngp)
 target_sources(
         physica-instant-ngp
         PRIVATE
         instant_ngp.cpp
-        scene/scene.cpp
         network/network.cpp
         sampling/sampling.cpp
         rendering/rendering.cpp
@@ -36,4 +41,3 @@ target_link_libraries(
         CUDA::cublas
         nlohmann_json::nlohmann_json
 )
-set_property(TARGET physica-instant-ngp PROPERTY CXX_MODULE_STD ON)

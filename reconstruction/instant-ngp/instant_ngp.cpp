@@ -1,30 +1,28 @@
 module;
 
 #include <nlohmann/json.hpp>
-#include <cublasLt.h>
 #include <cuda/__functional/call_or.h>
 #include <cuda/buffer>
 #include <cuda/devices>
-#include <cuda/stream>
 
 module physica.reconstruction.instant_ngp;
 
-import physica.reconstruction.dataset.multiview;
-import physica.reconstruction.instant_ngp.network;
-import physica.reconstruction.instant_ngp.rendering;
-import physica.reconstruction.instant_ngp.sampling;
-import physica.reconstruction.instant_ngp.scene;
 import std;
+import physica.reconstruction.dataset.multiview;
+import physica.reconstruction.instant_ngp.scene;
+import physica.reconstruction.instant_ngp.network;
+import physica.reconstruction.instant_ngp.sampling;
+import physica.reconstruction.instant_ngp.rendering;
 
 namespace physica::reconstruction::instant_ngp {
-template <InstantNGPShape Shape>
-InstantNGP<Shape>::InstantNGP(const dataset::multiview::Dataset& dataset, const std::uint32_t device_ordinal, const std::uint32_t training_frame_set, const float scene_scale, const std::uint32_t seed) : state{.seed = seed, .training_frame_set = training_frame_set}, stream{::cuda::devices[device_ordinal]}, scene{dataset, scene_scale, stream}, network{stream, seed}, sampling{stream}, rendering{stream} {}
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::InstantNGP(const dataset::multiview::Dataset& dataset, const std::uint32_t device_ordinal, const std::uint32_t training_frame_set, const float scene_scale, const std::uint32_t seed) : state{.seed = seed, .training_frame_set = training_frame_set}, stream{::cuda::devices[device_ordinal]}, scene{dataset, scene_scale, stream}, network{stream, seed}, sampling{stream}, rendering{stream} {}
 
-template <InstantNGPShape Shape>
-InstantNGP<Shape>::~InstantNGP() noexcept = default;
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::~InstantNGP() noexcept = default;
 
-template <InstantNGPShape Shape>
-OptimizationStats InstantNGP<Shape>::optimize(const std::uint32_t iterations) {
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+OptimizationStats InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::optimize(const std::uint32_t iterations) {
     const auto start = std::chrono::steady_clock::now();
     const std::uint32_t begin_step = state.step;
     TrainingBatch batch{};
@@ -34,8 +32,8 @@ OptimizationStats InstantNGP<Shape>::optimize(const std::uint32_t iterations) {
     for (std::uint32_t iteration = 0u; iteration < iterations; ++iteration) {
         const DeviceSamples density_samples = sampling.prepare_density_update(frame_set, state.seed, state.step);
         if (density_samples.count != 0u) {
-            for (std::uint32_t offset = 0u; offset < density_samples.count; offset += Shape.network.training_batch_size) {
-                const std::uint32_t count = (std::min)(Shape.network.training_batch_size, density_samples.count - offset);
+            for (std::uint32_t offset = 0u; offset < density_samples.count; offset += NetworkSpec.training_batch_size) {
+                const std::uint32_t count = (std::min)(NetworkSpec.training_batch_size, density_samples.count - offset);
                 const DeviceSamples samples{.data = density_samples.data + offset, .count = count};
                 sampling.accumulate_density_update(offset, network.infer_density(samples));
             }
@@ -58,23 +56,23 @@ OptimizationStats InstantNGP<Shape>::optimize(const std::uint32_t iterations) {
         .generated_samples = batch.generated_sample_count,
         .compacted_samples = batch.compacted_sample_count,
         .occupied_cells = occupied_cell_count,
-        .loss = static_cast<float>(batch.loss_sum * static_cast<double>(batch.compacted_sample_count) / static_cast<double>(Shape.network.training_batch_size)),
+        .loss = static_cast<float>(batch.loss_sum * static_cast<double>(batch.compacted_sample_count) / static_cast<double>(NetworkSpec.training_batch_size)),
         .sample_efficiency = static_cast<float>(batch.compacted_sample_count) / static_cast<float>(batch.generated_sample_count),
-        .occupancy_ratio = static_cast<float>(occupied_cell_count) / static_cast<float>(Shape.sampling.occupancy_grid_size * Shape.sampling.occupancy_grid_size * Shape.sampling.occupancy_grid_size),
+        .occupancy_ratio = static_cast<float>(occupied_cell_count) / static_cast<float>(SamplingSpec.occupancy_grid_size * SamplingSpec.occupancy_grid_size * SamplingSpec.occupancy_grid_size),
         .elapsed_ms = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count(),
     };
 }
 
-template <InstantNGPShape Shape>
-EvaluationStats InstantNGP<Shape>::evaluate(const std::uint32_t frame_set_index) {
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+EvaluationStats InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::evaluate(const std::uint32_t frame_set_index) {
     const auto start = std::chrono::steady_clock::now();
     DeviceFrameSet& frame_set = scene.frame_sets[frame_set_index];
     const std::uint64_t pixel_count = static_cast<std::uint64_t>(frame_set.extent.width) * frame_set.extent.height * frame_set.frame_count;
     const std::uint32_t pixels_per_frame = frame_set.extent.width * frame_set.extent.height;
     rendering.begin_evaluation();
     for (std::uint32_t image_index = 0u; image_index < frame_set.frame_count; ++image_index) {
-        for (std::uint32_t pixel_offset = 0u; pixel_offset < pixels_per_frame; pixel_offset += Shape.sampling.evaluation_tile_rays) {
-            const std::uint32_t tile_pixel_count = (std::min)(Shape.sampling.evaluation_tile_rays, pixels_per_frame - pixel_offset);
+        for (std::uint32_t pixel_offset = 0u; pixel_offset < pixels_per_frame; pixel_offset += SamplingSpec.evaluation_tile_rays) {
+            const std::uint32_t tile_pixel_count = (std::min)(SamplingSpec.evaluation_tile_rays, pixels_per_frame - pixel_offset);
             const EvaluationSamples samples = sampling.sample_evaluation(frame_set, image_index, pixel_offset, tile_pixel_count);
             rendering.accumulate_evaluation(samples, network.infer(samples.samples), frame_set);
         }
@@ -92,8 +90,8 @@ EvaluationStats InstantNGP<Shape>::evaluate(const std::uint32_t frame_set_index)
     };
 }
 
-template <InstantNGPShape Shape>
-void InstantNGP<Shape>::save(const std::filesystem::path& path) const {
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+void InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::save(const std::filesystem::path& path) const {
     const NetworkState network_state = network.download();
     const SamplingState sampling_state = sampling.download();
     const std::array<std::uint32_t, 2> training_metadata{state.seed, state.step};
@@ -137,8 +135,8 @@ void InstantNGP<Shape>::save(const std::filesystem::path& path) const {
     for (const Tensor& tensor : tensors) output.write(static_cast<const char*>(tensor.data), static_cast<std::streamsize>(tensor.byte_count));
 }
 
-template <InstantNGPShape Shape>
-void InstantNGP<Shape>::load(const std::filesystem::path& path) {
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+void InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::load(const std::filesystem::path& path) {
     std::ifstream input{path, std::ios::binary};
     std::uint64_t header_size = 0u;
     input.read(reinterpret_cast<char*>(&header_size), sizeof(header_size));
@@ -180,5 +178,10 @@ void InstantNGP<Shape>::load(const std::filesystem::path& path) {
     };
 }
 
-template struct InstantNGP<nerf_synthetic_shape>;
+template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
+InstantNGPDeviceState InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::device_state() const noexcept {
+    return {.stream = stream.get(), .network = network.device_state(), .sampling = sampling.device_state()};
+}
+
+template struct InstantNGP<nerf_synthetic_network_shape, nerf_synthetic_sampling_shape, nerf_synthetic_rendering_shape>;
 } // namespace physica::reconstruction::instant_ngp

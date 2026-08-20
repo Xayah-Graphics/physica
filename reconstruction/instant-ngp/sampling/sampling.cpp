@@ -9,9 +9,9 @@ module;
 
 module physica.reconstruction.instant_ngp.sampling;
 
+import std;
 import physica.reconstruction.instant_ngp.network;
 import physica.reconstruction.instant_ngp.scene;
-import std;
 
 namespace physica::reconstruction::instant_ngp {
 template <SamplingShape Shape, NetworkShape NetworkSpec>
@@ -132,6 +132,11 @@ void Sampling<Shape, NetworkSpec>::upload(const SamplingState& state) {
     density_grid_ema_step = state.density_grid_ema_step;
     rays_per_batch = state.rays_per_batch;
     inference_sample_count = state.inference_sample_count;
+}
+
+template <SamplingShape Shape, NetworkShape NetworkSpec>
+SamplingDeviceState Sampling<Shape, NetworkSpec>::device_state() const noexcept {
+    return {.occupancy = {occupancy.data(), occupancy.size()}};
 }
 
 template struct Sampling<nerf_synthetic_sampling_shape, nerf_synthetic_network_shape>;

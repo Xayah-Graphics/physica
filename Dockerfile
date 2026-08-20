@@ -22,6 +22,7 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER=g++ \
         -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
+        -DPHYSICA_BUILD_SPECTRA=OFF \
     && cmake --build cmake-build-release --parallel 30
 
 
@@ -33,10 +34,10 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
     && useradd --uid 10001 --gid 10001 --home-dir /workspace --shell /usr/bin/nologin physica \
     && install --directory --owner=10001 --group=10001 /opt/physica/bin /workspace
 
-COPY --from=build --chown=10001:10001 --link /src/cmake-build-release/physica /opt/physica/bin/physica
+COPY --from=build --chown=10001:10001 --link /src/cmake-build-release/examples/reconstruction/instant-ngp/physica-example-instant-ngp-cli /opt/physica/bin/instant-ngp
 
 USER 10001:10001
 ENV HOME=/workspace
 WORKDIR /workspace
 
-ENTRYPOINT ["/opt/physica/bin/physica"]
+ENTRYPOINT ["/opt/physica/bin/instant-ngp"]

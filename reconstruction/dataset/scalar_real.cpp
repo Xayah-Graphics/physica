@@ -4,8 +4,6 @@ module;
 #pragma warning(disable:5202)
 #endif
 
-#include <cmath>
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
