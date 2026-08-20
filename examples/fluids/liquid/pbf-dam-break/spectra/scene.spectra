@@ -1,0 +1,79 @@
+spectra 37 "PBF Dam Break" {
+    active camera=1 film=1 sampler=1
+
+    particle-sets {
+        particle-set 1 "PBF Fluid" {
+            bounds 0 0 0 0.8 1.1 0.5
+            visualization display="spheres" field="velocity" mapping="magnitude" color-map="turbo" minimum=0 maximum=3
+        }
+    }
+
+    geometries {
+        box 1 "Floor" {
+            bounds -0.04 -0.04 -0.04 0.84 0 0.54
+        }
+    }
+
+    materials {
+        diffuse 1 "Container" {
+            reflectance rgb-albedo 0.06 0.075 0.09
+        }
+    }
+
+    lights {
+        point 1 "Key" {
+            intensity rgb-illuminant 18 20 24
+            transform {
+                row 1 0 0 1.5
+                row 0 1 0 1.8
+                row 0 0 1 1.4
+                row 0 0 0 1
+            }
+        }
+        infinite 2 "Environment" {
+            radiance rgb-illuminant 0.025 0.032 0.045
+        }
+    }
+
+    cameras {
+        perspective 1 "Overview" {
+            transform {
+                row 0.780869 -0.236101 0.578417 1.45
+                row 0 0.925771 0.378085 0.85
+                row -0.624695 -0.295221 0.722910 1.55
+                row 0 0 0 1
+            }
+            vertical-fov 38
+            near-plane 0.01
+            far-plane 10
+        }
+    }
+
+    films {
+        film 1 "Main Film" gbuffer=#true {
+            resolution 1920 1080
+            filter gaussian radius-x=1.5 radius-y=1.5
+        }
+    }
+
+    samplers {
+        sampler 1 "Main Sampler" kind="pmj02bn" samples=128 seed=20260816
+    }
+
+    prototypes {
+        prototype 1 "Floor Prototype" {
+            primitive geometry=1 material=1
+        }
+    }
+
+    instances {
+        instance 1 "Floor" prototype=1
+    }
+
+    simulation {
+        clock step-seconds=0.004166666666666667
+        system "pbf-dam-break" "PBF Dam Break" provider="physica.example.fluids.liquid.pbf_dam_break" {
+            scene-bind "particles" 1
+        }
+    }
+}
