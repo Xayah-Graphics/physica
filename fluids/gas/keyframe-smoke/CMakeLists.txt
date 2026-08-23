@@ -1,0 +1,51 @@
+# ============================================================================
+# Keyframe Smoke Control
+# ============================================================================
+add_library(physica-fluids-gas-keyframe-smoke)
+target_sources(
+        physica-fluids-gas-keyframe-smoke
+        PRIVATE
+        control.cpp
+        control.cu
+        control_kernels.h
+        derivative-check.cpp
+        device.h
+        device.cuh
+        diffusion.cu
+        domain.cpp
+        domain.cu
+        domain_kernels.h
+        evaluation.cpp
+        forces.cu
+        interop.h
+        lbfgsb.cpp
+        mass.cu
+        multiple-shooting.cpp
+        objective.cpp
+        objective.cu
+        objective_kernels.h
+        optimization.cpp
+        projection.cu
+        sampling.cuh
+        solver.cpp
+        solver_kernels.h
+        transport.cu
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        control.ixx
+        derivative-check.ixx
+        domain.ixx
+        evaluation.ixx
+        keyframe-smoke.ixx
+        lbfgsb.ixx
+        multiple-shooting.ixx
+        objective.ixx
+        optimization.ixx
+        solver.ixx
+)
+target_link_libraries(
+        physica-fluids-gas-keyframe-smoke
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::cudart
+)
