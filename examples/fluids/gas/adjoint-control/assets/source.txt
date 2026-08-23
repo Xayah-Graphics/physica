@@ -1,0 +1,4 @@
+Stanford Bunny
+Source: Stanford University Computer Graphics Laboratory
+Dataset: https://graphics.stanford.edu/pub/3Dscanrep/bunny.tar.gz
+File: reconstruction/bun_zipper_res2.ply
