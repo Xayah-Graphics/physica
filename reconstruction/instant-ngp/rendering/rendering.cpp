@@ -1,9 +1,7 @@
 module;
 
 #include "kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
-#include <cuda/memory_pool>
+#include <physica/cuda.h>
 
 module physica.reconstruction.instant_ngp.rendering;
 

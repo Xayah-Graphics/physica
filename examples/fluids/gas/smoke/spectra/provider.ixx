@@ -1,9 +1,6 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/stream>
+#include <physica/cuda.h>
 #include <spectra/sdk/cuda_types.h>
 
 export module physica.example.fluids.gas.smoke.spectra;

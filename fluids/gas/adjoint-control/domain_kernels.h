@@ -1,7 +1,7 @@
 #ifndef PHYSICA_FLUIDS_GAS_ADJOINT_CONTROL_DOMAIN_KERNELS_H
 #define PHYSICA_FLUIDS_GAS_ADJOINT_CONTROL_DOMAIN_KERNELS_H
 
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstddef>
 
 namespace physica::fluids::gas::adjoint_control::cuda_detail {

@@ -1,10 +1,8 @@
 module;
 
 #include "kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
-#include <cuda/stream>
 #include <spectra/sdk/cuda_types.h>
+#include <physica/cuda.h>
 
 export module physica.example.deformables.cloth.spectra;
 

@@ -2,10 +2,7 @@ module;
 
 #include "interop.h"
 #include "kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/memory_pool>
+#include <physica/cuda.h>
 
 module physica.fluids.liquid.particle.domain;
 

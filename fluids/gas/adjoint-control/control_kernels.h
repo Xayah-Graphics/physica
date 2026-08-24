@@ -3,7 +3,7 @@
 
 #include "device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::adjoint_control::cuda_detail {
     struct ControlLatticeData final {

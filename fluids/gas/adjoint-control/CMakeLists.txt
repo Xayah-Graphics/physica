@@ -39,9 +39,14 @@ target_sources(
         objective.ixx
         solver.ixx
 )
+target_include_directories(
+        physica-fluids-gas-adjoint-control
+        PUBLIC
+        "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}"
+)
 target_link_libraries(
         physica-fluids-gas-adjoint-control
         PUBLIC
         CCCL::libcudacxx
-        CUDA::cudart
+        CUDA::toolkit
 )

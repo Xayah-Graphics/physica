@@ -3,7 +3,7 @@
 
 #include "device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::adjoint_control::cuda_detail {
     void residual_forward(::cuda::stream_ref stream, Grid grid, ConstScalarView state, ConstScalarView target, ScalarView residual);

@@ -1,11 +1,7 @@
 module;
 
 #include "simulation_kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/devices>
-#include <cuda/stream>
+#include <physica/cuda.h>
 
 export module physica.example.deformables.cloth;
 

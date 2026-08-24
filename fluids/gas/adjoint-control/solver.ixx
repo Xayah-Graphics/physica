@@ -1,7 +1,6 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
+#include <physica/cuda.h>
 
 export module physica.fluids.gas.adjoint_control.solver;
 

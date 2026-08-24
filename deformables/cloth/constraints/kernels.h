@@ -3,7 +3,7 @@
 
 #include "../domain/device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::deformables::cloth::cuda_detail {
     void fixed_position_forward(::cuda::stream_ref stream, std::uint32_t particle_count, const std::uint32_t* anchor_mask, ConstFieldView<float> anchor_positions, ConstFieldView<float> positions, ConstFieldView<float> velocities, FieldView<float> constrained_positions, FieldView<float> constrained_velocities);

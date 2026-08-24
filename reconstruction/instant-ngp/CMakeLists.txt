@@ -28,11 +28,16 @@ target_sources(
         sampling/sampling.ixx
         rendering/rendering.ixx
 )
+target_include_directories(
+        physica-instant-ngp
+        PUBLIC
+        "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}"
+)
 target_link_libraries(
         physica-instant-ngp
         PUBLIC
         CCCL::libcudacxx
-        CUDA::cudart
+        CUDA::toolkit
         CUDA::cublasLt
         physica-dataset-multiview
         PRIVATE

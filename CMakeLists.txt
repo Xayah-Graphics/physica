@@ -36,6 +36,7 @@ option(PHYSICA_BUILD_SPECTRA "Build Spectra providers for examples" ON)
 include(cmake/Dependencies.cmake)
 physica_require_dependency(cuda)
 physica_require_dependency(cccl)
+include(cmake/ClionCudaFacade.cmake)
 
 # ============================================================================
 # Compiler Configuration

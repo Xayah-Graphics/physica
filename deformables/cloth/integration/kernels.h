@@ -3,7 +3,7 @@
 
 #include "../domain/device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::deformables::cloth::cuda_detail {
     void semi_implicit_euler_forward(::cuda::stream_ref stream, std::uint32_t particle_count, float time_step, ConstFieldView<float> positions, ConstFieldView<float> velocities, ConstFieldView<float> forces, const float* masses, FieldView<float> integrated_positions, FieldView<float> integrated_velocities);

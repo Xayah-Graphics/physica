@@ -1,7 +1,7 @@
 #ifndef PHYSICA_RECONSTRUCTION_INSTANT_NGP_SAMPLING_KERNELS_H
 #define PHYSICA_RECONSTRUCTION_INSTANT_NGP_SAMPLING_KERNELS_H
 
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstdint>
 
 namespace physica::reconstruction::instant_ngp::kernels {

@@ -1,10 +1,7 @@
 module;
 
 #include "domain_kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/memory_pool>
+#include <physica/cuda.h>
 
 module physica.fluids.gas.keyframe_smoke.domain;
 

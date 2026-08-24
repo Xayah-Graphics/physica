@@ -1,9 +1,7 @@
 module;
 
 #include <nlohmann/json.hpp>
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
-#include <cuda/devices>
+#include <physica/cuda.h>
 
 module physica.reconstruction.instant_ngp;
 

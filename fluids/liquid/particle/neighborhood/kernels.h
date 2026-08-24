@@ -2,7 +2,7 @@
 #define PHYSICA_FLUIDS_LIQUID_PARTICLE_NEIGHBORHOOD_KERNELS_H
 
 #include "../domain/device.h"
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstddef>
 #include <cstdint>
 

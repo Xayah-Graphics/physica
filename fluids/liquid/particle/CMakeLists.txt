@@ -44,9 +44,14 @@ target_sources(
         sph/sph.ixx
         pbf/pbf.ixx
 )
+target_include_directories(
+        physica-fluids-liquid-particle
+        PUBLIC
+        "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}"
+)
 target_link_libraries(
         physica-fluids-liquid-particle
         PUBLIC
         CCCL::libcudacxx
-        CUDA::cudart
+        CUDA::toolkit
 )

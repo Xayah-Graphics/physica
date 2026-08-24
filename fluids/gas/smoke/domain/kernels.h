@@ -2,7 +2,7 @@
 #define PHYSICA_FLUIDS_GAS_SMOKE_DOMAIN_KERNELS_H
 
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::smoke::cuda_detail {
     void accumulate(::cuda::stream_ref stream, const double* source, double* destination, std::uint64_t count);

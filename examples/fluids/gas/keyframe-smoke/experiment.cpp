@@ -1,10 +1,6 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/devices>
-#include <cuda/std/span>
+#include <physica/cuda.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 #undef max

@@ -28,9 +28,14 @@ target_sources(
         integration/integration.ixx
         constraints/constraints.ixx
 )
+target_include_directories(
+        physica-deformables-cloth
+        PUBLIC
+        "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}"
+)
 target_link_libraries(
         physica-deformables-cloth
         PUBLIC
         CCCL::libcudacxx
-        CUDA::cudart
+        CUDA::toolkit
 )

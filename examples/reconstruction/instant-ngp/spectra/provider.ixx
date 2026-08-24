@@ -1,9 +1,8 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
 #include <cuda_runtime_api.h>
 #include <spectra/sdk/cuda_types.h>
+#include <physica/cuda.h>
 
 export module physica.example.reconstruction.instant_ngp.spectra;
 

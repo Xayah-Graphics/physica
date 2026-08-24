@@ -2,7 +2,7 @@
 #define PHYSICA_RECONSTRUCTION_INSTANT_NGP_NETWORK_KERNELS_H
 
 #include <cublasLt.h>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstdint>
 
 namespace physica::reconstruction::instant_ngp::kernels {

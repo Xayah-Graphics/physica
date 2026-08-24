@@ -3,7 +3,7 @@
 
 #include "../domain/device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::smoke::cuda_detail {
     void pressure_rhs_forward(::cuda::stream_ref stream, Grid grid, std::uint32_t pressure_anchor, const std::uint32_t* cell_mask, ConstStaggeredVectorView velocity, ScalarView rhs);

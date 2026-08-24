@@ -1,6 +1,4 @@
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
-#include <cuda/stream>
+#include <physica/cuda.h>
 
 import std;
 import physica.example.fluids.gas.smoke;

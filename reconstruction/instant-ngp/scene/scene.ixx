@@ -1,10 +1,6 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/memory_pool>
-#include <cuda/stream>
+#include <physica/cuda.h>
 
 export module physica.reconstruction.instant_ngp.scene;
 

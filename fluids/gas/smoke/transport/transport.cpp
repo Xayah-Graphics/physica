@@ -2,8 +2,7 @@ module;
 
 #include "../domain/interop.h"
 #include "kernels.h"
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
+#include <physica/cuda.h>
 
 module physica.fluids.gas.smoke.transport;
 

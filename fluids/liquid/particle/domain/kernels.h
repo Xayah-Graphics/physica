@@ -2,7 +2,7 @@
 #define PHYSICA_FLUIDS_LIQUID_PARTICLE_DOMAIN_KERNELS_H
 
 #include "device.h"
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstddef>
 
 namespace physica::fluids::liquid::particle::cuda_detail {

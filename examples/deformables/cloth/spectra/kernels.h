@@ -2,7 +2,7 @@
 #define PHYSICA_EXAMPLES_DEFORMABLES_CLOTH_SPECTRA_KERNELS_H
 
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <spectra/sdk/cuda_types.h>
 
 namespace physica::examples::cloth::spectra_cuda {

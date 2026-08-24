@@ -1,4 +1,4 @@
-#include <cuda/__functional/call_or.h>
+#include <physica/cuda.h>
 
 import std;
 import physica.example.fluids.gas.adjoint_control;

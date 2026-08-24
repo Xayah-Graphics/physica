@@ -3,7 +3,7 @@
 
 #include "../domain/device.h"
 #include "../neighborhood/device.h"
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 #include <cstdint>
 
 namespace physica::fluids::liquid::particle::cuda_detail {

@@ -3,7 +3,7 @@
 
 #include "../domain/device.h"
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::smoke::cuda_detail {
     struct VorticityView final {

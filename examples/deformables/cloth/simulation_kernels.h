@@ -2,7 +2,7 @@
 #define PHYSICA_EXAMPLES_DEFORMABLES_CLOTH_SIMULATION_KERNELS_H
 
 #include <cstdint>
-#include <cuda/stream>
+#include <physica/cuda_stream.h>
 
 namespace physica::examples::cloth::simulation_cuda {
     struct Grid final {

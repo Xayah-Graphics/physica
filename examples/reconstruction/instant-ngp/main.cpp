@@ -1,5 +1,4 @@
-#include <cuda/__functional/call_or.h>
-#include <cuda/buffer>
+#include <physica/cuda.h>
 
 import std;
 import physica.reconstruction.dataset.nerf_synthetic;

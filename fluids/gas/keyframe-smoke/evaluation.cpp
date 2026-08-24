@@ -1,9 +1,6 @@
 module;
 
-#include <cuda/__functional/call_or.h>
-#include <cuda/algorithm>
-#include <cuda/buffer>
-#include <cuda/std/span>
+#include <physica/cuda.h>
 
 module physica.fluids.gas.keyframe_smoke.evaluation;
 
