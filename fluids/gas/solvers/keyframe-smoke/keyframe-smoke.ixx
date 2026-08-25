@@ -55,7 +55,7 @@ export namespace physica::fluids::gas::keyframe_smoke {
     };
 
     template <class Algorithm>
-    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const CellField<float>& density, const StaggeredVectorField<float>& velocity, const CenteredVectorField<float>& control, const CenteredVectorField<double>& force_adjoint, CellField<double>& density_adjoint, StaggeredVectorField<double>& velocity_adjoint, CenteredVectorField<double>& control_adjoint) {
+    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const CellField<float>& density, const StaggeredVectorField<float>& velocity, const CenteredVectorField<float>& control, const CenteredVectorField<double>& force_adjoint, CellField<double>& density_adjoint, StaggeredVectorField<double>& velocity_adjoint, CenteredVectorField<double>& control_adjoint) {
         { algorithm.allocate_cache(domain) } -> std::same_as<typename Algorithm::Cache>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

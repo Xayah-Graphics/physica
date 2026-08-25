@@ -1,5 +1,5 @@
-#include "../domain/device.cuh"
-#include "kernels.h"
+#include "../detail/cuda/device.cuh"
+#include "mass-spring-kernels.h"
 #include <cuda/launch>
 #include <math.h>
 

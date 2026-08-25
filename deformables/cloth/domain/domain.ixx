@@ -22,69 +22,24 @@ export namespace physica::deformables::cloth {
     struct DomainConfiguration final {
         std::vector<Vector3> rest_positions;
         std::vector<Triangle> triangles;
-        std::vector<std::optional<Vector3>> anchors;
     };
 
-    struct IndexField final {
-        ::cuda::device_buffer<std::uint32_t> values;
-    };
-
+    template <class Scalar>
     struct ScalarField final {
-        ::cuda::device_buffer<float> values;
+        ::cuda::device_buffer<Scalar> values;
     };
 
-    struct ScalarAdjointField final {
-        ::cuda::device_buffer<double> values;
-    };
-
+    template <class Scalar>
     struct VectorField final {
-        ScalarField x;
-        ScalarField y;
-        ScalarField z;
-    };
-
-    struct VectorAdjointField final {
-        ScalarAdjointField x;
-        ScalarAdjointField y;
-        ScalarAdjointField z;
-    };
-
-    struct State final {
-        VectorField positions;
-        VectorField velocities;
-    };
-
-    struct Control final {
-        VectorField external_forces;
-    };
-
-    struct StateTangent final {
-        VectorField positions;
-        VectorField velocities;
-    };
-
-    struct ControlTangent final {
-        VectorField external_forces;
-    };
-
-    struct StateAdjoint final {
-        VectorAdjointField positions;
-        VectorAdjointField velocities;
-    };
-
-    struct ControlAdjoint final {
-        VectorAdjointField external_forces;
-    };
-
-    enum class ExecutionMode : std::uint32_t {
-        forward,
-        differentiable,
+        ::cuda::device_buffer<Scalar> x;
+        ::cuda::device_buffer<Scalar> y;
+        ::cuda::device_buffer<Scalar> z;
     };
 
     struct Domain final {
         const DomainConfiguration configuration;
         ::cuda::stream_ref stream;
-        std::size_t particle_count;
+        const std::size_t particle_count;
 
         Domain(DomainConfiguration configuration, ::cuda::stream_ref stream);
 
@@ -93,19 +48,45 @@ export namespace physica::deformables::cloth {
         Domain(Domain&&)                 = delete;
         Domain& operator=(Domain&&)      = delete;
 
-        [[nodiscard]] IndexField allocate_index_field(std::size_t size) const;
-        [[nodiscard]] ScalarField allocate_scalar_field(std::size_t size) const;
-        [[nodiscard]] ScalarAdjointField allocate_scalar_adjoint_field(std::size_t size) const;
-        [[nodiscard]] VectorField allocate_vector_field() const;
-        [[nodiscard]] VectorAdjointField allocate_vector_adjoint_field() const;
+        template <class Value>
+        [[nodiscard]] ScalarField<Value> allocate_scalar_field(const std::size_t count) const {
+            return {.values = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}};
+        }
 
-        void clear(ScalarField& field) const;
-        void clear(ScalarAdjointField& field) const;
-        void clear(VectorField& field) const;
-        void clear(VectorAdjointField& field) const;
-        void copy(const VectorField& source, VectorField& destination) const;
-        void copy(const VectorAdjointField& source, VectorAdjointField& destination) const;
-        void accumulate(const VectorAdjointField& source, VectorAdjointField& destination) const;
-        void upload(std::span<const Vector3> source, VectorField& destination) const;
+        template <class Value>
+        [[nodiscard]] VectorField<Value> allocate_vector_field(const std::size_t count) const {
+            return {
+                .x = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
+                .y = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
+                .z = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
+            };
+        }
+
+        template <class Value>
+        void clear(ScalarField<Value>& field) const {
+            ::cuda::fill_bytes(stream, field.values, 0u);
+        }
+
+        template <class Value>
+        void clear(VectorField<Value>& field) const {
+            ::cuda::fill_bytes(stream, field.x, 0u);
+            ::cuda::fill_bytes(stream, field.y, 0u);
+            ::cuda::fill_bytes(stream, field.z, 0u);
+        }
+
+        template <class Value>
+        void copy(const ScalarField<Value>& source, ScalarField<Value>& destination) const {
+            ::cuda::copy_bytes(stream, source.values, destination.values);
+        }
+
+        template <class Value>
+        void copy(const VectorField<Value>& source, VectorField<Value>& destination) const {
+            ::cuda::copy_bytes(stream, source.x, destination.x);
+            ::cuda::copy_bytes(stream, source.y, destination.y);
+            ::cuda::copy_bytes(stream, source.z, destination.z);
+        }
+
+        void accumulate(const VectorField<double>& source, VectorField<double>& destination) const;
+        void upload(std::span<const Vector3> source, VectorField<float>& destination) const;
     };
 } // namespace physica::deformables::cloth

@@ -1,7 +1,7 @@
-#ifndef PHYSICA_DEFORMABLES_CLOTH_CONSTRAINTS_KERNELS_H
-#define PHYSICA_DEFORMABLES_CLOTH_CONSTRAINTS_KERNELS_H
+#ifndef PHYSICA_DEFORMABLES_CLOTH_OPERATORS_FIXED_POSITION_KERNELS_H
+#define PHYSICA_DEFORMABLES_CLOTH_OPERATORS_FIXED_POSITION_KERNELS_H
 
-#include "../domain/device.h"
+#include "../detail/cuda/types.h"
 #include <cstdint>
 #include <physica/cuda_stream.h>
 

@@ -1,5 +1,5 @@
-#include "../domain/device.cuh"
-#include "kernels.h"
+#include "../detail/cuda/device.cuh"
+#include "semi-implicit-euler-kernels.h"
 #include <cuda/launch>
 
 namespace physica::deformables::cloth::cuda_detail {

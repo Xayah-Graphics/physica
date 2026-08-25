@@ -61,7 +61,7 @@ export namespace physica::fluids::gas::operators {
     };
 
     template <class Algorithm>
-    concept DiffusionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const StaggeredVectorField<float>& velocity, StaggeredVectorField<float>& velocity_output, const StaggeredVectorField<double>& velocity_adjoint, StaggeredVectorField<double>& velocity_adjoint_output) {
+    concept DiffusionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const StaggeredVectorField<float>& velocity, StaggeredVectorField<float>& velocity_output, const StaggeredVectorField<double>& velocity_adjoint, StaggeredVectorField<double>& velocity_adjoint_output) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

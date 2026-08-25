@@ -40,7 +40,7 @@ export namespace physica::fluids::gas::operators {
     };
 
     template <class Algorithm>
-    concept PressureAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm algorithm, const Domain& domain, const ScalarBoundary& boundary, typename Algorithm::Workspace& workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const CellField<float>& rhs, CellField<float>& pressure, CellField<double>& pressure_adjoint, CellField<double>& rhs_adjoint) {
+    concept PressureAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, const ScalarBoundary& boundary, typename Algorithm::Workspace& workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const CellField<float>& rhs, CellField<float>& pressure, CellField<double>& pressure_adjoint, CellField<double>& rhs_adjoint) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;
         algorithm.forward(domain, boundary, std::uint32_t{}, rhs, pressure, workspace);
@@ -116,7 +116,7 @@ export namespace physica::fluids::gas::operators {
     };
 
     template <class Algorithm>
-    concept ProjectionAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration> && requires(const Algorithm algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const StaggeredVectorField<float>& velocity, StaggeredVectorField<float>& velocity_output, const StaggeredVectorField<double>& velocity_adjoint, StaggeredVectorField<double>& velocity_adjoint_output) {
+    concept ProjectionAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const StaggeredVectorField<float>& velocity, StaggeredVectorField<float>& velocity_output, const StaggeredVectorField<double>& velocity_adjoint, StaggeredVectorField<double>& velocity_adjoint_output) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

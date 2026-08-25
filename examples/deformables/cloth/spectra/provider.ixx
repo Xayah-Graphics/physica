@@ -63,7 +63,7 @@ export namespace physica::examples::cloth {
     void Provider::publish(spectra::sdk::cuda::Output& output) {
         spectra::sdk::cuda::Frame frame        = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Mesh surface = frame.mesh<"surface">();
-        spectra_cuda::write_surface(simulation->stream, Simulation::rows, Simulation::columns, simulation->current_state.positions.x.values.data(), simulation->current_state.positions.y.values.data(), simulation->current_state.positions.z.values.data(), surface.positions.data(), surface.normals.data());
+        spectra_cuda::write_surface(simulation->stream, Simulation::rows, Simulation::columns, simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), surface.positions.data(), surface.normals.data());
         frame.metric<"step">().upload(simulation->step_index);
         frame.metric<"time">().upload(simulation->physical_time);
         frame.commit();

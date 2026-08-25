@@ -1,7 +1,7 @@
 #ifndef PHYSICA_DEFORMABLES_CLOTH_DOMAIN_KERNELS_H
 #define PHYSICA_DEFORMABLES_CLOTH_DOMAIN_KERNELS_H
 
-#include "device.h"
+#include "../detail/cuda/types.h"
 #include <cstddef>
 #include <physica/cuda_stream.h>
 

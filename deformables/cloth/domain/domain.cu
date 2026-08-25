@@ -1,4 +1,4 @@
-#include "kernels.h"
+#include "domain-kernels.h"
 #include <cuda/launch>
 
 namespace physica::deformables::cloth::cuda_detail {

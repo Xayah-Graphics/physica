@@ -1,7 +1,7 @@
-#ifndef PHYSICA_DEFORMABLES_CLOTH_DOMAIN_DEVICE_CUH
-#define PHYSICA_DEFORMABLES_CLOTH_DOMAIN_DEVICE_CUH
+#ifndef PHYSICA_DEFORMABLES_CLOTH_DETAIL_CUDA_DEVICE_CUH
+#define PHYSICA_DEFORMABLES_CLOTH_DETAIL_CUDA_DEVICE_CUH
 
-#include "device.h"
+#include "types.h"
 
 namespace physica::deformables::cloth::cuda_detail {
     template <class Scalar>

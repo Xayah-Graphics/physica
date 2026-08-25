@@ -1,5 +1,5 @@
-#ifndef PHYSICA_DEFORMABLES_CLOTH_DOMAIN_DEVICE_H
-#define PHYSICA_DEFORMABLES_CLOTH_DOMAIN_DEVICE_H
+#ifndef PHYSICA_DEFORMABLES_CLOTH_DETAIL_CUDA_TYPES_H
+#define PHYSICA_DEFORMABLES_CLOTH_DETAIL_CUDA_TYPES_H
 
 namespace physica::deformables::cloth::cuda_detail {
     template <class Scalar>

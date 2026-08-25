@@ -12,7 +12,12 @@ target_sources(
         simulation.ixx
 )
 target_include_directories(physica-example-cloth PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(physica-example-cloth PUBLIC physica-deformables-cloth)
+target_link_libraries(
+        physica-example-cloth
+        PUBLIC
+        physica-deformables-cloth-explicit-dynamics
+        physica-deformables-cloth-operators
+)
 
 # ============================================================================
 # Command-Line Example
