@@ -231,7 +231,7 @@ namespace physica::examples::adjoint_control {
                 quadratic_objective += 0.5 * quadratic_gradient[parameter] * quadratic_gradient[parameter];
             }
             ::cuda::copy_bytes(stream, ::cuda::std::span{&quadratic_objective, 1u}, quadratic_device_objective);
-            ::cuda::copy_bytes(stream, quadratic_gradient, quadratic_device_gradient);
+            ::cuda::copy_bytes(stream, ::cuda::std::span<const double>{quadratic_gradient.data(), quadratic_gradient.size()}, quadratic_device_gradient);
             [[maybe_unused]] const optimization::LbfgsbGradientMetrics metrics = quadratic_optimizer.submit(quadratic_device_objective.data(), {quadratic_device_gradient.data(), quadratic_device_gradient.size()});
         }
         ::cuda::copy_bytes(stream, quadratic_optimizer.parameters, ::cuda::std::span{quadratic_parameters.data(), quadratic_parameters.size()});

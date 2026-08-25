@@ -78,7 +78,7 @@ export namespace physica::examples::smoke {
                                                                                                                        }},
           current_state{solver.allocate_state(domain)}, next_state{solver.allocate_state(domain)}, control{solver.allocate_control(domain)}, parameters{solver.allocate_parameters(domain)}, step_cache{solver.allocate_step_cache(domain)}, workspace{solver.allocate_workspace(domain)} {
         const std::array force_parameters{ambient_temperature, density_buoyancy, temperature_buoyancy, vorticity_confinement};
-        ::cuda::copy_bytes(stream, force_parameters, parameters.values);
+        ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{force_parameters.data(), force_parameters.size()}, parameters.values);
     }
 
     void Simulation::reset() {
