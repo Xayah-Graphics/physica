@@ -24,10 +24,10 @@ export namespace physica::fluids::liquid::particle {
     struct NeighborhoodSearch final {
         explicit NeighborhoodSearch(const Domain& domain);
 
-        NeighborhoodSearch(const NeighborhoodSearch&) = delete;
+        NeighborhoodSearch(const NeighborhoodSearch&)            = delete;
         NeighborhoodSearch& operator=(const NeighborhoodSearch&) = delete;
-        NeighborhoodSearch(NeighborhoodSearch&&) = delete;
-        NeighborhoodSearch& operator=(NeighborhoodSearch&&) = delete;
+        NeighborhoodSearch(NeighborhoodSearch&&)                 = delete;
+        NeighborhoodSearch& operator=(NeighborhoodSearch&&)      = delete;
 
         [[nodiscard]] Neighborhood allocate() const;
         void build(std::uint64_t step_index, const VectorField& positions, Neighborhood& neighborhood);

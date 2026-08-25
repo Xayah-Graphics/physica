@@ -1,6 +1,6 @@
+#include "../neighborhood/device.cuh"
 #include "device.cuh"
 #include "kernels.h"
-#include "../neighborhood/device.cuh"
 #include <cuda/launch>
 
 namespace physica::fluids::liquid::particle::cuda_detail {
@@ -43,7 +43,7 @@ namespace physica::fluids::liquid::particle::cuda_detail {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Float3 position = load(positions, particle);
-            const Float3 tangent = load(position_tangent, particle);
+            const Float3 tangent  = load(position_tangent, particle);
             int cell_x, cell_y, cell_z;
             particle_cell(neighborhood, load(topology_positions, particle), cell_x, cell_y, cell_z);
             float result = 0.0F;
@@ -54,12 +54,12 @@ namespace physica::fluids::liquid::particle::cuda_detail {
                         if (!range.valid) continue;
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
                             const std::uint32_t neighbor = neighborhood.sorted_particle_indices[sorted];
-                            const Float3 displacement = subtract(position, load(positions, neighbor));
+                            const Float3 displacement    = subtract(position, load(positions, neighbor));
                             result += parameter_tangent.masses[neighbor] * density_kernel(displacement, support_radius, pbf_kernel) + parameters.masses[neighbor] * dot(density_kernel_gradient(displacement, support_radius, pbf_kernel), subtract(tangent, load(position_tangent, neighbor)));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
                             const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Float3 displacement = subtract(position, boundary_position(boundary, neighbor));
+                            const Float3 displacement    = subtract(position, boundary_position(boundary, neighbor));
                             result += boundary.volumes[neighbor] * (parameter_tangent.rest_densities[particle] * density_kernel(displacement, support_radius, pbf_kernel) + parameters.rest_densities[particle] * dot(density_kernel_gradient(displacement, support_radius, pbf_kernel), tangent));
                         }
                     }
@@ -69,10 +69,10 @@ namespace physica::fluids::liquid::particle::cuda_detail {
         __global__ void density_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const bool pbf_kernel, const ConstVectorView<float> topology_positions, const ConstVectorView<float> positions, const ParticleParameterView parameters, const NeighborhoodView neighborhood, const BoundaryView boundary, const double* density_adjoint, const VectorView<double> position_adjoint, const ParticleParameterAdjointView parameter_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Float3 position = load(positions, particle);
+            const Float3 position       = load(positions, particle);
             const double output_adjoint = density_adjoint[particle];
             Double3 position_contribution{};
-            double mass_contribution = 0.0;
+            double mass_contribution         = 0.0;
             double rest_density_contribution = 0.0;
             int cell_x, cell_y, cell_z;
             particle_cell(neighborhood, load(topology_positions, particle), cell_x, cell_y, cell_z);
@@ -84,15 +84,15 @@ namespace physica::fluids::liquid::particle::cuda_detail {
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
                             const std::uint32_t other = neighborhood.sorted_particle_indices[sorted];
                             const Float3 displacement = subtract(position, load(positions, other));
-                            const Float3 gradient = density_kernel_gradient(displacement, support_radius, pbf_kernel);
-                            position_contribution = add(position_contribution, scale(gradient, output_adjoint * parameters.masses[other] + density_adjoint[other] * parameters.masses[particle]));
+                            const Float3 gradient     = density_kernel_gradient(displacement, support_radius, pbf_kernel);
+                            position_contribution     = add(position_contribution, scale(gradient, output_adjoint * parameters.masses[other] + density_adjoint[other] * parameters.masses[particle]));
                             mass_contribution += density_adjoint[other] * density_kernel(displacement, support_radius, pbf_kernel);
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
                             const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Float3 displacement = subtract(position, boundary_position(boundary, neighbor));
-                            const float volume = boundary.volumes[neighbor];
-                            position_contribution = add(position_contribution, scale(density_kernel_gradient(displacement, support_radius, pbf_kernel), output_adjoint * parameters.rest_densities[particle] * volume));
+                            const Float3 displacement    = subtract(position, boundary_position(boundary, neighbor));
+                            const float volume           = boundary.volumes[neighbor];
+                            position_contribution        = add(position_contribution, scale(density_kernel_gradient(displacement, support_radius, pbf_kernel), output_adjoint * parameters.rest_densities[particle] * volume));
                             rest_density_contribution += output_adjoint * volume * density_kernel(displacement, support_radius, pbf_kernel);
                         }
                     }

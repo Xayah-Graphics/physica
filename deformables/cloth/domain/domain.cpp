@@ -9,8 +9,7 @@ module physica.deformables.cloth.domain;
 import std;
 
 namespace physica::deformables::cloth {
-    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream)
-        : configuration(std::move(next_configuration)), stream(source_stream), particle_count(configuration.rest_positions.size()) {}
+    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream) : configuration(std::move(next_configuration)), stream(source_stream), particle_count(configuration.rest_positions.size()) {}
 
     IndexField Domain::allocate_index_field(const std::size_t size) const {
         return {.values = ::cuda::device_buffer<std::uint32_t>{stream, ::cuda::device_default_memory_pool(stream.device()), size, ::cuda::no_init}};

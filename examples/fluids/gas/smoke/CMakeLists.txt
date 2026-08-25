@@ -12,7 +12,13 @@ target_sources(
         simulation.ixx
 )
 target_include_directories(physica-example-smoke PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(physica-example-smoke PUBLIC physica-fluids-gas-smoke)
+target_link_libraries(
+        physica-example-smoke
+        PUBLIC
+        physica-fluids-gas-domain
+        physica-fluids-gas-operators
+        physica-fluids-gas-smoke
+)
 
 # ============================================================================
 # Command-Line Example

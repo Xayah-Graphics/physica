@@ -16,9 +16,15 @@ export namespace physica::fluids::liquid::particle {
             std::uint32_t checkpoint_interval{2u};
         };
 
-        struct State final { ParticleState particles; };
-        struct StateTangent final { ParticleStateTangent particles; };
-        struct StateAdjoint final { ParticleStateAdjoint particles; };
+        struct State final {
+            ParticleState particles;
+        };
+        struct StateTangent final {
+            ParticleStateTangent particles;
+        };
+        struct StateAdjoint final {
+            ParticleStateAdjoint particles;
+        };
 
         struct Parameters final {
             ParticleParameters particles;
@@ -70,10 +76,10 @@ export namespace physica::fluids::liquid::particle {
 
         PBF(DomainConfiguration domain_configuration, Configuration configuration, ExecutionMode mode, ::cuda::stream_ref stream);
 
-        PBF(const PBF&) = delete;
+        PBF(const PBF&)            = delete;
         PBF& operator=(const PBF&) = delete;
-        PBF(PBF&&) = delete;
-        PBF& operator=(PBF&&) = delete;
+        PBF(PBF&&)                 = delete;
+        PBF& operator=(PBF&&)      = delete;
 
         [[nodiscard]] State allocate_state() const;
         [[nodiscard]] Control allocate_control() const;

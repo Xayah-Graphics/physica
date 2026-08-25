@@ -1,8 +1,8 @@
 module;
 
 #include "kernels.h"
-#include <spectra/sdk/cuda_types.h>
 #include <physica/cuda.h>
+#include <spectra/sdk/cuda_types.h>
 
 export module physica.example.deformables.cloth.spectra;
 
@@ -23,17 +23,12 @@ export namespace physica::examples::cloth {
     public:
         [[no_unique_address]] Settings settings;
 
-        static constexpr auto description = spectra::sdk::describe(
-            "physica.example.deformables.cloth",
-            spectra::sdk::mesh<"surface">({.attributes = spectra::sdk::MeshAttribute::Normal}),
-            spectra::sdk::metric<"step", std::uint64_t>("Step", {}, "Simulation"),
-            spectra::sdk::metric<"time", double>("Physical Time", "s", "Simulation", true)
-        );
+        static constexpr auto description = spectra::sdk::describe("physica.example.deformables.cloth", spectra::sdk::mesh<"surface">({.attributes = spectra::sdk::MeshAttribute::Normal}), spectra::sdk::metric<"step", std::uint64_t>("Step", {}, "Simulation"), spectra::sdk::metric<"time", double>("Physical Time", "s", "Simulation", true));
 
         Provider(Settings settings, const std::filesystem::path& assets);
         ~Provider() noexcept;
 
-        Provider(const Provider&) = delete;
+        Provider(const Provider&)            = delete;
         Provider& operator=(const Provider&) = delete;
 
         void setup(spectra::sdk::cuda::Setup& setup);
@@ -66,18 +61,9 @@ export namespace physica::examples::cloth {
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output) {
-        spectra::sdk::cuda::Frame frame = output.begin(simulation->stream.get());
+        spectra::sdk::cuda::Frame frame        = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Mesh surface = frame.mesh<"surface">();
-        spectra_cuda::write_surface(
-            simulation->stream,
-            Simulation::rows,
-            Simulation::columns,
-            simulation->current_state.positions.x.values.data(),
-            simulation->current_state.positions.y.values.data(),
-            simulation->current_state.positions.z.values.data(),
-            surface.positions.data(),
-            surface.normals.data()
-        );
+        spectra_cuda::write_surface(simulation->stream, Simulation::rows, Simulation::columns, simulation->current_state.positions.x.values.data(), simulation->current_state.positions.y.values.data(), simulation->current_state.positions.z.values.data(), surface.positions.data(), surface.normals.data());
         frame.metric<"step">().upload(simulation->step_index);
         frame.metric<"time">().upload(simulation->physical_time);
         frame.commit();

@@ -107,9 +107,15 @@ export namespace physica::fluids::liquid::particle {
         struct State final {};
         struct StateTangent final {};
         struct StateAdjoint final {};
-        struct Parameters final { ::cuda::device_buffer<float> pressure_relaxation; };
-        struct ParameterTangent final { ::cuda::device_buffer<float> pressure_relaxation; };
-        struct ParameterAdjoint final { ::cuda::device_buffer<double> pressure_relaxation; };
+        struct Parameters final {
+            ::cuda::device_buffer<float> pressure_relaxation;
+        };
+        struct ParameterTangent final {
+            ::cuda::device_buffer<float> pressure_relaxation;
+        };
+        struct ParameterAdjoint final {
+            ::cuda::device_buffer<double> pressure_relaxation;
+        };
         struct Cache final {
             VectorField non_pressure_accelerations;
             std::vector<PressureIterationCache> checkpoints;
@@ -153,9 +159,15 @@ export namespace physica::fluids::liquid::particle {
         struct State final {};
         struct StateTangent final {};
         struct StateAdjoint final {};
-        struct Parameters final { ::cuda::device_buffer<float> jacobi_relaxation; };
-        struct ParameterTangent final { ::cuda::device_buffer<float> jacobi_relaxation; };
-        struct ParameterAdjoint final { ::cuda::device_buffer<double> jacobi_relaxation; };
+        struct Parameters final {
+            ::cuda::device_buffer<float> jacobi_relaxation;
+        };
+        struct ParameterTangent final {
+            ::cuda::device_buffer<float> jacobi_relaxation;
+        };
+        struct ParameterAdjoint final {
+            ::cuda::device_buffer<double> jacobi_relaxation;
+        };
         struct Cache final {
             VectorField non_pressure_accelerations;
             std::vector<PressureIterationCache> checkpoints;
@@ -266,10 +278,10 @@ export namespace physica::fluids::liquid::particle {
         void vjp(const Domain& domain, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const Neighborhood& neighborhood, const ScalarField& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, ScalarAdjointField& density_adjoint);
     };
 
-    template<class Method>
+    template <class Method>
     concept SPHMethod = std::same_as<Method, WCSPH> || std::same_as<Method, PCISPH> || std::same_as<Method, IISPH> || std::same_as<Method, DFSPH>;
 
-    template<SPHMethod Method>
+    template <SPHMethod Method>
     struct SPH final {
         struct State final {
             ParticleState particles;
@@ -305,26 +317,45 @@ export namespace physica::fluids::liquid::particle {
             ScalarAdjointField density_adjoint;
         };
 
-        SPH(DomainConfiguration domain_configuration, typename Method::Configuration method_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream)
-            : domain(std::move(domain_configuration), stream), neighborhood_search(domain), method(domain, std::move(method_configuration), mode) {
+        SPH(DomainConfiguration domain_configuration, typename Method::Configuration method_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream) : domain(std::move(domain_configuration), stream), neighborhood_search(domain), method(domain, std::move(method_configuration), mode) {
             if (mode == ExecutionMode::differentiable) differentiation.emplace(Differentiation{.density_tangent = domain.allocate_scalar_field(domain.configuration.particle_count), .density_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count)});
         }
 
-        SPH(const SPH&) = delete;
+        SPH(const SPH&)            = delete;
         SPH& operator=(const SPH&) = delete;
-        SPH(SPH&&) = delete;
-        SPH& operator=(SPH&&) = delete;
+        SPH(SPH&&)                 = delete;
+        SPH& operator=(SPH&&)      = delete;
 
-        [[nodiscard]] State allocate_state() const { return {.particles = domain.allocate_particle_state(), .method = method.allocate_state(domain)}; }
-        [[nodiscard]] Control allocate_control() const { return domain.allocate_control(); }
-        [[nodiscard]] Parameters allocate_parameters() const { return {.particles = domain.allocate_particle_parameters(), .method = method.allocate_parameters(domain)}; }
-        [[nodiscard]] StepCache allocate_step_cache() const { return {.neighborhood = neighborhood_search.allocate(), .densities = domain.allocate_scalar_field(domain.configuration.particle_count), .method = method.allocate_cache(domain)}; }
-        [[nodiscard]] StateTangent allocate_state_tangent() const { return {.particles = domain.allocate_particle_state_tangent(), .method = method.allocate_state_tangent(domain)}; }
-        [[nodiscard]] ControlTangent allocate_control_tangent() const { return domain.allocate_control_tangent(); }
-        [[nodiscard]] ParameterTangent allocate_parameter_tangent() const { return {.particles = domain.allocate_particle_parameter_tangent(), .method = method.allocate_parameter_tangent(domain)}; }
-        [[nodiscard]] StateAdjoint allocate_state_adjoint() const { return {.particles = domain.allocate_particle_state_adjoint(), .method = method.allocate_state_adjoint(domain)}; }
-        [[nodiscard]] ControlAdjoint allocate_control_adjoint() const { return domain.allocate_control_adjoint(); }
-        [[nodiscard]] ParameterAdjoint allocate_parameter_adjoint() const { return {.particles = domain.allocate_particle_parameter_adjoint(), .method = method.allocate_parameter_adjoint(domain)}; }
+        [[nodiscard]] State allocate_state() const {
+            return {.particles = domain.allocate_particle_state(), .method = method.allocate_state(domain)};
+        }
+        [[nodiscard]] Control allocate_control() const {
+            return domain.allocate_control();
+        }
+        [[nodiscard]] Parameters allocate_parameters() const {
+            return {.particles = domain.allocate_particle_parameters(), .method = method.allocate_parameters(domain)};
+        }
+        [[nodiscard]] StepCache allocate_step_cache() const {
+            return {.neighborhood = neighborhood_search.allocate(), .densities = domain.allocate_scalar_field(domain.configuration.particle_count), .method = method.allocate_cache(domain)};
+        }
+        [[nodiscard]] StateTangent allocate_state_tangent() const {
+            return {.particles = domain.allocate_particle_state_tangent(), .method = method.allocate_state_tangent(domain)};
+        }
+        [[nodiscard]] ControlTangent allocate_control_tangent() const {
+            return domain.allocate_control_tangent();
+        }
+        [[nodiscard]] ParameterTangent allocate_parameter_tangent() const {
+            return {.particles = domain.allocate_particle_parameter_tangent(), .method = method.allocate_parameter_tangent(domain)};
+        }
+        [[nodiscard]] StateAdjoint allocate_state_adjoint() const {
+            return {.particles = domain.allocate_particle_state_adjoint(), .method = method.allocate_state_adjoint(domain)};
+        }
+        [[nodiscard]] ControlAdjoint allocate_control_adjoint() const {
+            return domain.allocate_control_adjoint();
+        }
+        [[nodiscard]] ParameterAdjoint allocate_parameter_adjoint() const {
+            return {.particles = domain.allocate_particle_parameter_adjoint(), .method = method.allocate_parameter_adjoint(domain)};
+        }
 
         void copy_state(const State& source, State& destination) const {
             domain.copy(source.particles, destination.particles);

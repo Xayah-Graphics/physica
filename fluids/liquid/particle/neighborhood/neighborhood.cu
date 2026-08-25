@@ -8,7 +8,7 @@ namespace physica::fluids::liquid::particle::cuda_detail {
 
         __device__ std::uint32_t lower_bound(const std::uint64_t* keys, const std::uint32_t count, const std::uint64_t key) {
             std::uint32_t first = 0u;
-            std::uint32_t last = count;
+            std::uint32_t last  = count;
             while (first < last) {
                 const std::uint32_t middle = first + (last - first) / 2u;
                 if (keys[middle] < key) first = middle + 1u;
@@ -31,11 +31,11 @@ namespace physica::fluids::liquid::particle::cuda_detail {
             const std::uint32_t cells_x = static_cast<std::uint32_t>(ceilf((domain.maximum_x - domain.minimum_x) / support_radius));
             const std::uint32_t cells_y = static_cast<std::uint32_t>(ceilf((domain.maximum_y - domain.minimum_y) / support_radius));
             const std::uint32_t cells_z = static_cast<std::uint32_t>(ceilf((domain.maximum_z - domain.minimum_z) / support_radius));
-            const int cell_x = min(static_cast<int>(cells_x) - 1, max(0, __float2int_rd((x - domain.minimum_x - time * domain.velocity_x) / support_radius)));
-            const int cell_y = min(static_cast<int>(cells_y) - 1, max(0, __float2int_rd((y - domain.minimum_y - time * domain.velocity_y) / support_radius)));
-            const int cell_z = min(static_cast<int>(cells_z) - 1, max(0, __float2int_rd((z - domain.minimum_z - time * domain.velocity_z) / support_radius)));
-            keys[index] = (static_cast<std::uint64_t>(cell_z) * cells_y + static_cast<std::uint64_t>(cell_y)) * cells_x + static_cast<std::uint64_t>(cell_x);
-            indices[index] = index;
+            const int cell_x            = min(static_cast<int>(cells_x) - 1, max(0, __float2int_rd((x - domain.minimum_x - time * domain.velocity_x) / support_radius)));
+            const int cell_y            = min(static_cast<int>(cells_y) - 1, max(0, __float2int_rd((y - domain.minimum_y - time * domain.velocity_y) / support_radius)));
+            const int cell_z            = min(static_cast<int>(cells_z) - 1, max(0, __float2int_rd((z - domain.minimum_z - time * domain.velocity_z) / support_radius)));
+            keys[index]                 = (static_cast<std::uint64_t>(cell_z) * cells_y + static_cast<std::uint64_t>(cell_y)) * cells_x + static_cast<std::uint64_t>(cell_x);
+            indices[index]              = index;
         }
 
         __global__ void cell_offsets_kernel(const std::uint32_t item_count, const std::uint64_t* sorted_keys, const std::uint32_t cell_count, std::uint32_t* cell_offsets) {
@@ -55,9 +55,9 @@ namespace physica::fluids::liquid::particle::cuda_detail {
         const float time = static_cast<float>(step_index) * time_step;
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), key_kernel, particle_count, support_radius, domain, time, false, positions, ConstVectorView<float>{}, unsorted_keys, unsorted_particle_indices);
         cub::DeviceRadixSort::SortPairs(sort_scratch, sort_scratch_bytes, unsorted_keys, sorted_keys, unsorted_particle_indices, sorted_particle_indices, particle_count, 0, 64, stream.get());
-        const std::uint32_t cells_x = static_cast<std::uint32_t>(ceilf((domain.maximum_x - domain.minimum_x) / support_radius));
-        const std::uint32_t cells_y = static_cast<std::uint32_t>(ceilf((domain.maximum_y - domain.minimum_y) / support_radius));
-        const std::uint32_t cells_z = static_cast<std::uint32_t>(ceilf((domain.maximum_z - domain.minimum_z) / support_radius));
+        const std::uint32_t cells_x    = static_cast<std::uint32_t>(ceilf((domain.maximum_x - domain.minimum_x) / support_radius));
+        const std::uint32_t cells_y    = static_cast<std::uint32_t>(ceilf((domain.maximum_y - domain.minimum_y) / support_radius));
+        const std::uint32_t cells_z    = static_cast<std::uint32_t>(ceilf((domain.maximum_z - domain.minimum_z) / support_radius));
         const std::uint32_t cell_count = cells_x * cells_y * cells_z;
         ::cuda::launch(stream, ::cuda::distribute<block_size>(cell_count + 1u), cell_offsets_kernel, particle_count, sorted_keys, cell_count, cell_offsets);
         if (boundary_count == 0u) {

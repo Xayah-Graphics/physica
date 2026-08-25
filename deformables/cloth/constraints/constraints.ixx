@@ -19,7 +19,7 @@ export namespace physica::deformables::cloth {
         void vjp(const Domain& domain, const StateAdjoint& constrained_state_adjoint, StateAdjoint& state_adjoint) const;
     };
 
-    template<class Algorithm>
+    template <class Algorithm>
     concept ConstraintAlgorithm = std::constructible_from<Algorithm, const Domain&> && requires(const Algorithm algorithm, const Domain& domain, const State& state, State& state_output, const StateTangent& state_tangent, StateTangent& tangent_output, const StateAdjoint& state_adjoint, StateAdjoint& adjoint_output) {
         algorithm.forward(domain, state, state_output);
         algorithm.jvp(domain, state_tangent, tangent_output);

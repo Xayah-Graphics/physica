@@ -15,7 +15,9 @@ target_sources(
 target_link_libraries(
         physica-example-adjoint-control
         PUBLIC
+        physica-fluids-gas-domain
         physica-fluids-gas-adjoint-control
+        physica-fluids-gas-operators
         PRIVATE
         physica::stb
 )

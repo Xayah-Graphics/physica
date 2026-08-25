@@ -18,24 +18,24 @@ namespace physica::fluids::liquid::particle {
         cuda_detail::Box collision_box(const DomainConfiguration& configuration, const std::uint64_t step_index) {
             const float time = static_cast<float>(step_index) * configuration.time_step;
             return {
-                .minimum_x = configuration.boundary.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
-                .minimum_y = configuration.boundary.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
-                .minimum_z = configuration.boundary.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
-                .maximum_x = configuration.boundary.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
-                .maximum_y = configuration.boundary.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
-                .maximum_z = configuration.boundary.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
+                .minimum_x  = configuration.boundary.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
+                .minimum_y  = configuration.boundary.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
+                .minimum_z  = configuration.boundary.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
+                .maximum_x  = configuration.boundary.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
+                .maximum_y  = configuration.boundary.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
+                .maximum_z  = configuration.boundary.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
                 .velocity_x = configuration.boundary.velocity.x,
                 .velocity_y = configuration.boundary.velocity.y,
                 .velocity_z = configuration.boundary.velocity.z,
-                .no_slip = configuration.boundary.no_slip ? 1u : 0u,
+                .no_slip    = configuration.boundary.no_slip ? 1u : 0u,
             };
         }
 
         float compute_reference_gradient_norm(const DomainConfiguration& configuration) {
-            constexpr float pi = 3.14159265358979323846F;
+            constexpr float pi         = 3.14159265358979323846F;
             const float support_radius = configuration.support_radius;
-            const float diameter = 2.0F * configuration.particle_radius;
-            const float coefficient = 8.0F / (pi * support_radius * support_radius * support_radius);
+            const float diameter       = 2.0F * configuration.particle_radius;
+            const float coefficient    = 8.0F / (pi * support_radius * support_radius * support_radius);
             Vector3 gradient_sum{};
             float squared_gradient_sum = 0.0F;
             for (float x = -support_radius; x <= support_radius; x += diameter)
@@ -43,9 +43,9 @@ namespace physica::fluids::liquid::particle {
                     for (float z = -support_radius; z <= support_radius; z += diameter) {
                         const float distance = std::sqrt(x * x + y * y + z * z);
                         if (distance == 0.0F || distance >= support_radius) continue;
-                        const float q = distance / support_radius;
+                        const float q          = distance / support_radius;
                         const float derivative = q <= 0.5F ? 18.0F * q * q - 12.0F * q : -6.0F * (1.0F - q) * (1.0F - q);
-                        const float scale = coefficient * derivative / (support_radius * distance);
+                        const float scale      = coefficient * derivative / (support_radius * distance);
                         gradient_sum.x += scale * x;
                         gradient_sum.y += scale * y;
                         gradient_sum.z += scale * z;
@@ -56,32 +56,32 @@ namespace physica::fluids::liquid::particle {
 
         PressureIterationCache allocate_iteration_cache(const Domain& domain) {
             return {
-                .iteration = 0u,
-                .pressures = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .predicted_densities = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .iteration              = 0u,
+                .pressures              = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .predicted_densities    = domain.allocate_scalar_field(domain.configuration.particle_count),
                 .pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-                .predicted_positions = domain.allocate_vector_field(domain.configuration.particle_count),
-                .predicted_velocities = domain.allocate_vector_field(domain.configuration.particle_count),
+                .predicted_positions    = domain.allocate_vector_field(domain.configuration.particle_count),
+                .predicted_velocities   = domain.allocate_vector_field(domain.configuration.particle_count),
             };
         }
 
         PressureIterationTangent allocate_iteration_tangent(const Domain& domain) {
             return {
-                .pressures = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .predicted_densities = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .pressures              = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .predicted_densities    = domain.allocate_scalar_field(domain.configuration.particle_count),
                 .pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-                .predicted_positions = domain.allocate_vector_field(domain.configuration.particle_count),
-                .predicted_velocities = domain.allocate_vector_field(domain.configuration.particle_count),
+                .predicted_positions    = domain.allocate_vector_field(domain.configuration.particle_count),
+                .predicted_velocities   = domain.allocate_vector_field(domain.configuration.particle_count),
             };
         }
 
         PressureIterationAdjoint allocate_iteration_adjoint(const Domain& domain) {
             return {
-                .pressures = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
-                .predicted_densities = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .pressures              = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .predicted_densities    = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
                 .pressure_accelerations = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .predicted_positions = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .predicted_velocities = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .predicted_positions    = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .predicted_velocities   = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
             };
         }
 
@@ -118,7 +118,7 @@ namespace physica::fluids::liquid::particle {
             domain.copy(source.predicted_velocities, destination.predicted_velocities);
         }
 
-        template<class Buffer>
+        template <class Buffer>
         Buffer allocate_buffer(const Domain& domain) {
             return Buffer{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), domain.configuration.particle_count, ::cuda::no_init};
         }
@@ -157,20 +157,27 @@ namespace physica::fluids::liquid::particle {
     } // namespace
 
     WCSPH::WCSPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode) : configuration(std::move(next_configuration)) {
-        if (mode == ExecutionMode::differentiable) differentiation.emplace(Differentiation{
-            .pressure_tangent = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-            .viscosity_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-            .surface_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-            .total_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-            .pressure_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
-            .total_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-        });
+        if (mode == ExecutionMode::differentiable)
+            differentiation.emplace(Differentiation{
+                .pressure_tangent               = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .pressure_acceleration_tangent  = domain.allocate_vector_field(domain.configuration.particle_count),
+                .viscosity_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
+                .surface_acceleration_tangent   = domain.allocate_vector_field(domain.configuration.particle_count),
+                .total_acceleration_tangent     = domain.allocate_vector_field(domain.configuration.particle_count),
+                .pressure_adjoint               = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .total_acceleration_adjoint     = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+            });
     }
 
-    WCSPH::State WCSPH::allocate_state(const Domain&) const { return {}; }
-    WCSPH::StateTangent WCSPH::allocate_state_tangent(const Domain&) const { return {}; }
-    WCSPH::StateAdjoint WCSPH::allocate_state_adjoint(const Domain&) const { return {}; }
+    WCSPH::State WCSPH::allocate_state(const Domain&) const {
+        return {};
+    }
+    WCSPH::StateTangent WCSPH::allocate_state_tangent(const Domain&) const {
+        return {};
+    }
+    WCSPH::StateAdjoint WCSPH::allocate_state_adjoint(const Domain&) const {
+        return {};
+    }
 
     WCSPH::Parameters WCSPH::allocate_parameters(const Domain& domain) const {
         return {.speed_of_sound = allocate_buffer<::cuda::device_buffer<float>>(domain), .tait_exponent = allocate_buffer<::cuda::device_buffer<float>>(domain), .boundary_surface_tension = allocate_buffer<::cuda::device_buffer<float>>(domain)};
@@ -194,12 +201,12 @@ namespace physica::fluids::liquid::particle {
 
     WCSPH::Cache WCSPH::allocate_cache(const Domain& domain) const {
         return {
-            .pressures = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
+            .pressures               = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .pressure_accelerations  = domain.allocate_vector_field(domain.configuration.particle_count),
             .viscosity_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-            .surface_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-            .external_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-            .total_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
+            .surface_accelerations   = domain.allocate_vector_field(domain.configuration.particle_count),
+            .external_accelerations  = domain.allocate_vector_field(domain.configuration.particle_count),
+            .total_accelerations     = domain.allocate_vector_field(domain.configuration.particle_count),
         };
     }
 
@@ -245,25 +252,32 @@ namespace physica::fluids::liquid::particle {
         cuda_detail::wcsph::launch_eos_vjp(domain.stream, domain.configuration.particle_count, densities.values.data(), cuda_detail::parameters(particles), parameters.speed_of_sound.data(), parameters.tait_exponent.data(), workspace.pressure_adjoint.values.data(), density_adjoint.values.data(), cuda_detail::parameter_adjoint(particle_adjoint), parameter_adjoint.speed_of_sound.data(), parameter_adjoint.tait_exponent.data());
     }
 
-    PCISPH::PCISPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode)
-        : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)) {
+    PCISPH::PCISPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode) : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)) {
         if (mode == ExecutionMode::differentiable) {
             recomputed_iterations.reserve(configuration.checkpoint_interval + 1u);
             for (std::uint32_t iteration = 0u; iteration <= configuration.checkpoint_interval; ++iteration) recomputed_iterations.push_back(allocate_iteration_cache(domain));
             differentiation.emplace(Differentiation{
-                .tangent = allocate_iteration_tangent(domain),
-                .adjoint = allocate_iteration_adjoint(domain),
-                .previous_adjoint = allocate_iteration_adjoint(domain),
+                .tangent                           = allocate_iteration_tangent(domain),
+                .adjoint                           = allocate_iteration_adjoint(domain),
+                .previous_adjoint                  = allocate_iteration_adjoint(domain),
                 .non_pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
                 .non_pressure_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
             });
         }
     }
 
-    PCISPH::State PCISPH::allocate_state(const Domain&) const { return {}; }
-    PCISPH::StateTangent PCISPH::allocate_state_tangent(const Domain&) const { return {}; }
-    PCISPH::StateAdjoint PCISPH::allocate_state_adjoint(const Domain&) const { return {}; }
-    PCISPH::Parameters PCISPH::allocate_parameters(const Domain& domain) const { return {.pressure_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)}; }
+    PCISPH::State PCISPH::allocate_state(const Domain&) const {
+        return {};
+    }
+    PCISPH::StateTangent PCISPH::allocate_state_tangent(const Domain&) const {
+        return {};
+    }
+    PCISPH::StateAdjoint PCISPH::allocate_state_adjoint(const Domain&) const {
+        return {};
+    }
+    PCISPH::Parameters PCISPH::allocate_parameters(const Domain& domain) const {
+        return {.pressure_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)};
+    }
 
     PCISPH::ParameterTangent PCISPH::allocate_parameter_tangent(const Domain& domain) const {
         ParameterTangent tangent{.pressure_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)};
@@ -334,12 +348,12 @@ namespace physica::fluids::liquid::particle {
         cuda_detail::pcisph::launch_predict_vjp(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, collision_box(domain.configuration, state.step_index), cuda_detail::vector(state.positions), cuda_detail::vector(state.velocities), cuda_detail::vector(cache.non_pressure_accelerations), cuda_detail::vector(cache.checkpoints.back().pressure_accelerations), cuda_detail::adjoint_vector(next_state_adjoint.positions), cuda_detail::adjoint_vector(next_state_adjoint.velocities), cuda_detail::adjoint_vector(previous_state_adjoint.positions), cuda_detail::adjoint_vector(previous_state_adjoint.velocities), cuda_detail::adjoint_vector(workspace.non_pressure_acceleration_adjoint), cuda_detail::adjoint_vector(workspace.adjoint.pressure_accelerations));
         for (std::size_t checkpoint = cache.checkpoints.size() - 1uz; checkpoint > 0uz; --checkpoint) {
             const PressureIterationCache& first = cache.checkpoints[checkpoint - 1uz];
-            const PressureIterationCache& last = cache.checkpoints[checkpoint];
+            const PressureIterationCache& last  = cache.checkpoints[checkpoint];
             copy_iteration(domain, first, recomputed_iterations[0]);
             for (std::uint32_t iteration = first.iteration + 1u; iteration <= last.iteration; ++iteration) {
                 PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
-                current.iteration = iteration;
+                PressureIterationCache& current  = recomputed_iterations[iteration - first.iteration];
+                current.iteration                = iteration;
                 cuda_detail::pcisph::launch_predict_forward(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, collision_box(domain.configuration, state.step_index), cuda_detail::vector(state.positions), cuda_detail::vector(state.velocities), cuda_detail::vector(cache.non_pressure_accelerations), cuda_detail::vector(previous.pressure_accelerations), cuda_detail::vector(current.predicted_positions), cuda_detail::vector(current.predicted_velocities));
                 density::sph_forward(domain, state.positions, current.predicted_positions, particles, neighborhood, current.predicted_densities);
                 cuda_detail::pcisph::launch_pressure_update_forward(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, reference_gradient_norm, cuda_detail::parameters(particles), previous.pressures.values.data(), current.predicted_densities.values.data(), parameters.pressure_relaxation.data(), current.pressures.values.data());
@@ -347,7 +361,7 @@ namespace physica::fluids::liquid::particle {
             }
             for (std::uint32_t iteration = last.iteration; iteration > first.iteration; --iteration) {
                 PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
+                PressureIterationCache& current  = recomputed_iterations[iteration - first.iteration];
                 clear_iteration(domain, workspace.previous_adjoint);
                 pressure_vjp(domain, state.positions, particles, neighborhood, densities, current.pressures, workspace.adjoint.pressure_accelerations, previous_state_adjoint.positions, density_adjoint, workspace.adjoint.pressures, particle_adjoint);
                 cuda_detail::pcisph::launch_pressure_update_vjp(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, reference_gradient_norm, cuda_detail::parameters(particles), previous.pressures.values.data(), current.predicted_densities.values.data(), parameters.pressure_relaxation.data(), workspace.adjoint.pressures.values.data(), cuda_detail::parameter_adjoint(particle_adjoint), workspace.previous_adjoint.pressures.values.data(), workspace.adjoint.predicted_densities.values.data(), parameter_adjoint.pressure_relaxation.data());
@@ -358,25 +372,32 @@ namespace physica::fluids::liquid::particle {
         }
         non_pressure_vjp(domain, state, particles, neighborhood, densities, workspace.non_pressure_acceleration_adjoint, previous_state_adjoint, control_adjoint, density_adjoint, particle_adjoint);
     }
-    IISPH::IISPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode)
-        : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)) {
+    IISPH::IISPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode) : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)) {
         if (mode == ExecutionMode::differentiable) {
             recomputed_iterations.reserve(configuration.checkpoint_interval + 1u);
             for (std::uint32_t iteration = 0u; iteration <= configuration.checkpoint_interval; ++iteration) recomputed_iterations.push_back(allocate_iteration_cache(domain));
             differentiation.emplace(Differentiation{
-                .tangent = allocate_iteration_tangent(domain),
-                .adjoint = allocate_iteration_adjoint(domain),
-                .previous_adjoint = allocate_iteration_adjoint(domain),
+                .tangent                           = allocate_iteration_tangent(domain),
+                .adjoint                           = allocate_iteration_adjoint(domain),
+                .previous_adjoint                  = allocate_iteration_adjoint(domain),
                 .non_pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
                 .non_pressure_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
             });
         }
     }
 
-    IISPH::State IISPH::allocate_state(const Domain&) const { return {}; }
-    IISPH::StateTangent IISPH::allocate_state_tangent(const Domain&) const { return {}; }
-    IISPH::StateAdjoint IISPH::allocate_state_adjoint(const Domain&) const { return {}; }
-    IISPH::Parameters IISPH::allocate_parameters(const Domain& domain) const { return {.jacobi_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)}; }
+    IISPH::State IISPH::allocate_state(const Domain&) const {
+        return {};
+    }
+    IISPH::StateTangent IISPH::allocate_state_tangent(const Domain&) const {
+        return {};
+    }
+    IISPH::StateAdjoint IISPH::allocate_state_adjoint(const Domain&) const {
+        return {};
+    }
+    IISPH::Parameters IISPH::allocate_parameters(const Domain& domain) const {
+        return {.jacobi_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)};
+    }
 
     IISPH::ParameterTangent IISPH::allocate_parameter_tangent(const Domain& domain) const {
         ParameterTangent tangent{.jacobi_relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain)};
@@ -447,12 +468,12 @@ namespace physica::fluids::liquid::particle {
         cuda_detail::iisph::launch_predict_vjp(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, collision_box(domain.configuration, state.step_index), cuda_detail::vector(state.positions), cuda_detail::vector(state.velocities), cuda_detail::vector(cache.non_pressure_accelerations), cuda_detail::vector(cache.checkpoints.back().pressure_accelerations), cuda_detail::adjoint_vector(next_state_adjoint.positions), cuda_detail::adjoint_vector(next_state_adjoint.velocities), cuda_detail::adjoint_vector(previous_state_adjoint.positions), cuda_detail::adjoint_vector(previous_state_adjoint.velocities), cuda_detail::adjoint_vector(workspace.non_pressure_acceleration_adjoint), cuda_detail::adjoint_vector(workspace.adjoint.pressure_accelerations));
         for (std::size_t checkpoint = cache.checkpoints.size() - 1uz; checkpoint > 0uz; --checkpoint) {
             const PressureIterationCache& first = cache.checkpoints[checkpoint - 1uz];
-            const PressureIterationCache& last = cache.checkpoints[checkpoint];
+            const PressureIterationCache& last  = cache.checkpoints[checkpoint];
             copy_iteration(domain, first, recomputed_iterations[0]);
             for (std::uint32_t iteration = first.iteration + 1u; iteration <= last.iteration; ++iteration) {
                 PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
-                current.iteration = iteration;
+                PressureIterationCache& current  = recomputed_iterations[iteration - first.iteration];
+                current.iteration                = iteration;
                 cuda_detail::iisph::launch_predict_forward(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, collision_box(domain.configuration, state.step_index), cuda_detail::vector(state.positions), cuda_detail::vector(state.velocities), cuda_detail::vector(cache.non_pressure_accelerations), cuda_detail::vector(previous.pressure_accelerations), cuda_detail::vector(current.predicted_positions), cuda_detail::vector(current.predicted_velocities));
                 density::sph_forward(domain, state.positions, current.predicted_positions, particles, neighborhood, current.predicted_densities);
                 cuda_detail::iisph::launch_jacobi_update_forward(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, reference_gradient_norm, cuda_detail::parameters(particles), densities.values.data(), previous.pressures.values.data(), current.predicted_densities.values.data(), parameters.jacobi_relaxation.data(), current.pressures.values.data());
@@ -460,7 +481,7 @@ namespace physica::fluids::liquid::particle {
             }
             for (std::uint32_t iteration = last.iteration; iteration > first.iteration; --iteration) {
                 PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
+                PressureIterationCache& current  = recomputed_iterations[iteration - first.iteration];
                 clear_iteration(domain, workspace.previous_adjoint);
                 pressure_vjp(domain, state.positions, particles, neighborhood, densities, current.pressures, workspace.adjoint.pressure_accelerations, previous_state_adjoint.positions, density_adjoint, workspace.adjoint.pressures, particle_adjoint);
                 cuda_detail::iisph::launch_jacobi_update_vjp(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, reference_gradient_norm, cuda_detail::parameters(particles), densities.values.data(), previous.pressures.values.data(), current.predicted_densities.values.data(), parameters.jacobi_relaxation.data(), workspace.adjoint.pressures.values.data(), cuda_detail::parameter_adjoint(particle_adjoint), density_adjoint.values.data(), workspace.previous_adjoint.pressures.values.data(), workspace.adjoint.predicted_densities.values.data(), parameter_adjoint.jacobi_relaxation.data());
@@ -472,22 +493,21 @@ namespace physica::fluids::liquid::particle {
         non_pressure_vjp(domain, state, particles, neighborhood, densities, workspace.non_pressure_acceleration_adjoint, previous_state_adjoint, control_adjoint, density_adjoint, particle_adjoint);
     }
 
-    DFSPH::DFSPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode)
-        : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)), total_pressure_acceleration(domain.allocate_vector_field(domain.configuration.particle_count)) {
+    DFSPH::DFSPH(const Domain& domain, Configuration next_configuration, const ExecutionMode mode) : configuration(std::move(next_configuration)), reference_gradient_norm(compute_reference_gradient_norm(domain.configuration)), primal(allocate_iteration_cache(domain)), total_pressure_acceleration(domain.allocate_vector_field(domain.configuration.particle_count)) {
         if (mode == ExecutionMode::differentiable) {
             recomputed_iterations.reserve(configuration.checkpoint_interval + 1u);
             for (std::uint32_t iteration = 0u; iteration <= configuration.checkpoint_interval; ++iteration) recomputed_iterations.push_back(allocate_iteration_cache(domain));
             differentiation.emplace(Differentiation{
-                .tangent = allocate_iteration_tangent(domain),
-                .adjoint = allocate_iteration_adjoint(domain),
-                .previous_adjoint = allocate_iteration_adjoint(domain),
-                .non_pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
+                .tangent                                  = allocate_iteration_tangent(domain),
+                .adjoint                                  = allocate_iteration_adjoint(domain),
+                .previous_adjoint                         = allocate_iteration_adjoint(domain),
+                .non_pressure_acceleration_tangent        = domain.allocate_vector_field(domain.configuration.particle_count),
                 .divergence_pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .total_pressure_acceleration_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .target_density_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
-                .non_pressure_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .total_pressure_acceleration_tangent      = domain.allocate_vector_field(domain.configuration.particle_count),
+                .target_density_adjoint                   = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .non_pressure_acceleration_adjoint        = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
                 .divergence_pressure_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .total_pressure_acceleration_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .total_pressure_acceleration_adjoint      = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
             });
         }
     }
@@ -533,9 +553,9 @@ namespace physica::fluids::liquid::particle {
 
     DFSPH::Cache DFSPH::allocate_cache(const Domain& domain) const {
         Cache cache{
-            .non_pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
+            .non_pressure_accelerations        = domain.allocate_vector_field(domain.configuration.particle_count),
             .divergence_pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
-            .total_pressure_accelerations = domain.allocate_vector_field(domain.configuration.particle_count),
+            .total_pressure_accelerations      = domain.allocate_vector_field(domain.configuration.particle_count),
         };
         const std::uint32_t divergence_count = 1u + configuration.divergence_iterations / configuration.checkpoint_interval + (configuration.divergence_iterations % configuration.checkpoint_interval == 0u ? 0u : 1u);
         cache.divergence_checkpoints.reserve(divergence_count);
@@ -672,12 +692,12 @@ namespace physica::fluids::liquid::particle {
         const auto reverse_phase = [&](const std::vector<PressureIterationCache>& checkpoints, const ::cuda::device_buffer<float>& relaxation, ::cuda::device_buffer<double>& relaxation_adjoint, const float* target_densities, double* target_density_adjoint, const VectorField* base_pressure_accelerations, VectorAdjointField* base_pressure_acceleration_adjoint, ScalarAdjointField& warm_pressure_adjoint) {
             for (std::size_t checkpoint = checkpoints.size(); checkpoint-- > 1uz;) {
                 const PressureIterationCache& first = checkpoints[checkpoint - 1uz];
-                const PressureIterationCache& last = checkpoints[checkpoint];
+                const PressureIterationCache& last  = checkpoints[checkpoint];
                 copy_iteration(domain, first, recomputed_iterations[0]);
                 for (std::uint32_t iteration = first.iteration + 1u; iteration <= last.iteration; ++iteration) {
-                    PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                    PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
-                    current.iteration = iteration;
+                    PressureIterationCache& previous       = recomputed_iterations[iteration - first.iteration - 1u];
+                    PressureIterationCache& current        = recomputed_iterations[iteration - first.iteration];
+                    current.iteration                      = iteration;
                     const VectorField* prediction_pressure = &previous.pressure_accelerations;
                     if (base_pressure_accelerations != nullptr) {
                         add(domain, *base_pressure_accelerations, previous.pressure_accelerations, total_pressure_acceleration);
@@ -690,7 +710,7 @@ namespace physica::fluids::liquid::particle {
                 }
                 for (std::uint32_t iteration = last.iteration; iteration > first.iteration; --iteration) {
                     PressureIterationCache& previous = recomputed_iterations[iteration - first.iteration - 1u];
-                    PressureIterationCache& current = recomputed_iterations[iteration - first.iteration];
+                    PressureIterationCache& current  = recomputed_iterations[iteration - first.iteration];
                     clear_iteration(domain, workspace.previous_adjoint);
                     pressure_vjp(domain, state.positions, particles, neighborhood, densities, current.pressures, workspace.adjoint.pressure_accelerations, previous_state_adjoint.positions, density_adjoint, workspace.adjoint.pressures, particle_adjoint);
                     cuda_detail::dfsph::launch_projection_update_vjp(domain.stream, domain.configuration.particle_count, domain.configuration.time_step, reference_gradient_norm, cuda_detail::parameters(particles), densities.values.data(), target_densities, previous.pressures.values.data(), current.predicted_densities.values.data(), relaxation.data(), workspace.adjoint.pressures.values.data(), cuda_detail::parameter_adjoint(particle_adjoint), density_adjoint.values.data(), target_density_adjoint, workspace.previous_adjoint.pressures.values.data(), workspace.adjoint.predicted_densities.values.data(), relaxation_adjoint.data());

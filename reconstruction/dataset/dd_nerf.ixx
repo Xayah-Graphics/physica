@@ -10,4 +10,4 @@ namespace physica::reconstruction::dataset::dd_nerf {
 
     export bool is_dataset(const std::filesystem::path& path);
     export multiview::Dataset load(const std::filesystem::path& path, LoadRequest request);
-}
+} // namespace physica::reconstruction::dataset::dd_nerf

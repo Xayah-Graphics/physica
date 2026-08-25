@@ -14,51 +14,50 @@ namespace physica::fluids::liquid::particle {
         cuda_detail::Box collision_box(const DomainConfiguration& configuration, const std::uint64_t step_index) {
             const float time = static_cast<float>(step_index) * configuration.time_step;
             return {
-                .minimum_x = configuration.boundary.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
-                .minimum_y = configuration.boundary.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
-                .minimum_z = configuration.boundary.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
-                .maximum_x = configuration.boundary.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
-                .maximum_y = configuration.boundary.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
-                .maximum_z = configuration.boundary.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
+                .minimum_x  = configuration.boundary.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
+                .minimum_y  = configuration.boundary.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
+                .minimum_z  = configuration.boundary.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
+                .maximum_x  = configuration.boundary.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
+                .maximum_y  = configuration.boundary.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
+                .maximum_z  = configuration.boundary.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
                 .velocity_x = configuration.boundary.velocity.x,
                 .velocity_y = configuration.boundary.velocity.y,
                 .velocity_z = configuration.boundary.velocity.z,
-                .no_slip = configuration.boundary.no_slip ? 1u : 0u,
+                .no_slip    = configuration.boundary.no_slip ? 1u : 0u,
             };
         }
 
-        template<class Buffer>
+        template <class Buffer>
         Buffer allocate_buffer(const Domain& domain) {
             return Buffer{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), domain.configuration.particle_count, ::cuda::no_init};
         }
     } // namespace
 
-    PBF::PBF(DomainConfiguration domain_configuration, Configuration next_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream)
-        : configuration(std::move(next_configuration)), domain(std::move(domain_configuration), stream), neighborhood_search(domain), forward_iteration(allocate_iteration()) {
+    PBF::PBF(DomainConfiguration domain_configuration, Configuration next_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream) : configuration(std::move(next_configuration)), domain(std::move(domain_configuration), stream), neighborhood_search(domain), forward_iteration(allocate_iteration()) {
         if (mode == ExecutionMode::differentiable) {
             Differentiation workspace{
-                .current_position_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .next_position_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .density_tangent = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .gradient_sum_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .denominator_tangent = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .lambda_tangent = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .correction_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
+                .current_position_tangent       = domain.allocate_vector_field(domain.configuration.particle_count),
+                .next_position_tangent          = domain.allocate_vector_field(domain.configuration.particle_count),
+                .density_tangent                = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .gradient_sum_tangent           = domain.allocate_vector_field(domain.configuration.particle_count),
+                .denominator_tangent            = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .lambda_tangent                 = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .correction_tangent             = domain.allocate_vector_field(domain.configuration.particle_count),
                 .reconstructed_velocity_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .vorticity_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .vorticity_magnitude_tangent = domain.allocate_scalar_field(domain.configuration.particle_count),
-                .vorticity_normal_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .confined_velocity_tangent = domain.allocate_vector_field(domain.configuration.particle_count),
-                .current_position_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .next_position_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .correction_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .lambda_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
-                .density_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .vorticity_tangent              = domain.allocate_vector_field(domain.configuration.particle_count),
+                .vorticity_magnitude_tangent    = domain.allocate_scalar_field(domain.configuration.particle_count),
+                .vorticity_normal_tangent       = domain.allocate_vector_field(domain.configuration.particle_count),
+                .confined_velocity_tangent      = domain.allocate_vector_field(domain.configuration.particle_count),
+                .current_position_adjoint       = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .next_position_adjoint          = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .correction_adjoint             = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .lambda_adjoint                 = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .density_adjoint                = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
                 .reconstructed_velocity_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .vorticity_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .vorticity_magnitude_adjoint = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
-                .vorticity_normal_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
-                .confined_velocity_adjoint = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .vorticity_adjoint              = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .vorticity_magnitude_adjoint    = domain.allocate_scalar_adjoint_field(domain.configuration.particle_count),
+                .vorticity_normal_adjoint       = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
+                .confined_velocity_adjoint      = domain.allocate_vector_adjoint_field(domain.configuration.particle_count),
             };
             workspace.segment_position_history.reserve(configuration.checkpoint_interval + 1u);
             for (std::uint32_t index = 0u; index <= configuration.checkpoint_interval; ++index) workspace.segment_position_history.push_back(domain.allocate_vector_field(domain.configuration.particle_count));
@@ -70,41 +69,45 @@ namespace physica::fluids::liquid::particle {
 
     PBF::IterationPrimal PBF::allocate_iteration() const {
         return {
-            .densities = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .gradient_sums = domain.allocate_vector_field(domain.configuration.particle_count),
-            .denominators = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .lambdas = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .corrections = domain.allocate_vector_field(domain.configuration.particle_count),
+            .densities       = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .gradient_sums   = domain.allocate_vector_field(domain.configuration.particle_count),
+            .denominators    = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .lambdas         = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .corrections     = domain.allocate_vector_field(domain.configuration.particle_count),
             .collision_masks = allocate_buffer<::cuda::device_buffer<std::uint32_t>>(domain),
         };
     }
 
-    PBF::State PBF::allocate_state() const { return {.particles = domain.allocate_particle_state()}; }
-    Control PBF::allocate_control() const { return domain.allocate_control(); }
+    PBF::State PBF::allocate_state() const {
+        return {.particles = domain.allocate_particle_state()};
+    }
+    Control PBF::allocate_control() const {
+        return domain.allocate_control();
+    }
 
     PBF::Parameters PBF::allocate_parameters() const {
         return {
-            .particles = domain.allocate_particle_parameters(),
-            .relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .particles                    = domain.allocate_particle_parameters(),
+            .relaxation                   = allocate_buffer<::cuda::device_buffer<float>>(domain),
             .artificial_pressure_strength = allocate_buffer<::cuda::device_buffer<float>>(domain),
             .artificial_pressure_exponent = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .artificial_pressure_radius = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .xsph_viscosity = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .vorticity_confinement = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .artificial_pressure_radius   = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .xsph_viscosity               = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .vorticity_confinement        = allocate_buffer<::cuda::device_buffer<float>>(domain),
         };
     }
 
     PBF::StepCache PBF::allocate_step_cache() const {
         StepCache cache{
-            .neighborhood = neighborhood_search.allocate(),
-            .predicted_positions = domain.allocate_vector_field(domain.configuration.particle_count),
-            .corrected_positions = domain.allocate_vector_field(domain.configuration.particle_count),
+            .neighborhood             = neighborhood_search.allocate(),
+            .predicted_positions      = domain.allocate_vector_field(domain.configuration.particle_count),
+            .corrected_positions      = domain.allocate_vector_field(domain.configuration.particle_count),
             .reconstructed_velocities = domain.allocate_vector_field(domain.configuration.particle_count),
-            .vorticities = domain.allocate_vector_field(domain.configuration.particle_count),
-            .vorticity_magnitudes = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .vorticity_normals = domain.allocate_vector_field(domain.configuration.particle_count),
-            .vorticity_normalizers = domain.allocate_scalar_field(domain.configuration.particle_count),
-            .confined_velocities = domain.allocate_vector_field(domain.configuration.particle_count),
+            .vorticities              = domain.allocate_vector_field(domain.configuration.particle_count),
+            .vorticity_magnitudes     = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .vorticity_normals        = domain.allocate_vector_field(domain.configuration.particle_count),
+            .vorticity_normalizers    = domain.allocate_scalar_field(domain.configuration.particle_count),
+            .confined_velocities      = domain.allocate_vector_field(domain.configuration.particle_count),
         };
         cache.checkpoints.push_back({.iteration = 0u, .positions = domain.allocate_vector_field(domain.configuration.particle_count)});
         for (std::uint32_t iteration = configuration.checkpoint_interval; iteration < configuration.pressure_iterations; iteration += configuration.checkpoint_interval) cache.checkpoints.push_back({.iteration = iteration, .positions = domain.allocate_vector_field(domain.configuration.particle_count)});
@@ -112,18 +115,22 @@ namespace physica::fluids::liquid::particle {
         return cache;
     }
 
-    PBF::StateTangent PBF::allocate_state_tangent() const { return {.particles = domain.allocate_particle_state_tangent()}; }
-    ControlTangent PBF::allocate_control_tangent() const { return domain.allocate_control_tangent(); }
+    PBF::StateTangent PBF::allocate_state_tangent() const {
+        return {.particles = domain.allocate_particle_state_tangent()};
+    }
+    ControlTangent PBF::allocate_control_tangent() const {
+        return domain.allocate_control_tangent();
+    }
 
     PBF::ParameterTangent PBF::allocate_parameter_tangent() const {
         ParameterTangent tangent{
-            .particles = domain.allocate_particle_parameter_tangent(),
-            .relaxation = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .particles                    = domain.allocate_particle_parameter_tangent(),
+            .relaxation                   = allocate_buffer<::cuda::device_buffer<float>>(domain),
             .artificial_pressure_strength = allocate_buffer<::cuda::device_buffer<float>>(domain),
             .artificial_pressure_exponent = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .artificial_pressure_radius = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .xsph_viscosity = allocate_buffer<::cuda::device_buffer<float>>(domain),
-            .vorticity_confinement = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .artificial_pressure_radius   = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .xsph_viscosity               = allocate_buffer<::cuda::device_buffer<float>>(domain),
+            .vorticity_confinement        = allocate_buffer<::cuda::device_buffer<float>>(domain),
         };
         ::cuda::fill_bytes(domain.stream, tangent.relaxation, 0u);
         ::cuda::fill_bytes(domain.stream, tangent.artificial_pressure_strength, 0u);
@@ -134,18 +141,22 @@ namespace physica::fluids::liquid::particle {
         return tangent;
     }
 
-    PBF::StateAdjoint PBF::allocate_state_adjoint() const { return {.particles = domain.allocate_particle_state_adjoint()}; }
-    ControlAdjoint PBF::allocate_control_adjoint() const { return domain.allocate_control_adjoint(); }
+    PBF::StateAdjoint PBF::allocate_state_adjoint() const {
+        return {.particles = domain.allocate_particle_state_adjoint()};
+    }
+    ControlAdjoint PBF::allocate_control_adjoint() const {
+        return domain.allocate_control_adjoint();
+    }
 
     PBF::ParameterAdjoint PBF::allocate_parameter_adjoint() const {
         ParameterAdjoint adjoint{
-            .particles = domain.allocate_particle_parameter_adjoint(),
-            .relaxation = allocate_buffer<::cuda::device_buffer<double>>(domain),
+            .particles                    = domain.allocate_particle_parameter_adjoint(),
+            .relaxation                   = allocate_buffer<::cuda::device_buffer<double>>(domain),
             .artificial_pressure_strength = allocate_buffer<::cuda::device_buffer<double>>(domain),
             .artificial_pressure_exponent = allocate_buffer<::cuda::device_buffer<double>>(domain),
-            .artificial_pressure_radius = allocate_buffer<::cuda::device_buffer<double>>(domain),
-            .xsph_viscosity = allocate_buffer<::cuda::device_buffer<double>>(domain),
-            .vorticity_confinement = allocate_buffer<::cuda::device_buffer<double>>(domain),
+            .artificial_pressure_radius   = allocate_buffer<::cuda::device_buffer<double>>(domain),
+            .xsph_viscosity               = allocate_buffer<::cuda::device_buffer<double>>(domain),
+            .vorticity_confinement        = allocate_buffer<::cuda::device_buffer<double>>(domain),
         };
         ::cuda::fill_bytes(domain.stream, adjoint.relaxation, 0u);
         ::cuda::fill_bytes(domain.stream, adjoint.artificial_pressure_strength, 0u);
@@ -156,10 +167,18 @@ namespace physica::fluids::liquid::particle {
         return adjoint;
     }
 
-    void PBF::copy_state(const State& source, State& destination) const { domain.copy(source.particles, destination.particles); }
-    void PBF::copy_state_tangent(const StateTangent& source, StateTangent& destination) const { domain.copy(source.particles, destination.particles); }
-    void PBF::copy_state_adjoint(const StateAdjoint& source, StateAdjoint& destination) const { domain.copy(source.particles, destination.particles); }
-    void PBF::accumulate_state_adjoint(const StateAdjoint& source, StateAdjoint& destination) const { domain.accumulate(source.particles, destination.particles); }
+    void PBF::copy_state(const State& source, State& destination) const {
+        domain.copy(source.particles, destination.particles);
+    }
+    void PBF::copy_state_tangent(const StateTangent& source, StateTangent& destination) const {
+        domain.copy(source.particles, destination.particles);
+    }
+    void PBF::copy_state_adjoint(const StateAdjoint& source, StateAdjoint& destination) const {
+        domain.copy(source.particles, destination.particles);
+    }
+    void PBF::accumulate_state_adjoint(const StateAdjoint& source, StateAdjoint& destination) const {
+        domain.accumulate(source.particles, destination.particles);
+    }
 
     void PBF::forward_step(const State& state, const Control& control, const Parameters& parameters, State& next_state, StepCache& cache) {
         const std::uint32_t count = domain.configuration.particle_count;
@@ -189,7 +208,7 @@ namespace physica::fluids::liquid::particle {
 
     void PBF::jvp_step(const State& state, const Control&, const Parameters& parameters, const State&, const StepCache& cache, const StateTangent& state_tangent, const ControlTangent& control_tangent, const ParameterTangent& parameter_tangent, StateTangent& next_state_tangent) {
         Differentiation& workspace = *differentiation;
-        const std::uint32_t count = domain.configuration.particle_count;
+        const std::uint32_t count  = domain.configuration.particle_count;
         cuda_detail::pbf::launch_predict_jvp(domain.stream, count, domain.configuration.time_step, cuda_detail::vector(state_tangent.particles.positions), cuda_detail::vector(state_tangent.particles.velocities), cuda_detail::vector(control_tangent.external_accelerations), cuda_detail::vector(workspace.current_position_tangent));
         domain.copy(cache.predicted_positions, workspace.segment_position_history.front());
         for (std::uint32_t iteration = 0u; iteration < configuration.pressure_iterations; ++iteration) {
@@ -213,7 +232,7 @@ namespace physica::fluids::liquid::particle {
 
     void PBF::vjp_step(const State& state, const Control&, const Parameters& parameters, const State&, const StepCache& cache, const StateAdjoint& next_state_adjoint, StateAdjoint& previous_state_adjoint, ControlAdjoint& control_adjoint, ParameterAdjoint& parameter_adjoint) {
         Differentiation& workspace = *differentiation;
-        const std::uint32_t count = domain.configuration.particle_count;
+        const std::uint32_t count  = domain.configuration.particle_count;
         domain.copy(next_state_adjoint.particles.positions, workspace.current_position_adjoint);
         domain.clear(workspace.confined_velocity_adjoint);
         cuda_detail::pbf::launch_xsph_vjp(domain.stream, count, domain.configuration.support_radius, cuda_detail::vector(cache.predicted_positions), cuda_detail::vector(cache.corrected_positions), cuda_detail::vector(cache.confined_velocities), cuda_detail::neighborhood(cache.neighborhood), parameters.xsph_viscosity.data(), cuda_detail::adjoint_vector(next_state_adjoint.particles.velocities), cuda_detail::adjoint_vector(workspace.current_position_adjoint), cuda_detail::adjoint_vector(workspace.confined_velocity_adjoint), parameter_adjoint.xsph_viscosity.data());
@@ -228,8 +247,8 @@ namespace physica::fluids::liquid::particle {
 
         for (std::size_t segment = cache.checkpoints.size(); segment-- > 1uz;) {
             const StepCache::IterationCheckpoint& start = cache.checkpoints[segment - 1uz];
-            const StepCache::IterationCheckpoint& end = cache.checkpoints[segment];
-            const std::uint32_t segment_length = end.iteration - start.iteration;
+            const StepCache::IterationCheckpoint& end   = cache.checkpoints[segment];
+            const std::uint32_t segment_length          = end.iteration - start.iteration;
             domain.copy(start.positions, workspace.segment_position_history[0]);
             for (std::uint32_t local_iteration = 0u; local_iteration < segment_length; ++local_iteration) {
                 IterationPrimal& iteration = workspace.segment_iteration_history[local_iteration];

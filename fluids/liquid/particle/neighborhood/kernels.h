@@ -2,9 +2,9 @@
 #define PHYSICA_FLUIDS_LIQUID_PARTICLE_NEIGHBORHOOD_KERNELS_H
 
 #include "../domain/device.h"
-#include <physica/cuda_stream.h>
 #include <cstddef>
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::liquid::particle::cuda_detail {
     std::size_t radix_sort_storage_size(std::uint32_t count);

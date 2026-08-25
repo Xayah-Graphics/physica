@@ -34,7 +34,7 @@ export namespace physica::deformables::cloth {
         void vjp(const Domain& domain, const ScalarField& masses, const VectorField& forces, const StateAdjoint& integrated_state_adjoint, StateAdjoint& state_adjoint, VectorAdjointField& force_adjoint, ScalarAdjointField& mass_adjoint) const;
     };
 
-    template<class Algorithm>
+    template <class Algorithm>
     concept IntegrationAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration, ExecutionMode> && requires(Algorithm algorithm, const Algorithm const_algorithm, const Domain& domain, const State& state, const ScalarField& scalar, const VectorField& vector, typename Algorithm::Cache& cache, const StateTangent& state_tangent, const StateAdjoint& integrated_adjoint, StateAdjoint& state_adjoint, VectorAdjointField& vector_adjoint, ScalarAdjointField& scalar_adjoint) {
         { const_algorithm.allocate_cache(domain) } -> std::same_as<typename Algorithm::Cache>;
         const_algorithm.forward(domain, state, scalar, vector, cache);

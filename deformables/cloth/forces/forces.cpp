@@ -27,7 +27,7 @@ namespace physica::deformables::cloth {
             topology.indices.resize(topology.springs.size() * 2uz);
             std::vector<std::uint32_t> cursors = topology.offsets;
             for (std::uint32_t spring = 0u; spring < topology.springs.size(); ++spring) {
-                topology.indices[cursors[topology.springs[spring].first]++] = spring;
+                topology.indices[cursors[topology.springs[spring].first]++]  = spring;
                 topology.indices[cursors[topology.springs[spring].second]++] = spring;
             }
         }
@@ -37,7 +37,7 @@ namespace physica::deformables::cloth {
             for (const Triangle triangle : configuration.triangles) {
                 const std::array vertices{triangle.first, triangle.second, triangle.third};
                 for (std::size_t edge = 0uz; edge < 3uz; ++edge) {
-                    const std::uint32_t first = vertices[edge] < vertices[(edge + 1uz) % 3uz] ? vertices[edge] : vertices[(edge + 1uz) % 3uz];
+                    const std::uint32_t first  = vertices[edge] < vertices[(edge + 1uz) % 3uz] ? vertices[edge] : vertices[(edge + 1uz) % 3uz];
                     const std::uint32_t second = vertices[edge] < vertices[(edge + 1uz) % 3uz] ? vertices[(edge + 1uz) % 3uz] : vertices[edge];
                     edge_opposites[{first, second}].push_back(vertices[(edge + 2uz) % 3uz]);
                 }
@@ -48,7 +48,7 @@ namespace physica::deformables::cloth {
             for (const auto& [edge, opposites] : edge_opposites) {
                 result.stretch.springs.push_back({.first = edge.first, .second = edge.second, .rest_length = distance(configuration.rest_positions[edge.first], configuration.rest_positions[edge.second])});
                 if (opposites.size() == 2uz) {
-                    const std::uint32_t first = opposites[0] < opposites[1] ? opposites[0] : opposites[1];
+                    const std::uint32_t first  = opposites[0] < opposites[1] ? opposites[0] : opposites[1];
                     const std::uint32_t second = opposites[0] < opposites[1] ? opposites[1] : opposites[0];
                     result.bending.springs.push_back({.first = first, .second = second, .rest_length = distance(configuration.rest_positions[first], configuration.rest_positions[second])});
                 }
@@ -60,8 +60,8 @@ namespace physica::deformables::cloth {
 
         DeviceSpringTopology allocate_device_topology(const Domain& domain, const SpringTopology& topology) {
             return {
-                .first = domain.allocate_index_field(topology.springs.size()),
-                .second = domain.allocate_index_field(topology.springs.size()),
+                .first   = domain.allocate_index_field(topology.springs.size()),
+                .second  = domain.allocate_index_field(topology.springs.size()),
                 .offsets = domain.allocate_index_field(topology.offsets.size()),
                 .indices = domain.allocate_index_field(topology.indices.size()),
             };
@@ -71,7 +71,7 @@ namespace physica::deformables::cloth {
             std::vector<std::uint32_t> first(topology.springs.size());
             std::vector<std::uint32_t> second(topology.springs.size());
             for (std::size_t spring = 0uz; spring < topology.springs.size(); ++spring) {
-                first[spring] = topology.springs[spring].first;
+                first[spring]  = topology.springs[spring].first;
                 second[spring] = topology.springs[spring].second;
             }
             ::cuda::copy_bytes(domain.stream, first, destination.first.values);
@@ -82,8 +82,8 @@ namespace physica::deformables::cloth {
 
         cuda_detail::SpringTopologyView view(const DeviceSpringTopology& topology) {
             return {
-                .first = topology.first.values.data(),
-                .second = topology.second.values.data(),
+                .first   = topology.first.values.data(),
+                .second  = topology.second.values.data(),
                 .offsets = topology.offsets.values.data(),
                 .indices = topology.indices.values.data(),
             };
@@ -118,8 +118,7 @@ namespace physica::deformables::cloth {
         }
     } // namespace
 
-    MassSpringForces::MassSpringForces(const Domain& domain, Configuration next_configuration, const ExecutionMode mode)
-        : configuration(std::move(next_configuration)), topology(build_topology(domain.configuration)), device_topology{.stretch = allocate_device_topology(domain, topology.stretch), .bending = allocate_device_topology(domain, topology.bending)}, differentiation{} {
+    MassSpringForces::MassSpringForces(const Domain& domain, Configuration next_configuration, const ExecutionMode mode) : configuration(std::move(next_configuration)), topology(build_topology(domain.configuration)), device_topology{.stretch = allocate_device_topology(domain, topology.stretch), .bending = allocate_device_topology(domain, topology.bending)}, differentiation{} {
         upload_topology(domain, topology.stretch, device_topology.stretch);
         upload_topology(domain, topology.bending, device_topology.bending);
         if (mode == ExecutionMode::differentiable) differentiation.emplace(Differentiation{.tangent = domain.allocate_vector_field(), .adjoint = domain.allocate_vector_adjoint_field()});

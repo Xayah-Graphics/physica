@@ -95,7 +95,7 @@ export namespace physica::deformables::cloth {
         void vjp(const Domain& domain, const State& state, const ScalarField& masses, const Parameters& parameters, const VectorAdjointField& force_adjoint, StateAdjoint& state_adjoint, ControlAdjoint& control_adjoint, ScalarAdjointField& mass_adjoint, ParameterAdjoint& parameter_adjoint) const;
     };
 
-    template<class Algorithm>
+    template <class Algorithm>
     concept ForceAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration, ExecutionMode> && requires(Algorithm algorithm, const Algorithm const_algorithm, const Domain& domain, const State& state, const Control& control, const ScalarField& scalar, const typename Algorithm::Parameters& parameters, const StateTangent& state_tangent, const ControlTangent& control_tangent, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::Cache& cache, const typename Algorithm::Cache& const_cache, StateAdjoint& state_adjoint, ControlAdjoint& control_adjoint, ScalarAdjointField& scalar_adjoint, typename Algorithm::ParameterAdjoint& parameter_adjoint, const VectorAdjointField& vector_adjoint) {
         { const_algorithm.allocate_parameters(domain) } -> std::same_as<typename Algorithm::Parameters>;
         { const_algorithm.allocate_parameter_tangent(domain) } -> std::same_as<typename Algorithm::ParameterTangent>;

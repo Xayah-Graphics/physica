@@ -13,7 +13,7 @@ namespace physica::deformables::cloth {
         std::vector<std::uint32_t> host_mask(domain.particle_count);
         std::vector<Vector3> host_positions(domain.particle_count);
         for (std::size_t particle = 0uz; particle < domain.particle_count; ++particle) {
-            host_mask[particle] = domain.configuration.anchors[particle].has_value() ? 1u : 0u;
+            host_mask[particle]      = domain.configuration.anchors[particle].has_value() ? 1u : 0u;
             host_positions[particle] = domain.configuration.anchors[particle].value_or(domain.configuration.rest_positions[particle]);
         }
         ::cuda::copy_bytes(domain.stream, host_mask, anchor_mask.values);

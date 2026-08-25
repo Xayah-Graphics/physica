@@ -9,6 +9,14 @@ module;
 module physica.example.fluids.gas.keyframe_smoke;
 
 import std;
+import physica.fluids.gas.domain;
+import physica.fluids.gas.operators.force;
+import physica.fluids.gas.operators.objective;
+import physica.fluids.gas.keyframe_smoke;
+import physica.fluids.gas.keyframe_smoke.control;
+import physica.fluids.gas.keyframe_smoke.evaluation;
+import physica.fluids.gas.keyframe_smoke.optimization;
+import physica.optimization.lbfgsb;
 
 namespace physica::examples::keyframe_smoke {
     namespace {
@@ -23,12 +31,12 @@ namespace physica::examples::keyframe_smoke {
         };
 
         float segment_distance(const Point point, const Segment segment) {
-            const float dx = segment.end.x - segment.begin.x;
-            const float dy = segment.end.y - segment.begin.y;
+            const float dx          = segment.end.x - segment.begin.x;
+            const float dy          = segment.end.y - segment.begin.y;
             const float denominator = dx * dx + dy * dy;
-            const float parameter = std::clamp(((point.x - segment.begin.x) * dx + (point.y - segment.begin.y) * dy) / denominator, 0.0F, 1.0F);
-            const float rx = point.x - (segment.begin.x + parameter * dx);
-            const float ry = point.y - (segment.begin.y + parameter * dy);
+            const float parameter   = std::clamp(((point.x - segment.begin.x) * dx + (point.y - segment.begin.y) * dy) / denominator, 0.0F, 1.0F);
+            const float rx          = point.x - (segment.begin.x + parameter * dx);
+            const float ry          = point.y - (segment.begin.y + parameter * dy);
             return std::sqrt(rx * rx + ry * ry);
         }
 
@@ -41,18 +49,18 @@ namespace physica::examples::keyframe_smoke {
         }
 
         void write_density_image(const std::filesystem::path& path, const std::span<const float> density, const std::uint32_t width, const std::uint32_t height, const std::uint32_t scale, const float maximum) {
-            const std::uint32_t image_width = width * scale;
+            const std::uint32_t image_width  = width * scale;
             const std::uint32_t image_height = height * scale;
             std::vector<std::uint8_t> pixels(static_cast<std::size_t>(image_width) * image_height * 3u);
             for (std::uint32_t image_y = 0u; image_y < image_height; ++image_y) {
                 for (std::uint32_t image_x = 0u; image_x < image_width; ++image_x) {
-                    const std::uint32_t x = image_x / scale;
-                    const std::uint32_t y = height - 1u - image_y / scale;
-                    const float value = std::pow(std::clamp(density[x + static_cast<std::size_t>(width) * y] / maximum, 0.0F, 1.0F), 0.62F);
+                    const std::uint32_t x   = image_x / scale;
+                    const std::uint32_t y   = height - 1u - image_y / scale;
+                    const float value       = std::pow(std::clamp(density[x + static_cast<std::size_t>(width) * y] / maximum, 0.0F, 1.0F), 0.62F);
                     const std::size_t index = 3u * (image_x + static_cast<std::size_t>(image_width) * image_y);
-                    pixels[index] = static_cast<std::uint8_t>(3.0F + 235.0F * value);
-                    pixels[index + 1u] = static_cast<std::uint8_t>(17.0F + 229.0F * value);
-                    pixels[index + 2u] = static_cast<std::uint8_t>(58.0F + 194.0F * value);
+                    pixels[index]           = static_cast<std::uint8_t>(3.0F + 235.0F * value);
+                    pixels[index + 1u]      = static_cast<std::uint8_t>(17.0F + 229.0F * value);
+                    pixels[index + 2u]      = static_cast<std::uint8_t>(58.0F + 194.0F * value);
                 }
             }
             stbi_write_png(path.string().c_str(), image_width, image_height, 3, pixels.data(), image_width * 3u);
@@ -61,11 +69,11 @@ namespace physica::examples::keyframe_smoke {
 
     void compose(const std::filesystem::path& results_directory) {
         constexpr std::array letters{'S', 'M', 'O', 'K', 'E'};
-        constexpr std::uint32_t letter_resolution = Experiment::resolution;
-        constexpr std::uint32_t width = letter_resolution * letters.size();
-        constexpr std::uint32_t height = letter_resolution;
-        constexpr std::uint32_t dissipation_steps = 90u;
-        constexpr float dissipation_rate = 0.65F;
+        constexpr std::uint32_t letter_resolution    = Experiment::resolution;
+        constexpr std::uint32_t width                = letter_resolution * letters.size();
+        constexpr std::uint32_t height               = letter_resolution;
+        constexpr std::uint32_t dissipation_steps    = 90u;
+        constexpr float dissipation_rate             = 0.65F;
         const std::filesystem::path output_directory = results_directory / "composition";
         std::filesystem::create_directories(output_directory / "frames");
 
@@ -74,40 +82,38 @@ namespace physica::examples::keyframe_smoke {
             std::vector<float> density(letter_resolution * letter_resolution);
             std::ifstream input(results_directory / "final" / std::string(1u, letters[letter_index]) / "final-density.bin", std::ios::binary);
             input.read(reinterpret_cast<char*>(density.data()), static_cast<std::streamsize>(density.size() * sizeof(float)));
-            for (std::uint32_t y = 0u; y < height; ++y) for (std::uint32_t x = 0u; x < letter_resolution; ++x) combined[letter_index * letter_resolution + x + static_cast<std::size_t>(width) * y] = density[x + letter_resolution * y];
+            for (std::uint32_t y = 0u; y < height; ++y)
+                for (std::uint32_t x = 0u; x < letter_resolution; ++x) combined[letter_index * letter_resolution + x + static_cast<std::size_t>(width) * y] = density[x + letter_resolution * y];
         }
         const float initial_maximum = std::ranges::max(combined);
         write_density_image(output_directory / "smoke.png", combined, width, height, 6u, initial_maximum);
 
         ::cuda::stream stream{::cuda::devices[0]};
-        fluids::gas::keyframe_smoke::DomainConfiguration domain_configuration{
-            .dimension = fluids::gas::keyframe_smoke::SpatialDimension::planar,
+        fluids::gas::DomainConfiguration domain_configuration{
             .resolution = {width, height, 1u},
-            .cell_size = Experiment::cell_size,
-            .time_step = Experiment::time_step,
+            .cell_size  = Experiment::cell_size,
+            .time_step  = Experiment::time_step,
         };
-        domain_configuration.velocity_boundary.x_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        domain_configuration.velocity_boundary.x_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        domain_configuration.velocity_boundary.y_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        domain_configuration.velocity_boundary.y_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::zero_gradient;
-        domain_configuration.velocity_boundary.z_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::fixed_value;
-        domain_configuration.velocity_boundary.z_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::fixed_value;
-        fluids::gas::keyframe_smoke::Domain domain{std::move(domain_configuration), stream};
-        fluids::gas::keyframe_smoke::Solver solver{domain, {
-            .diffusion_iterations = 16u,
-            .pressure_iterations = 120u,
-            .viscosity = 2.0e-5F,
-            .density_buoyancy = 0.20F,
-            .vorticity_confinement = 0.0F,
-            .density_dissipation = dissipation_rate,
-        }};
-        fluids::gas::keyframe_smoke::State current = solver.allocate_state(domain);
-        fluids::gas::keyframe_smoke::State next = solver.allocate_state(domain);
+        domain_configuration.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        domain_configuration.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        domain_configuration.velocity_boundary.y_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        domain_configuration.velocity_boundary.y_max.mode = fluids::gas::VelocityBoundaryMode::zero_gradient;
+        domain_configuration.velocity_boundary.z_min.mode = fluids::gas::VelocityBoundaryMode::fixed_value;
+        domain_configuration.velocity_boundary.z_max.mode = fluids::gas::VelocityBoundaryMode::fixed_value;
+        fluids::gas::Domain domain{std::move(domain_configuration), stream};
+        decltype(Experiment::solver) solver{domain, {
+                                                        .diffusion    = {.iterations = 16u, .viscosity = 2.0e-5F},
+                                                        .force        = {.density_buoyancy = 0.20F, .vorticity_confinement = 0.0F},
+                                                        .conservation = {.dissipation = dissipation_rate},
+                                                        .projection   = {.pressure = {.iterations = 120u}},
+                                                    }};
+        fluids::gas::keyframe_smoke::State current        = solver.allocate_state(domain);
+        fluids::gas::keyframe_smoke::State next           = solver.allocate_state(domain);
         fluids::gas::keyframe_smoke::DenseControl control = solver.allocate_control(domain);
-        fluids::gas::keyframe_smoke::StepCache cache = solver.allocate_step_cache(domain);
+        decltype(solver)::StepCache cache                 = solver.allocate_step_cache(domain);
+        decltype(solver)::Workspace workspace             = solver.allocate_workspace(domain);
         ::cuda::copy_bytes(stream, combined, current.density.values);
         domain.clear(current.velocity);
-        solver.clear(domain, control);
 
         const double initial_mass = sum(combined);
         std::ofstream masses(output_directory / "mass.csv");
@@ -121,7 +127,7 @@ namespace physica::examples::keyframe_smoke {
             std::ofstream raw(output_directory / "frames" / std::format("dissipation-{:03}.bin", step), std::ios::binary);
             raw.write(reinterpret_cast<const char*>(combined.data()), static_cast<std::streamsize>(combined.size() * sizeof(float)));
             if (step == dissipation_steps) continue;
-            solver.forward(domain, current, control, next, cache);
+            solver.forward(domain, current, control, next, cache, workspace);
             std::swap(current, next);
         }
         std::filesystem::copy_file(output_directory / "frames" / std::format("dissipation-{:03}.png", dissipation_steps), output_directory / "dissipated.png", std::filesystem::copy_options::overwrite_existing);
@@ -136,22 +142,17 @@ namespace physica::examples::keyframe_smoke {
     }
 
     Experiment::Experiment(const char next_letter)
-        : stream{::cuda::devices[0]},
-          domain{create_domain_configuration(), stream},
-          solver{domain, {
-              .diffusion_iterations = 16u,
-              .pressure_iterations = 100u,
-              .viscosity = 2.0e-5F,
-              .density_buoyancy = 0.65F,
-              .vorticity_confinement = 0.0F,
-          }},
-          control{domain, create_control_configuration(next_letter)},
-          objective{domain, {.control_effort_weight = 1.0e-4, .blur_sigma_cells = 4.0F}},
-          letter{next_letter},
+        : stream{::cuda::devices[0]}, domain{create_domain_configuration(), stream}, solver{domain,
+                                                                                         {
+                                                                                             .diffusion  = {.iterations = 16u, .viscosity = 2.0e-5F},
+                                                                                             .force      = {.density_buoyancy = 0.65F, .vorticity_confinement = 0.0F},
+                                                                                             .projection = {.pressure = {.iterations = 100u}},
+                                                                                         }},
+          control{domain, create_control_configuration(next_letter)}, objective{domain, {.control_effort_weight = 1.0e-4, .blur_sigma_cells = 4.0F}}, letter{next_letter},
           problem{
-              step_count,
-              create_state(create_initial_density()),
-              create_keyframes(),
+              .step_count    = step_count,
+              .initial_state = create_state(create_initial_density()),
+              .keyframes     = create_keyframes(),
           },
           evaluator{domain, solver, control, objective, problem} {
         stream.sync();
@@ -164,7 +165,7 @@ namespace physica::examples::keyframe_smoke {
         std::filesystem::create_directories(output_directory / "levels");
         std::filesystem::create_directories(output_directory / "frames");
         const std::vector<float> initial_density = download_density(problem.initial_state);
-        const std::vector<float> target_density = download_density(problem.keyframes.back().target);
+        const std::vector<float> target_density  = download_density(problem.keyframes.back().target);
         write_density(output_directory / "initial.png", initial_density);
         write_density(output_directory / "target.png", target_density);
 
@@ -176,7 +177,7 @@ namespace physica::examples::keyframe_smoke {
                  << "  \"physical_step_count\": " << step_count << ",\n"
                  << "  \"time_step\": " << std::setprecision(9) << time_step << ",\n"
                  << "  \"control_window_steps\": " << control_window_steps << ",\n"
-                 << "  \"parameter_count\": " << control.parameters.values.size() << "\n"
+                 << "  \"parameter_count\": " << control.parameter_values.size() << "\n"
                  << "}\n";
         metadata.close();
 
@@ -184,9 +185,10 @@ namespace physica::examples::keyframe_smoke {
         evaluations << "record,continuation_level,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm,parameter_file\n";
         evaluations << std::setprecision(17);
 
-        std::vector<double> parameters = control.parameters.values;
+        std::vector<double> parameters              = control.parameter_values;
         std::vector<std::uint8_t> active_parameters = control.active_parameters(0u, step_count);
-        for (std::size_t parameter = 0u; parameter < active_parameters.size(); ++parameter) if (control.parameters.lower_bounds[parameter] == control.parameters.upper_bounds[parameter]) active_parameters[parameter] = 0u;
+        for (std::size_t parameter = 0u; parameter < active_parameters.size(); ++parameter)
+            if (control.lower_bounds[parameter] == control.upper_bounds[parameter]) active_parameters[parameter] = 0u;
 
         const std::array continuation{
             fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 2.0F, .optimizer = {.memory = 12u, .maximum_iterations = 48u, .maximum_evaluations = 480u, .maximum_line_search_evaluations = 24u, .projected_gradient_tolerance = 2.0e-5, .relative_objective_tolerance = 1.0e-9}},
@@ -201,28 +203,17 @@ namespace physica::examples::keyframe_smoke {
         std::vector<float> final_density;
         for (std::uint32_t level = 0u; level < continuation.size(); ++level) {
             fluids::gas::keyframe_smoke::OptimizationRunner runner{
-                .domain = domain,
-                .evaluator = evaluator,
-                .objective = objective,
-                .control = control,
-                .continuation = {continuation[level]},
+                .domain             = domain,
+                .evaluator          = evaluator,
+                .objective_function = objective,
+                .control            = control,
+                .continuation       = {continuation[level]},
             };
             fluids::gas::keyframe_smoke::OptimizationResult result = runner.run(parameters, active_parameters, {.continuation_level = level});
             for (const fluids::gas::keyframe_smoke::OptimizationEvaluation& evaluation : result.evaluations) {
                 const std::filesystem::path parameter_path = std::filesystem::path{"parameters"} / std::format("evaluation-{:06}.bin", record_index);
                 write_parameters(output_directory / parameter_path, evaluation.parameters);
-                evaluations << record_index << ','
-                            << evaluation.coordinates.continuation_level << ','
-                            << evaluation.coordinates.optimizer_iteration << ','
-                            << evaluation.coordinates.objective_evaluation << ','
-                            << evaluation.coordinates.line_search_evaluation << ','
-                            << evaluation.coordinates.line_search_step << ','
-                            << evaluation.summary.objective << ','
-                            << evaluation.summary.density_loss << ','
-                            << evaluation.summary.control_effort << ','
-                            << evaluation.summary.gradient_norm << ','
-                            << evaluation.summary.projected_gradient_norm << ','
-                            << parameter_path.generic_string() << '\n';
+                evaluations << record_index << ',' << evaluation.coordinates.continuation_level << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.summary.gradient_norm << ',' << evaluation.summary.projected_gradient_norm << ',' << parameter_path.generic_string() << '\n';
                 ++record_index;
             }
             evaluations.flush();
@@ -255,8 +246,7 @@ namespace physica::examples::keyframe_smoke {
         write_density(output_directory / "residual.png", residual);
         const ShapeMetrics metrics = shape_metrics(final_density, target_density);
         std::ofstream summary(output_directory / "summary.json");
-        summary << std::setprecision(17)
-                << "{\n"
+        summary << std::setprecision(17) << "{\n"
                 << "  \"letter\": \"" << letter << "\",\n"
                 << "  \"objective\": " << final_summary.objective << ",\n"
                 << "  \"density_loss\": " << final_summary.density_loss << ",\n"
@@ -273,19 +263,18 @@ namespace physica::examples::keyframe_smoke {
         std::println("{} final: relative L2={:.6f}, NCC={:.6f}, soft Dice={:.6f}, mass error={:.3e}", letter, metrics.relative_l2, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.mass_relative_error);
     }
 
-    fluids::gas::keyframe_smoke::DomainConfiguration Experiment::create_domain_configuration() {
-        fluids::gas::keyframe_smoke::DomainConfiguration result{
-            .dimension = fluids::gas::keyframe_smoke::SpatialDimension::planar,
+    fluids::gas::DomainConfiguration Experiment::create_domain_configuration() {
+        fluids::gas::DomainConfiguration result{
             .resolution = {resolution, resolution, 1u},
-            .cell_size = cell_size,
-            .time_step = time_step,
+            .cell_size  = cell_size,
+            .time_step  = time_step,
         };
-        result.velocity_boundary.x_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.x_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.y_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.y_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.z_min.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::fixed_value;
-        result.velocity_boundary.z_max.mode = fluids::gas::keyframe_smoke::VelocityBoundaryMode::fixed_value;
+        result.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.y_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.y_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.z_min.mode = fluids::gas::VelocityBoundaryMode::fixed_value;
+        result.velocity_boundary.z_max.mode = fluids::gas::VelocityBoundaryMode::fixed_value;
         return result;
     }
 
@@ -299,10 +288,10 @@ namespace physica::examples::keyframe_smoke {
                 for (std::uint32_t x = 0u; x < 5u; ++x) {
                     result.winds.push_back({
                         .begin_step = begin_step,
-                        .end_step = begin_step + control_window_steps,
-                        .width = 0.18F,
-                        .center = {fixed(0.10 + 0.20 * x), fixed(0.10 + 0.20 * y), fixed(0.5 * cell_size)},
-                        .vector = {free_force, free_force, fixed(0.0)},
+                        .end_step   = begin_step + control_window_steps,
+                        .width      = 0.18F,
+                        .center     = {fixed(0.10 + 0.20 * x), fixed(0.10 + 0.20 * y), fixed(0.5 * cell_size)},
+                        .vector     = {free_force, free_force, fixed(0.0)},
                     });
                 }
             }
@@ -310,33 +299,35 @@ namespace physica::examples::keyframe_smoke {
                 for (std::uint32_t x = 0u; x < 4u; ++x) {
                     result.vortices.push_back({
                         .begin_step = begin_step,
-                        .end_step = begin_step + control_window_steps,
-                        .width = 0.22F,
-                        .axis = {0.0F, 0.0F, 1.0F},
-                        .center = {fixed(0.20 + 0.20 * x), fixed(0.20 + 0.20 * y), fixed(0.5 * cell_size)},
-                        .strength = free_vortex,
+                        .end_step   = begin_step + control_window_steps,
+                        .width      = 0.22F,
+                        .axis       = {0.0F, 0.0F, 1.0F},
+                        .center     = {fixed(0.20 + 0.20 * x), fixed(0.20 + 0.20 * y), fixed(0.5 * cell_size)},
+                        .strength   = free_vortex,
                     });
                 }
             }
         }
         if (target_letter == 'E') {
             for (std::uint32_t begin_step = 0u; begin_step < step_count; begin_step += control_window_steps) {
-                for (std::uint32_t x = 0u; x < 6u; ++x) result.winds.push_back({
-                    .begin_step = begin_step,
-                    .end_step = begin_step + control_window_steps,
-                    .width = 0.075F,
-                    .center = {fixed(0.28 + 0.088 * x), fixed(0.55), fixed(0.5 * cell_size)},
-                    .vector = {free_force, free_force, fixed(0.0)},
-                });
-                for (std::uint32_t y = 0u; y < 2u; ++y) {
-                    for (std::uint32_t x = 0u; x < 3u; ++x) result.vortices.push_back({
+                for (std::uint32_t x = 0u; x < 6u; ++x)
+                    result.winds.push_back({
                         .begin_step = begin_step,
-                        .end_step = begin_step + control_window_steps,
-                        .width = 0.10F,
-                        .axis = {0.0F, 0.0F, 1.0F},
-                        .center = {fixed(0.38 + 0.12 * x), fixed(0.50 + 0.10 * y), fixed(0.5 * cell_size)},
-                        .strength = free_vortex,
+                        .end_step   = begin_step + control_window_steps,
+                        .width      = 0.075F,
+                        .center     = {fixed(0.28 + 0.088 * x), fixed(0.55), fixed(0.5 * cell_size)},
+                        .vector     = {free_force, free_force, fixed(0.0)},
                     });
+                for (std::uint32_t y = 0u; y < 2u; ++y) {
+                    for (std::uint32_t x = 0u; x < 3u; ++x)
+                        result.vortices.push_back({
+                            .begin_step = begin_step,
+                            .end_step   = begin_step + control_window_steps,
+                            .width      = 0.10F,
+                            .axis       = {0.0F, 0.0F, 1.0F},
+                            .center     = {fixed(0.38 + 0.12 * x), fixed(0.50 + 0.10 * y), fixed(0.5 * cell_size)},
+                            .strength   = free_vortex,
+                        });
                 }
             }
         }
@@ -346,32 +337,29 @@ namespace physica::examples::keyframe_smoke {
     std::vector<fluids::gas::keyframe_smoke::Keyframe> Experiment::create_keyframes() {
         std::vector<fluids::gas::keyframe_smoke::Keyframe> result;
         result.push_back({
-            .step = step_count / 3u,
-            .target = create_state(create_transport_density(1.0F / 3.0F)),
-            .density_weight = 0.25,
+            .step            = step_count / 3u,
+            .target          = create_state(create_transport_density(1.0F / 3.0F)),
+            .density_weight  = 0.25,
             .velocity_weight = 0.0,
-            .pseudo = true,
         });
         result.push_back({
-            .step = 2u * step_count / 3u,
-            .target = create_state(create_transport_density(2.0F / 3.0F)),
-            .density_weight = 0.50,
+            .step            = 2u * step_count / 3u,
+            .target          = create_state(create_transport_density(2.0F / 3.0F)),
+            .density_weight  = 0.50,
             .velocity_weight = 0.0,
-            .pseudo = true,
         });
-        if (letter == 'E') result.push_back({
-            .step = 5u * step_count / 6u,
-            .target = create_state(create_target_density()),
-            .density_weight = 3.0,
-            .velocity_weight = 0.0,
-            .pseudo = true,
-        });
+        if (letter == 'E')
+            result.push_back({
+                .step            = 5u * step_count / 6u,
+                .target          = create_state(create_target_density()),
+                .density_weight  = 3.0,
+                .velocity_weight = 0.0,
+            });
         result.push_back({
-            .step = step_count,
-            .target = create_state(create_target_density()),
-            .density_weight = 3.0,
+            .step            = step_count,
+            .target          = create_state(create_target_density()),
+            .density_weight  = 3.0,
             .velocity_weight = 0.0,
-            .pseudo = false,
         });
         return result;
     }
@@ -390,7 +378,7 @@ namespace physica::examples::keyframe_smoke {
             for (std::uint32_t x = 0u; x < resolution; ++x) {
                 const Point point{(x + 0.5F) * cell_size, (y + 0.5F) * cell_size};
                 const float normalized_distance = segment_distance(point, capsule) / 0.062F;
-                result[x + resolution * y] = std::exp(-0.5F * normalized_distance * normalized_distance * normalized_distance * normalized_distance);
+                result[x + resolution * y]      = std::exp(-0.5F * normalized_distance * normalized_distance * normalized_distance * normalized_distance);
             }
         }
         return result;
@@ -411,11 +399,11 @@ namespace physica::examples::keyframe_smoke {
         if (letter == 'O') {
             constexpr std::uint32_t circle_segments = 40u;
             for (std::uint32_t segment = 0u; segment < circle_segments; ++segment) {
-                const float first_angle = 2.0F * std::numbers::pi_v<float> * segment / circle_segments;
+                const float first_angle  = 2.0F * std::numbers::pi_v<float> * segment / circle_segments;
                 const float second_angle = 2.0F * std::numbers::pi_v<float> * (segment + 1u) / circle_segments;
                 segments.push_back({
                     .begin = {0.50F + 0.20F * std::cos(first_angle), 0.55F + 0.28F * std::sin(first_angle)},
-                    .end = {0.50F + 0.20F * std::cos(second_angle), 0.55F + 0.28F * std::sin(second_angle)},
+                    .end   = {0.50F + 0.20F * std::cos(second_angle), 0.55F + 0.28F * std::sin(second_angle)},
                 });
             }
         }
@@ -427,11 +415,11 @@ namespace physica::examples::keyframe_smoke {
                 float distance = std::numeric_limits<float>::max();
                 for (const Segment segment : segments) distance = std::min(distance, segment_distance(point, segment));
                 const float normalized_distance = distance / 0.047F;
-                result[x + resolution * y] = std::exp(-0.5F * normalized_distance * normalized_distance * normalized_distance * normalized_distance);
+                result[x + resolution * y]      = std::exp(-0.5F * normalized_distance * normalized_distance * normalized_distance * normalized_distance);
             }
         }
         const std::vector<float> initial = create_initial_density();
-        const double scale = sum(initial) / sum(result);
+        const double scale               = sum(initial) / sum(result);
         for (float& value : result) value = static_cast<float>(value * scale);
         return result;
     }
@@ -442,7 +430,7 @@ namespace physica::examples::keyframe_smoke {
             double mass;
         };
         const std::vector<float> initial = create_initial_density();
-        const std::vector<float> target = create_target_density();
+        const std::vector<float> target  = create_target_density();
         std::vector<TransportSample> source_samples;
         std::vector<TransportSample> target_samples;
         for (std::uint32_t y = 0u; y < resolution; ++y) {
@@ -464,8 +452,8 @@ namespace physica::examples::keyframe_smoke {
         std::vector<double> kernel(source_samples.size() * target_samples.size());
         for (std::size_t source = 0u; source < source_samples.size(); ++source) {
             for (std::size_t destination = 0u; destination < target_samples.size(); ++destination) {
-                const double dx = source_samples[source].position.x - target_samples[destination].position.x;
-                const double dy = source_samples[source].position.y - target_samples[destination].position.y;
+                const double dx                                      = source_samples[source].position.x - target_samples[destination].position.x;
+                const double dy                                      = source_samples[source].position.y - target_samples[destination].position.y;
                 kernel[source * target_samples.size() + destination] = std::exp(-(dx * dx + dy * dy) / 0.012);
             }
         }
@@ -488,16 +476,16 @@ namespace physica::examples::keyframe_smoke {
         for (std::size_t source = 0u; source < source_samples.size(); ++source) {
             for (std::size_t destination = 0u; destination < target_samples.size(); ++destination) {
                 const double transported_mass = left[source] * kernel[source * target_samples.size() + destination] * right[destination];
-                const float x = ((1.0F - time) * source_samples[source].position.x + time * target_samples[destination].position.x) / cell_size - 0.5F;
-                const float y = ((1.0F - time) * source_samples[source].position.y + time * target_samples[destination].position.y) / cell_size - 0.5F;
-                const int x0 = static_cast<int>(std::floor(x));
-                const int y0 = static_cast<int>(std::floor(y));
-                const float tx = x - x0;
-                const float ty = y - y0;
+                const float x                 = ((1.0F - time) * source_samples[source].position.x + time * target_samples[destination].position.x) / cell_size - 0.5F;
+                const float y                 = ((1.0F - time) * source_samples[source].position.y + time * target_samples[destination].position.y) / cell_size - 0.5F;
+                const int x0                  = static_cast<int>(std::floor(x));
+                const int y0                  = static_cast<int>(std::floor(y));
+                const float tx                = x - x0;
+                const float ty                = y - y0;
                 for (int offset_y = 0; offset_y < 2; ++offset_y) {
                     for (int offset_x = 0; offset_x < 2; ++offset_x) {
-                        const int sample_x = std::clamp(x0 + offset_x, 0, static_cast<int>(resolution) - 1);
-                        const int sample_y = std::clamp(y0 + offset_y, 0, static_cast<int>(resolution) - 1);
+                        const int sample_x   = std::clamp(x0 + offset_x, 0, static_cast<int>(resolution) - 1);
+                        const int sample_y   = std::clamp(y0 + offset_y, 0, static_cast<int>(resolution) - 1);
                         const float weight_x = offset_x == 0 ? 1.0F - tx : tx;
                         const float weight_y = offset_y == 0 ? 1.0F - ty : ty;
                         result[sample_x + resolution * sample_y] += static_cast<float>(transported_mass * weight_x * weight_y);
@@ -519,9 +507,9 @@ namespace physica::examples::keyframe_smoke {
 
     ShapeMetrics Experiment::shape_metrics(const std::span<const float> density, const std::span<const float> target) const {
         double difference_squared = 0.0;
-        double density_squared = 0.0;
-        double target_squared = 0.0;
-        double dot = 0.0;
+        double density_squared    = 0.0;
+        double target_squared     = 0.0;
+        double dot                = 0.0;
         for (std::size_t index = 0u; index < density.size(); ++index) {
             const double difference = density[index] - target[index];
             difference_squared += difference * difference;
@@ -530,10 +518,10 @@ namespace physica::examples::keyframe_smoke {
             dot += density[index] * target[index];
         }
         return {
-            .relative_l2 = std::sqrt(difference_squared / target_squared),
+            .relative_l2                  = std::sqrt(difference_squared / target_squared),
             .normalized_cross_correlation = dot / std::sqrt(density_squared * target_squared),
-            .soft_dice = 2.0 * dot / (density_squared + target_squared),
-            .mass_relative_error = std::abs(sum(density) - sum(target)) / sum(target),
+            .soft_dice                    = 2.0 * dot / (density_squared + target_squared),
+            .mass_relative_error          = std::abs(sum(density) - sum(target)) / sum(target),
         };
     }
 

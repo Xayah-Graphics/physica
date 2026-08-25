@@ -15,7 +15,9 @@ target_sources(
 target_link_libraries(
         physica-example-keyframe-smoke
         PUBLIC
+        physica-fluids-gas-domain
         physica-fluids-gas-keyframe-smoke
+        physica-fluids-gas-operators
         PRIVATE
         physica::stb
 )

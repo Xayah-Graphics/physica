@@ -123,10 +123,10 @@ export namespace physica::fluids::liquid::particle {
 
         Domain(DomainConfiguration configuration, ::cuda::stream_ref stream);
 
-        Domain(const Domain&) = delete;
+        Domain(const Domain&)            = delete;
         Domain& operator=(const Domain&) = delete;
-        Domain(Domain&&) = delete;
-        Domain& operator=(Domain&&) = delete;
+        Domain(Domain&&)                 = delete;
+        Domain& operator=(Domain&&)      = delete;
 
         [[nodiscard]] ScalarField allocate_scalar_field(std::size_t count) const;
         [[nodiscard]] ScalarAdjointField allocate_scalar_adjoint_field(std::size_t count) const;

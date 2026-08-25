@@ -11,7 +11,7 @@ export import physica.deformables.cloth.forces;
 export import physica.deformables.cloth.integration;
 
 export namespace physica::deformables::cloth {
-    template<ForceAlgorithm Force, IntegrationAlgorithm Integration, ConstraintAlgorithm Constraint>
+    template <ForceAlgorithm Force, IntegrationAlgorithm Integration, ConstraintAlgorithm Constraint>
     struct Solver final {
         struct Parameters final {
             ScalarField masses;
@@ -33,13 +33,12 @@ export namespace physica::deformables::cloth {
             typename Integration::Cache integration;
         };
 
-        Solver(DomainConfiguration domain_configuration, typename Force::Configuration force_configuration, typename Integration::Configuration integration_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream)
-            : domain(std::move(domain_configuration), stream), force(domain, std::move(force_configuration), mode), integration(domain, std::move(integration_configuration), mode), constraint(domain) {}
+        Solver(DomainConfiguration domain_configuration, typename Force::Configuration force_configuration, typename Integration::Configuration integration_configuration, const ExecutionMode mode, const ::cuda::stream_ref stream) : domain(std::move(domain_configuration), stream), force(domain, std::move(force_configuration), mode), integration(domain, std::move(integration_configuration), mode), constraint(domain) {}
 
-        Solver(const Solver&) = delete;
+        Solver(const Solver&)            = delete;
         Solver& operator=(const Solver&) = delete;
-        Solver(Solver&&) = delete;
-        Solver& operator=(Solver&&) = delete;
+        Solver(Solver&&)                 = delete;
+        Solver& operator=(Solver&&)      = delete;
 
         [[nodiscard]] State allocate_state() const {
             State result{.positions = domain.allocate_vector_field(), .velocities = domain.allocate_vector_field()};
@@ -142,7 +141,7 @@ export namespace physica::deformables::cloth {
         }
 
         void vjp_step(const State& state, const Control&, const Parameters& parameters, const State&, const StepCache& cache, const StateAdjoint& next_state_adjoint, StateAdjoint& previous_state_adjoint, ControlAdjoint& control_adjoint, ParameterAdjoint& parameter_adjoint) {
-            typename Force::Differentiation& force_workspace = *force.differentiation;
+            typename Force::Differentiation& force_workspace             = *force.differentiation;
             typename Integration::Differentiation& integration_workspace = *integration.differentiation;
             domain.clear(force_workspace.adjoint);
             domain.clear(integration_workspace.adjoint.positions);

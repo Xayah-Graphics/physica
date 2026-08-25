@@ -1,5 +1,5 @@
-#include <physica/cuda.h>
 #include <cstdio>
+#include <physica/cuda.h>
 
 import std;
 import physica.example.fluids.liquid.pbf_dam_break;

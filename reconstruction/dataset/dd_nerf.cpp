@@ -15,10 +15,10 @@ namespace physica::reconstruction::dataset::dd_nerf {
     }
 
     multiview::Dataset load(const std::filesystem::path& path, const LoadRequest request) {
-        const nlohmann::json json = nlohmann::json::parse(std::ifstream{path / "cameras.json", std::ios::binary}, nullptr, true, true);
+        const nlohmann::json json         = nlohmann::json::parse(std::ifstream{path / "cameras.json", std::ios::binary}, nullptr, true, true);
         const nlohmann::json& frames_json = json.at("frames");
-        const std::uint32_t width = json.at("w").get<std::uint32_t>();
-        const std::uint32_t height = json.at("h").get<std::uint32_t>();
+        const std::uint32_t width         = json.at("w").get<std::uint32_t>();
+        const std::uint32_t height        = json.at("h").get<std::uint32_t>();
         const multiview::Intrinsics intrinsics{
             .focal_x     = json.at("fl_x").get<float>(),
             .focal_y     = json.at("fl_y").get<float>(),
@@ -37,14 +37,14 @@ namespace physica::reconstruction::dataset::dd_nerf {
 
         for (const nlohmann::json& frame_json : frames_json) {
             const std::filesystem::path hash_path = frame_json.at("file_path").get<std::string>();
-            const std::string hash_text = hash_path.filename().string();
-            std::uint64_t hash = 14695981039346656037ull;
+            const std::string hash_text           = hash_path.filename().string();
+            std::uint64_t hash                    = 14695981039346656037ull;
             for (const unsigned char byte : hash_text) {
                 hash ^= static_cast<std::uint64_t>(byte);
                 hash *= 1099511628211ull;
             }
 
-            const std::uint64_t split = hash % 10ull;
+            const std::uint64_t split             = hash % 10ull;
             const std::string_view frame_set_name = split == 0ull ? "test" : (split == 1ull ? "validation" : "train");
             multiview::FrameSet* target_frame_set = nullptr;
             for (multiview::FrameSet& frame_set : dataset.frame_sets) {
@@ -60,8 +60,8 @@ namespace physica::reconstruction::dataset::dd_nerf {
             if (image_path.is_relative()) image_path = path / image_path;
             image_path = image_path.lexically_normal();
 
-            int image_width = 0;
-            int image_height = 0;
+            int image_width     = 0;
+            int image_height    = 0;
             int component_count = 0;
             const std::unique_ptr<stbi_uc, decltype(&stbi_image_free)> raw_pixels{stbi_load(image_path.string().c_str(), &image_width, &image_height, &component_count, 4), stbi_image_free};
 
@@ -83,4 +83,4 @@ namespace physica::reconstruction::dataset::dd_nerf {
         for (multiview::FrameSet& frame_set : dataset.frame_sets) frame_set.view_count = static_cast<std::uint32_t>(frame_set.frames.size());
         return dataset;
     }
-}
+} // namespace physica::reconstruction::dataset::dd_nerf

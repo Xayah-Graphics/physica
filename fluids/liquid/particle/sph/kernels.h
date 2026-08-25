@@ -3,8 +3,8 @@
 
 #include "../domain/device.h"
 #include "../neighborhood/device.h"
-#include <physica/cuda_stream.h>
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::liquid::particle::cuda_detail::sph {
     void non_pressure_forward(::cuda::stream_ref stream, std::uint32_t particle_count, float support_radius, float gravity_x, float gravity_y, float gravity_z, ConstVectorView<float> positions, ConstVectorView<float> velocities, ConstVectorView<float> external_accelerations, ParticleParameterView parameters, NeighborhoodView neighborhood, BoundaryView boundary, const float* densities, VectorView<float> accelerations);

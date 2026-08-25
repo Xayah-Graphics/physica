@@ -1,10 +1,8 @@
-#include "iisph.h"
 #include "../density/device.cuh"
 #include "../neighborhood/device.cuh"
-
-#include <cuda_runtime.h>
-
+#include "iisph.h"
 #include <cstdint>
+#include <cuda_runtime.h>
 
 namespace physica::fluids::liquid::particle::cuda_detail::iisph {
 
@@ -48,8 +46,8 @@ namespace physica::fluids::liquid::particle::cuda_detail::iisph {
             if (particle >= particle_count) return;
             const Float3 predicted_velocity = add(load(velocities, particle), scale(add(load(non_pressure_accelerations, particle), load(pressure_accelerations, particle)), time_step));
             const Float3 predicted_position = add(load(positions, particle), scale(predicted_velocity, time_step));
-            Float3 velocity_dot = add(load(velocity_tangent, particle), scale(add(load(non_pressure_acceleration_tangent, particle), load(pressure_acceleration_tangent, particle)), time_step));
-            Float3 position_dot = add(load(position_tangent, particle), scale(velocity_dot, time_step));
+            Float3 velocity_dot             = add(load(velocity_tangent, particle), scale(add(load(non_pressure_acceleration_tangent, particle), load(pressure_acceleration_tangent, particle)), time_step));
+            Float3 position_dot             = add(load(position_tangent, particle), scale(velocity_dot, time_step));
             bool collision_x, collision_y, collision_z;
             collision_mask(domain, predicted_position, collision_x, collision_y, collision_z);
             if (collision_x) position_dot.x = 0.0F;
@@ -104,28 +102,28 @@ namespace physica::fluids::liquid::particle::cuda_detail::iisph {
         __global__ void jacobi_update_forward_kernel(const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const ParticleParameterView particles, const float* densities, const float* previous_pressures, const float* predicted_densities, const float* jacobi_relaxation, float* pressures) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const float volume = particles.masses[particle] / densities[particle];
-            const float delta = 1.0F / (2.0F * time_step * time_step * volume * volume * reference_gradient_norm);
+            const float volume  = particles.masses[particle] / densities[particle];
+            const float delta   = 1.0F / (2.0F * time_step * time_step * volume * volume * reference_gradient_norm);
             pressures[particle] = fmaxf(0.0F, previous_pressures[particle] + jacobi_relaxation[particle] * delta * (predicted_densities[particle] - particles.rest_densities[particle]));
         }
 
         __global__ void jacobi_update_jvp_kernel(const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const ParticleParameterView particles, const ParticleParameterTangentView particle_tangent, const float* densities, const float* density_tangent, const float* previous_pressures, const float* predicted_densities, const float* jacobi_relaxation, const float* previous_pressure_tangent, const float* predicted_density_tangent, const float* jacobi_relaxation_tangent, float* pressure_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const float error = predicted_densities[particle] - particles.rest_densities[particle];
-            const float volume = particles.masses[particle] / densities[particle];
-            const float delta = 1.0F / (2.0F * time_step * time_step * volume * volume * reference_gradient_norm);
-            const float delta_dot = -2.0F * delta * (particle_tangent.masses[particle] / particles.masses[particle] - density_tangent[particle] / densities[particle]);
-            const float candidate = previous_pressures[particle] + jacobi_relaxation[particle] * delta * error;
+            const float error          = predicted_densities[particle] - particles.rest_densities[particle];
+            const float volume         = particles.masses[particle] / densities[particle];
+            const float delta          = 1.0F / (2.0F * time_step * time_step * volume * volume * reference_gradient_norm);
+            const float delta_dot      = -2.0F * delta * (particle_tangent.masses[particle] / particles.masses[particle] - density_tangent[particle] / densities[particle]);
+            const float candidate      = previous_pressures[particle] + jacobi_relaxation[particle] * delta * error;
             pressure_tangent[particle] = candidate > 0.0F ? previous_pressure_tangent[particle] + jacobi_relaxation_tangent[particle] * delta * error + jacobi_relaxation[particle] * delta_dot * error + jacobi_relaxation[particle] * delta * (predicted_density_tangent[particle] - particle_tangent.rest_densities[particle]) : 0.0F;
         }
 
         __global__ void jacobi_update_vjp_kernel(const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const ParticleParameterView particles, const float* densities, const float* previous_pressures, const float* predicted_densities, const float* jacobi_relaxation, const double* pressure_adjoint, const ParticleParameterAdjointView particle_adjoint, double* density_adjoint, double* previous_pressure_adjoint, double* predicted_density_adjoint, double* jacobi_relaxation_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const double error = static_cast<double>(predicted_densities[particle]) - particles.rest_densities[particle];
-            const double volume = static_cast<double>(particles.masses[particle]) / densities[particle];
-            const double delta = 1.0 / (2.0 * time_step * time_step * volume * volume * reference_gradient_norm);
+            const double error     = static_cast<double>(predicted_densities[particle]) - particles.rest_densities[particle];
+            const double volume    = static_cast<double>(particles.masses[particle]) / densities[particle];
+            const double delta     = 1.0 / (2.0 * time_step * time_step * volume * volume * reference_gradient_norm);
             const double candidate = previous_pressures[particle] + jacobi_relaxation[particle] * delta * error;
             if (candidate > 0.0) {
                 const double adjoint = pressure_adjoint[particle];

@@ -1,8 +1,8 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_PARTICLE_NEIGHBORHOOD_DEVICE_CUH
 #define PHYSICA_FLUIDS_LIQUID_PARTICLE_NEIGHBORHOOD_DEVICE_CUH
 
-#include "device.h"
 #include "../domain/device.cuh"
+#include "device.h"
 
 namespace physica::fluids::liquid::particle::cuda_detail {
     struct CellRange final {
@@ -33,11 +33,11 @@ namespace physica::fluids::liquid::particle::cuda_detail {
         if (x < 0 || x >= static_cast<int>(neighborhood.cells_x) || y < 0 || y >= static_cast<int>(neighborhood.cells_y) || z < 0 || z >= static_cast<int>(neighborhood.cells_z)) return {};
         const std::uint32_t cell = cell_index(neighborhood, x, y, z);
         return {
-            .first = neighborhood.cell_offsets[cell],
-            .last = neighborhood.cell_offsets[cell + 1u],
+            .first          = neighborhood.cell_offsets[cell],
+            .last           = neighborhood.cell_offsets[cell + 1u],
             .boundary_first = neighborhood.boundary_cell_offsets[cell],
-            .boundary_last = neighborhood.boundary_cell_offsets[cell + 1u],
-            .valid = true,
+            .boundary_last  = neighborhood.boundary_cell_offsets[cell + 1u],
+            .valid          = true,
         };
     }
 

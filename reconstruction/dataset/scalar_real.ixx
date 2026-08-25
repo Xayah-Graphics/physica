@@ -8,12 +8,12 @@ namespace physica::reconstruction::dataset::scalar_real {
         std::string frame_set;
         std::string file_name;
         std::array<float, 16> world_from_camera = {};
-        std::uint32_t width                    = 0u;
-        std::uint32_t height                   = 0u;
-        std::uint32_t frame_count              = 0u;
-        std::uint32_t frame_rate               = 0u;
-        std::uint32_t view_index               = 0u;
-        float focal                            = 0.0f;
+        std::uint32_t width                     = 0u;
+        std::uint32_t height                    = 0u;
+        std::uint32_t frame_count               = 0u;
+        std::uint32_t frame_rate                = 0u;
+        std::uint32_t view_index                = 0u;
+        float focal                             = 0.0f;
     };
 
     export struct Dataset final {
@@ -34,4 +34,4 @@ namespace physica::reconstruction::dataset::scalar_real {
 
     export bool is_dataset(const std::filesystem::path& path);
     export Dataset load(const std::filesystem::path& path, LoadRequest request);
-}
+} // namespace physica::reconstruction::dataset::scalar_real

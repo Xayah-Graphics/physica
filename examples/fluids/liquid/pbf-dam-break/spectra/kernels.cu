@@ -8,7 +8,7 @@ namespace physica::examples::pbf_dam_break::spectra_cuda {
         __global__ void write_vectors_kernel(const std::uint32_t particle_count, const float* position_x, const float* position_y, const float* position_z, const float* velocity_x, const float* velocity_y, const float* velocity_z, spectra::sdk::Float3* positions, spectra::sdk::Float3* velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            positions[particle] = {.x = position_x[particle], .y = position_y[particle], .z = position_z[particle]};
+            positions[particle]  = {.x = position_x[particle], .y = position_y[particle], .z = position_z[particle]};
             velocities[particle] = {.x = velocity_x[particle], .y = velocity_y[particle], .z = velocity_z[particle]};
         }
     } // namespace

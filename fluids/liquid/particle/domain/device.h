@@ -16,10 +16,10 @@ namespace physica::fluids::liquid::particle::cuda_detail {
         double z;
     };
 
-    template<class Scalar>
+    template <class Scalar>
     struct ConstVectorView;
 
-    template<class Scalar>
+    template <class Scalar>
     struct VectorView final {
         Scalar* x;
         Scalar* y;
@@ -30,7 +30,7 @@ namespace physica::fluids::liquid::particle::cuda_detail {
         }
     };
 
-    template<class Scalar>
+    template <class Scalar>
     struct ConstVectorView final {
         const Scalar* x;
         const Scalar* y;

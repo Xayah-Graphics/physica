@@ -3,8 +3,8 @@
 
 #include "../domain/device.h"
 #include "../neighborhood/device.h"
-#include <physica/cuda_stream.h>
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::liquid::particle::cuda_detail {
     void density_forward(::cuda::stream_ref stream, std::uint32_t particle_count, float support_radius, bool pbf_kernel, ConstVectorView<float> topology_positions, ConstVectorView<float> positions, ParticleParameterView parameters, NeighborhoodView neighborhood, BoundaryView boundary, float* densities);

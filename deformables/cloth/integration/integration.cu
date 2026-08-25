@@ -17,7 +17,7 @@ namespace physica::deformables::cloth::cuda_detail {
         __global__ void jvp_kernel(const std::uint32_t particle_count, const float time_step, const ConstFieldView<float> forces, const float* masses, const ConstFieldView<float> position_tangent, const ConstFieldView<float> velocity_tangent, const ConstFieldView<float> force_tangent, const float* mass_tangent, const FieldView<float> integrated_position_tangent, const FieldView<float> integrated_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const float mass = masses[particle];
+            const float mass             = masses[particle];
             const Vector<float> velocity = load(velocity_tangent, particle) + time_step * (load(force_tangent, particle) / mass - (mass_tangent[particle] / (mass * mass)) * load(forces, particle));
             store(integrated_velocity_tangent, particle, velocity);
             store(integrated_position_tangent, particle, load(position_tangent, particle) + time_step * velocity);

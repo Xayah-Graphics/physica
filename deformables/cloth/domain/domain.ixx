@@ -88,10 +88,10 @@ export namespace physica::deformables::cloth {
 
         Domain(DomainConfiguration configuration, ::cuda::stream_ref stream);
 
-        Domain(const Domain&) = delete;
+        Domain(const Domain&)            = delete;
         Domain& operator=(const Domain&) = delete;
-        Domain(Domain&&) = delete;
-        Domain& operator=(Domain&&) = delete;
+        Domain(Domain&&)                 = delete;
+        Domain& operator=(Domain&&)      = delete;
 
         [[nodiscard]] IndexField allocate_index_field(std::size_t size) const;
         [[nodiscard]] ScalarField allocate_scalar_field(std::size_t size) const;

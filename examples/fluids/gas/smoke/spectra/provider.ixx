@@ -22,33 +22,12 @@ export namespace physica::examples::smoke {
     public:
         [[no_unique_address]] Settings settings;
 
-        static constexpr auto description = spectra::sdk::describe(
-            "physica.example.fluids.gas.smoke",
-            spectra::sdk::volume<"smoke">(
-                spectra::sdk::volume_field<"density", float>(
-                    "Density",
-                    {},
-                    {.sampling = spectra::sdk::VolumeFieldSampling::Cell}
-                ),
-                spectra::sdk::volume_field<"temperature", float>(
-                    "Temperature",
-                    {},
-                    {.sampling = spectra::sdk::VolumeFieldSampling::Cell}
-                ),
-                spectra::sdk::volume_field<"velocity", spectra::sdk::MacFloat3>(
-                    "Velocity",
-                    "m/s",
-                    {.sampling = spectra::sdk::VolumeFieldSampling::Cell, .vector_space = spectra::sdk::VolumeVectorSpace::World}
-                )
-            ),
-            spectra::sdk::metric<"step", std::uint64_t>("Step", {}, "Simulation"),
-            spectra::sdk::metric<"time", double>("Physical Time", "s", "Simulation", true)
-        );
+        static constexpr auto description = spectra::sdk::describe("physica.example.fluids.gas.smoke", spectra::sdk::volume<"smoke">(spectra::sdk::volume_field<"density", float>("Density", {}, {.sampling = spectra::sdk::VolumeFieldSampling::Cell}), spectra::sdk::volume_field<"temperature", float>("Temperature", {}, {.sampling = spectra::sdk::VolumeFieldSampling::Cell}), spectra::sdk::volume_field<"velocity", spectra::sdk::MacFloat3>("Velocity", "m/s", {.sampling = spectra::sdk::VolumeFieldSampling::Cell, .vector_space = spectra::sdk::VolumeVectorSpace::World})), spectra::sdk::metric<"step", std::uint64_t>("Step", {}, "Simulation"), spectra::sdk::metric<"time", double>("Physical Time", "s", "Simulation", true));
 
         Provider(Settings settings, const std::filesystem::path& assets);
         ~Provider() noexcept;
 
-        Provider(const Provider&) = delete;
+        Provider(const Provider&)            = delete;
         Provider& operator=(const Provider&) = delete;
 
         void setup(spectra::sdk::cuda::Setup& setup);
@@ -81,10 +60,10 @@ export namespace physica::examples::smoke {
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output) {
-        spectra::sdk::cuda::Frame frame = output.begin(simulation->stream.get());
+        spectra::sdk::cuda::Frame frame         = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Volume volume = frame.volume<"smoke">();
-        const std::span<float> density = volume.field<"density", float>();
-        const std::span<float> temperature = volume.field<"temperature", float>();
+        const std::span<float> density          = volume.field<"density", float>();
+        const std::span<float> temperature      = volume.field<"temperature", float>();
         ::cuda::copy_bytes(simulation->stream, simulation->current_state.density.values, ::cuda::std::span{density.data(), density.size()});
         ::cuda::copy_bytes(simulation->stream, simulation->current_state.temperature.values, ::cuda::std::span{temperature.data(), temperature.size()});
         const spectra::sdk::cuda::MacField velocity = volume.field<"velocity">();

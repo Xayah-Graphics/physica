@@ -11,17 +11,17 @@ import std;
 namespace physica::fluids::liquid::particle {
     Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream)
         : configuration(std::move(next_configuration)), stream(source_stream), boundary{
-            .positions = allocate_vector_field(configuration.boundary_particles.size()),
-            .velocities = allocate_vector_field(configuration.boundary_particles.size()),
-            .volumes = allocate_scalar_field(configuration.boundary_particles.size()),
-        } {
+                                                                                   .positions  = allocate_vector_field(configuration.boundary_particles.size()),
+                                                                                   .velocities = allocate_vector_field(configuration.boundary_particles.size()),
+                                                                                   .volumes    = allocate_scalar_field(configuration.boundary_particles.size()),
+                                                                               } {
         std::vector<Vector3> positions(configuration.boundary_particles.size());
         std::vector<Vector3> velocities(configuration.boundary_particles.size());
         std::vector<float> volumes(configuration.boundary_particles.size());
         for (std::size_t index = 0uz; index < configuration.boundary_particles.size(); ++index) {
-            positions[index] = configuration.boundary_particles[index].position;
+            positions[index]  = configuration.boundary_particles[index].position;
             velocities[index] = configuration.boundary_particles[index].velocity;
-            volumes[index] = configuration.boundary_particles[index].volume;
+            volumes[index]    = configuration.boundary_particles[index].volume;
         }
         upload(positions, boundary.positions);
         upload(velocities, boundary.velocities);
@@ -94,18 +94,18 @@ namespace physica::fluids::liquid::particle {
 
     ParticleParameters Domain::allocate_particle_parameters() const {
         return {
-            .masses = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .rest_densities = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .viscosities = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .masses           = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .rest_densities   = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .viscosities      = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
             .surface_tensions = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
         };
     }
 
     ParticleParameterTangent Domain::allocate_particle_parameter_tangent() const {
         ParticleParameterTangent tangent{
-            .masses = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .rest_densities = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .viscosities = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .masses           = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .rest_densities   = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .viscosities      = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
             .surface_tensions = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
         };
         clear(tangent);
@@ -114,17 +114,21 @@ namespace physica::fluids::liquid::particle {
 
     ParticleParameterAdjoint Domain::allocate_particle_parameter_adjoint() const {
         ParticleParameterAdjoint adjoint{
-            .masses = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .rest_densities = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
-            .viscosities = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .masses           = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .rest_densities   = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
+            .viscosities      = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
             .surface_tensions = ::cuda::device_buffer<double>{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.particle_count, ::cuda::no_init},
         };
         clear(adjoint);
         return adjoint;
     }
 
-    void Domain::clear(ScalarField& field) const { ::cuda::fill_bytes(stream, field.values, 0u); }
-    void Domain::clear(ScalarAdjointField& field) const { ::cuda::fill_bytes(stream, field.values, 0u); }
+    void Domain::clear(ScalarField& field) const {
+        ::cuda::fill_bytes(stream, field.values, 0u);
+    }
+    void Domain::clear(ScalarAdjointField& field) const {
+        ::cuda::fill_bytes(stream, field.values, 0u);
+    }
 
     void Domain::clear(VectorField& field) const {
         ::cuda::fill_bytes(stream, field.x, 0u);
@@ -152,8 +156,12 @@ namespace physica::fluids::liquid::particle {
         ::cuda::fill_bytes(stream, adjoint.surface_tensions, 0u);
     }
 
-    void Domain::copy(const ScalarField& source, ScalarField& destination) const { ::cuda::copy_bytes(stream, source.values, destination.values); }
-    void Domain::copy(const ScalarAdjointField& source, ScalarAdjointField& destination) const { ::cuda::copy_bytes(stream, source.values, destination.values); }
+    void Domain::copy(const ScalarField& source, ScalarField& destination) const {
+        ::cuda::copy_bytes(stream, source.values, destination.values);
+    }
+    void Domain::copy(const ScalarAdjointField& source, ScalarAdjointField& destination) const {
+        ::cuda::copy_bytes(stream, source.values, destination.values);
+    }
 
     void Domain::copy(const VectorField& source, VectorField& destination) const {
         ::cuda::copy_bytes(stream, source.x, destination.x);

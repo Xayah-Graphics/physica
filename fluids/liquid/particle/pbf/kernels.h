@@ -3,9 +3,8 @@
 
 #include "../domain/device.h"
 #include "../neighborhood/device.h"
-#include <physica/cuda_stream.h>
-
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::fluids::liquid::particle::cuda_detail::pbf {
 

@@ -9,6 +9,14 @@ module;
 module physica.example.fluids.gas.adjoint_control;
 
 import std;
+import physica.fluids.gas.domain;
+import physica.fluids.gas.operators.projection;
+import physica.fluids.gas.operators.objective;
+import physica.fluids.gas.adjoint_control;
+import physica.fluids.gas.adjoint_control.control;
+import physica.fluids.gas.adjoint_control.evaluation;
+import physica.fluids.gas.adjoint_control.optimization;
+import physica.optimization.lbfgsb;
 
 namespace physica::examples::adjoint_control {
     namespace {
@@ -18,7 +26,77 @@ namespace physica::examples::adjoint_control {
             float z{};
         };
 
-        double sum(const std::span<const float> values) { return std::accumulate(values.begin(), values.end(), 0.0); }
+        struct DirectionalDerivativeCheck final {
+            double objective{};
+            double finite_difference{};
+            double jvp{};
+            double vjp_dot_direction{};
+            double finite_difference_jvp_relative_error{};
+            double jvp_vjp_relative_error{};
+        };
+
+        struct ComponentDerivativeCheck final {
+            std::size_t parameter{};
+            double analytic{};
+            double finite_difference{};
+            double relative_error{};
+        };
+
+        template <typename Solver>
+        struct DerivativeChecker final {
+            explicit DerivativeChecker(fluids::gas::adjoint_control::Evaluator<Solver>& next_evaluator) : evaluator(next_evaluator) {}
+
+            [[nodiscard]] DirectionalDerivativeCheck directional(const std::span<const double> parameters, const std::span<const double> direction, const double epsilon) {
+                fluids::gas::adjoint_control::EvaluationTrace analytic = evaluator.evaluate(parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient_jvp, direction);
+                std::vector<double> positive(parameters.begin(), parameters.end());
+                std::vector<double> negative(parameters.begin(), parameters.end());
+                for (std::size_t parameter = 0u; parameter < parameters.size(); ++parameter) {
+                    positive[parameter] += epsilon * direction[parameter];
+                    negative[parameter] -= epsilon * direction[parameter];
+                }
+                const double positive_objective          = evaluator.evaluate(positive, fluids::gas::adjoint_control::EvaluationMode::objective).summary.objective;
+                const double negative_objective          = evaluator.evaluate(negative, fluids::gas::adjoint_control::EvaluationMode::objective).summary.objective;
+                const double finite_difference           = (positive_objective - negative_objective) / (2.0 * epsilon);
+                const double finite_difference_jvp_scale = std::max({1.0e-12, std::abs(finite_difference), std::abs(analytic.summary.directional_derivative)});
+                const double jvp_vjp_scale               = std::max({1.0e-12, std::abs(analytic.summary.directional_derivative), std::abs(analytic.summary.gradient_dot_direction)});
+                return {
+                    .objective                            = analytic.summary.objective,
+                    .finite_difference                    = finite_difference,
+                    .jvp                                  = analytic.summary.directional_derivative,
+                    .vjp_dot_direction                    = analytic.summary.gradient_dot_direction,
+                    .finite_difference_jvp_relative_error = std::abs(finite_difference - analytic.summary.directional_derivative) / finite_difference_jvp_scale,
+                    .jvp_vjp_relative_error               = std::abs(analytic.summary.directional_derivative - analytic.summary.gradient_dot_direction) / jvp_vjp_scale,
+                };
+            }
+
+            [[nodiscard]] std::vector<ComponentDerivativeCheck> components(const std::span<const double> parameters, const std::span<const std::size_t> parameter_indices, const double epsilon) {
+                fluids::gas::adjoint_control::EvaluationTrace analytic = evaluator.evaluate(parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
+                std::vector<ComponentDerivativeCheck> result;
+                result.reserve(parameter_indices.size());
+                for (const std::size_t parameter : parameter_indices) {
+                    std::vector<double> positive(parameters.begin(), parameters.end());
+                    std::vector<double> negative(parameters.begin(), parameters.end());
+                    positive[parameter] += epsilon;
+                    negative[parameter] -= epsilon;
+                    const double finite_difference = (evaluator.evaluate(positive, fluids::gas::adjoint_control::EvaluationMode::objective).summary.objective - evaluator.evaluate(negative, fluids::gas::adjoint_control::EvaluationMode::objective).summary.objective) / (2.0 * epsilon);
+                    const double gradient          = analytic.reverse->parameter_gradient[parameter];
+                    result.push_back({
+                        .parameter         = parameter,
+                        .analytic          = gradient,
+                        .finite_difference = finite_difference,
+                        .relative_error    = std::abs(gradient - finite_difference) / std::max({1.0e-12, std::abs(gradient), std::abs(finite_difference)}),
+                    });
+                }
+                return result;
+            }
+
+        private:
+            fluids::gas::adjoint_control::Evaluator<Solver>& evaluator;
+        };
+
+        double sum(const std::span<const float> values) {
+            return std::accumulate(values.begin(), values.end(), 0.0);
+        }
 
         std::vector<Point> load_vertices(const std::filesystem::path& path) {
             std::ifstream input(path);
@@ -36,26 +114,28 @@ namespace physica::examples::adjoint_control {
         }
 
         std::vector<std::uint8_t> render_front(const std::span<const float> density, const std::uint32_t resolution, const std::uint32_t scale) {
-            const std::uint32_t width = resolution * scale;
+            const std::uint32_t width  = resolution * scale;
             const std::uint32_t height = resolution * scale;
             std::vector<float> projection(static_cast<std::size_t>(resolution) * resolution);
-            for (std::uint32_t y = 0u; y < resolution; ++y) for (std::uint32_t x = 0u; x < resolution; ++x) {
-                float optical_depth = 0.0F;
-                for (std::uint32_t z = 0u; z < resolution; ++z) optical_depth += density[x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z)];
-                projection[x + static_cast<std::size_t>(resolution) * y] = optical_depth;
-            }
+            for (std::uint32_t y = 0u; y < resolution; ++y)
+                for (std::uint32_t x = 0u; x < resolution; ++x) {
+                    float optical_depth = 0.0F;
+                    for (std::uint32_t z = 0u; z < resolution; ++z) optical_depth += density[x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z)];
+                    projection[x + static_cast<std::size_t>(resolution) * y] = optical_depth;
+                }
             const float maximum = std::ranges::max(projection);
             std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 3u);
-            for (std::uint32_t image_y = 0u; image_y < height; ++image_y) for (std::uint32_t image_x = 0u; image_x < width; ++image_x) {
-                const std::uint32_t x = image_x / scale;
-                const std::uint32_t y = resolution - 1u - image_y / scale;
-                const float normalized = maximum == 0.0F ? 0.0F : std::clamp(projection[x + static_cast<std::size_t>(resolution) * y] / maximum, 0.0F, 1.0F);
-                const float smoke = std::pow(normalized, 0.52F);
-                const std::size_t index = 3u * (image_x + static_cast<std::size_t>(width) * image_y);
-                pixels[index] = static_cast<std::uint8_t>(2.0F + 244.0F * smoke);
-                pixels[index + 1u] = static_cast<std::uint8_t>(20.0F + 232.0F * smoke);
-                pixels[index + 2u] = static_cast<std::uint8_t>(58.0F + 197.0F * smoke);
-            }
+            for (std::uint32_t image_y = 0u; image_y < height; ++image_y)
+                for (std::uint32_t image_x = 0u; image_x < width; ++image_x) {
+                    const std::uint32_t x   = image_x / scale;
+                    const std::uint32_t y   = resolution - 1u - image_y / scale;
+                    const float normalized  = maximum == 0.0F ? 0.0F : std::clamp(projection[x + static_cast<std::size_t>(resolution) * y] / maximum, 0.0F, 1.0F);
+                    const float smoke       = std::pow(normalized, 0.52F);
+                    const std::size_t index = 3u * (image_x + static_cast<std::size_t>(width) * image_y);
+                    pixels[index]           = static_cast<std::uint8_t>(2.0F + 244.0F * smoke);
+                    pixels[index + 1u]      = static_cast<std::uint8_t>(20.0F + 232.0F * smoke);
+                    pixels[index + 2u]      = static_cast<std::uint8_t>(58.0F + 197.0F * smoke);
+                }
             return pixels;
         }
 
@@ -66,20 +146,13 @@ namespace physica::examples::adjoint_control {
     } // namespace
 
     Experiment::Experiment(ExperimentConfiguration next_configuration, std::filesystem::path next_bunny_path)
-        : configuration(std::move(next_configuration)),
-          stream{::cuda::devices[0]},
-          domain{create_domain_configuration(), stream},
-          solver{domain, {
-              .diffusion_iterations = 12u,
-              .pressure_iterations = 100u,
-              .viscosity = 1.0e-5F,
-              .density_buoyancy = 1.0F,
-          }},
-          control{domain, create_control_configuration()},
-          objective{domain, {.control_effort_weight = 2.0e-6, .blur_sigma_cells = 0.0F}},
-          bunny_path{std::move(next_bunny_path)},
-          problem{configuration.step_count, create_state(create_initial_density()), create_keyframes()},
-          evaluator{domain, solver, control, objective, problem} {
+        : configuration(std::move(next_configuration)), stream{::cuda::devices[0]}, domain{create_domain_configuration(), stream}, solver{domain,
+                                                                                                                                       {
+                                                                                                                                           .diffusion  = {.iterations = 12u, .viscosity = 1.0e-5F},
+                                                                                                                                           .force      = {.buoyancy = 1.0F},
+                                                                                                                                           .projection = {.gauge = fluids::gas::operators::PressureGauge::none, .pressure = {.iterations = 100u}},
+                                                                                                                                       }},
+          control{domain, create_control_configuration()}, objective{domain, {.control_effort_weight = 2.0e-6, .blur_sigma_cells = 0.0F}}, bunny_path{std::move(next_bunny_path)}, problem{.step_count = configuration.step_count, .initial_state = create_state(create_initial_density()), .keyframes = create_keyframes()}, evaluator{domain, solver, control, objective, problem} {
         stream.sync();
     }
 
@@ -88,11 +161,11 @@ namespace physica::examples::adjoint_control {
     void Experiment::verify(const std::filesystem::path& output_directory) {
         std::filesystem::create_directories(output_directory);
         const std::vector<float> initial_density = download_density(problem.initial_state);
-        const std::vector<float> target_density = download_density(problem.keyframes.front().target);
+        const std::vector<float> target_density  = download_density(problem.keyframes.front().target);
         write_density(output_directory / "initial.png", initial_density);
         write_density(output_directory / "target.png", target_density);
 
-        std::vector<double> parameters(control.parameters.values);
+        std::vector<double> parameters(control.parameter_values);
         std::vector<double> direction(parameters.size());
         double direction_squared = 0.0;
         for (std::size_t parameter = 0u; parameter < direction.size(); ++parameter) {
@@ -106,26 +179,26 @@ namespace physica::examples::adjoint_control {
         const double direction_norm = std::sqrt(direction_squared);
         for (double& value : direction) value /= direction_norm;
 
-        fluids::gas::adjoint_control::DerivativeChecker checker{evaluator};
-        const fluids::gas::adjoint_control::DirectionalDerivativeCheck derivative = checker.directional(parameters, direction, 5.0e-2);
+        DerivativeChecker checker{evaluator};
+        const DirectionalDerivativeCheck derivative = checker.directional(parameters, direction, 5.0e-2);
         std::vector<std::size_t> ranked_components(parameters.size());
         std::iota(ranked_components.begin(), ranked_components.end(), 0u);
         std::ranges::partial_sort(ranked_components, ranked_components.begin() + 3, [&analytic](const std::size_t left, const std::size_t right) { return std::abs(analytic.reverse->parameter_gradient[left]) > std::abs(analytic.reverse->parameter_gradient[right]); });
         const std::array<std::size_t, 3> components{ranked_components[0], ranked_components[1], ranked_components[2]};
-        const std::vector<fluids::gas::adjoint_control::ComponentDerivativeCheck> component_checks = checker.components(parameters, components, 5.0e-2);
-        const fluids::gas::adjoint_control::EvaluationTrace trace = evaluator.evaluate(parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
-        double maximum_mass_relative_error = 0.0;
-        const double initial_mass = sum(initial_density);
+        const std::vector<ComponentDerivativeCheck> component_checks = checker.components(parameters, components, 5.0e-2);
+        const fluids::gas::adjoint_control::EvaluationTrace trace    = evaluator.evaluate(parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
+        double maximum_mass_relative_error                           = 0.0;
+        const double initial_mass                                    = sum(initial_density);
         for (const fluids::gas::adjoint_control::State& state : trace.state) maximum_mass_relative_error = std::max(maximum_mass_relative_error, std::abs(sum(download_density(state)) - initial_mass) / initial_mass);
 
         const std::array<double, 4> quadratic_target{2.0, -3.0, 0.5, 1.5};
         const std::array<double, 4> quadratic_lower{-1.0, -1.0, -1.0, -0.25};
         const std::array<double, 4> quadratic_upper{1.0, 1.0, 1.0, 0.75};
         const std::array<double, 4> quadratic_initial{0.2, 0.5, -0.7, 0.1};
-        fluids::gas::adjoint_control::Lbfgsb quadratic_optimizer{{.memory = 4u, .maximum_iterations = 32u, .maximum_evaluations = 128u, .projected_gradient_tolerance = 1.0e-12}, quadratic_initial, quadratic_lower, quadratic_upper};
-        while (quadratic_optimizer.request().kind == fluids::gas::adjoint_control::LbfgsbRequestKind::objective_gradient) {
-            const fluids::gas::adjoint_control::LbfgsbRequest request = quadratic_optimizer.request();
-            double quadratic_objective = 0.0;
+        optimization::Lbfgsb quadratic_optimizer{{.memory = 4u, .maximum_iterations = 32u, .maximum_evaluations = 128u, .projected_gradient_tolerance = 1.0e-12}, quadratic_initial, quadratic_lower, quadratic_upper};
+        while (quadratic_optimizer.request().kind == optimization::LbfgsbRequestKind::objective_gradient) {
+            const optimization::LbfgsbRequest request = quadratic_optimizer.request();
+            double quadratic_objective                = 0.0;
             std::array<double, 4> quadratic_gradient;
             for (std::size_t parameter = 0u; parameter < quadratic_target.size(); ++parameter) {
                 quadratic_gradient[parameter] = request.parameters[parameter] - quadratic_target[parameter];
@@ -137,8 +210,7 @@ namespace physica::examples::adjoint_control {
         for (std::size_t parameter = 0u; parameter < quadratic_target.size(); ++parameter) quadratic_maximum_error = std::max(quadratic_maximum_error, std::abs(quadratic_optimizer.parameters[parameter] - std::clamp(quadratic_target[parameter], quadratic_lower[parameter], quadratic_upper[parameter])));
 
         std::ofstream report(output_directory / "verification.json");
-        report << std::setprecision(17)
-               << "{\n"
+        report << std::setprecision(17) << "{\n"
                << "  \"parameter_count\": " << parameters.size() << ",\n"
                << "  \"objective\": " << derivative.objective << ",\n"
                << "  \"finite_difference\": " << derivative.finite_difference << ",\n"
@@ -151,7 +223,7 @@ namespace physica::examples::adjoint_control {
                << "  \"lbfgsb_stop_reason\": " << static_cast<std::uint32_t>(quadratic_optimizer.stop_reason) << ",\n"
                << "  \"components\": [\n";
         for (std::size_t index = 0u; index < component_checks.size(); ++index) {
-            const fluids::gas::adjoint_control::ComponentDerivativeCheck& component = component_checks[index];
+            const ComponentDerivativeCheck& component = component_checks[index];
             report << "    {\"parameter\": " << component.parameter << ", \"analytic\": " << component.analytic << ", \"finite_difference\": " << component.finite_difference << ", \"relative_error\": " << component.relative_error << "}" << (index + 1u == component_checks.size() ? "\n" : ",\n");
         }
         report << "  ]\n}\n";
@@ -166,39 +238,30 @@ namespace physica::examples::adjoint_control {
     void Experiment::optimize(const std::filesystem::path& output_directory) {
         std::filesystem::create_directories(output_directory / "frames");
         const std::vector<float> initial_density = download_density(problem.initial_state);
-        const std::vector<float> target_density = download_density(problem.keyframes.front().target);
+        const std::vector<float> target_density  = download_density(problem.keyframes.front().target);
         write_density(output_directory / "initial.png", initial_density);
         write_density(output_directory / "target.png", target_density);
 
-        const fluids::gas::adjoint_control::EvaluationTrace uncontrolled = evaluator.evaluate(control.parameters.values, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
-        const std::vector<std::uint8_t> active_parameters = control.active_parameters(0u, configuration.step_count);
-        std::vector<double> lower_bounds(control.parameters.lower_bounds.begin(), control.parameters.lower_bounds.end());
-        std::vector<double> upper_bounds(control.parameters.upper_bounds.begin(), control.parameters.upper_bounds.end());
-        for (std::size_t parameter = 0u; parameter < active_parameters.size(); ++parameter) if (active_parameters[parameter] == 0u) lower_bounds[parameter] = upper_bounds[parameter] = control.parameters.values[parameter];
-        fluids::gas::adjoint_control::Lbfgsb optimizer{{
-            .memory = 16u,
-            .maximum_iterations = configuration.optimizer_iterations,
-            .maximum_evaluations = configuration.optimizer_iterations * 12u,
-            .maximum_line_search_evaluations = 24u,
-            .projected_gradient_tolerance = 1.0e-6,
-            .relative_objective_tolerance = 1.0e-10,
-        }, control.parameters.values, lower_bounds, upper_bounds};
-        fluids::gas::adjoint_control::OptimizationResult result{};
-        const auto begin = std::chrono::steady_clock::now();
-        while (optimizer.request().kind == fluids::gas::adjoint_control::LbfgsbRequestKind::objective_gradient) {
-            const fluids::gas::adjoint_control::LbfgsbRequest request = optimizer.request();
-            fluids::gas::adjoint_control::EvaluationTrace trace = evaluator.evaluate(request.parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
-            result.evaluations.push_back({
-                .coordinates = {.optimizer_iteration = request.iteration, .objective_evaluation = request.evaluation, .line_search_evaluation = request.line_search_evaluation, .line_search_step = request.step_length},
-                .summary = trace.summary,
-            });
-            std::println("Evaluation {} iteration {} line {}: objective={:.9e}, density={:.9e}, control={:.9e}, |pg|={:.6e}", request.evaluation, request.iteration, request.line_search_evaluation, trace.summary.objective, trace.summary.density_loss, trace.summary.control_effort, trace.summary.projected_gradient_norm);
-            optimizer.submit(trace.summary.objective, trace.reverse->parameter_gradient);
-        }
-        result.parameters = optimizer.parameters;
-        result.stop_reason = optimizer.stop_reason;
-        result.final_trace.emplace(evaluator.evaluate(result.parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient));
-        const double optimization_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+        const fluids::gas::adjoint_control::EvaluationTrace uncontrolled = evaluator.evaluate(control.parameter_values, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
+        const std::vector<std::uint8_t> active_parameters                = control.active_parameters(0u, configuration.step_count);
+        fluids::gas::adjoint_control::OptimizationRunner runner{
+            .evaluator = evaluator,
+            .control   = control,
+            .configuration =
+                {
+                    .memory                          = 16u,
+                    .maximum_iterations              = configuration.optimizer_iterations,
+                    .maximum_evaluations             = configuration.optimizer_iterations * 12u,
+                    .maximum_line_search_evaluations = 24u,
+                    .projected_gradient_tolerance    = 1.0e-6,
+                    .relative_objective_tolerance    = 1.0e-10,
+                },
+        };
+        const auto begin                                        = std::chrono::steady_clock::now();
+        fluids::gas::adjoint_control::OptimizationResult result = runner.run(control.parameter_values, active_parameters);
+        const double optimization_seconds                       = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+
+        for (const fluids::gas::adjoint_control::OptimizationEvaluation& evaluation : result.evaluations) std::println("Evaluation {} iteration {} line {}: objective={:.9e}, density={:.9e}, control={:.9e}, |pg|={:.6e}", evaluation.coordinates.objective_evaluation, evaluation.coordinates.optimizer_iteration, evaluation.coordinates.line_search_evaluation, evaluation.summary.objective, evaluation.summary.density_loss, evaluation.summary.control_effort, evaluation.summary.projected_gradient_norm);
 
         std::ofstream evaluations(output_directory / "evaluations.csv");
         evaluations << "record,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm\n" << std::setprecision(17);
@@ -212,16 +275,18 @@ namespace physica::examples::adjoint_control {
         frames.reserve(configuration.step_count + configuration.post_step_count + 1u);
         for (std::uint32_t step = 0u; step <= configuration.step_count; ++step) frames.push_back(download_density(result.final_trace->state[step]));
 
-        fluids::gas::adjoint_control::State current = solver.allocate_state(domain);
-        fluids::gas::adjoint_control::State next = solver.allocate_state(domain);
+        fluids::gas::adjoint_control::State current              = solver.allocate_state(domain);
+        fluids::gas::adjoint_control::State next                 = solver.allocate_state(domain);
         fluids::gas::adjoint_control::DenseControl dense_control = solver.allocate_control(domain);
-        fluids::gas::adjoint_control::StepCache cache = solver.allocate_step_cache(domain);
-        solver.copy(domain, result.final_trace->state.back(), current);
+        decltype(solver)::StepCache cache                        = solver.allocate_step_cache(domain);
+        decltype(solver)::Workspace workspace                    = solver.allocate_workspace(domain);
+        domain.copy(result.final_trace->state.back().density, current.density);
+        domain.copy(result.final_trace->state.back().velocity, current.velocity);
         control.upload_parameters(domain, result.parameters);
         for (std::uint32_t offset = 0u; offset < configuration.post_step_count; ++offset) {
             const std::uint32_t step = configuration.step_count + offset;
             control.forward(domain, step, dense_control);
-            solver.forward(domain, current, dense_control, next, cache);
+            solver.forward(domain, current, dense_control, next, cache, workspace);
             frames.push_back(download_density(next));
             std::swap(current, next);
         }
@@ -233,13 +298,12 @@ namespace physica::examples::adjoint_control {
         std::vector<float> residual(final_density.size());
         for (std::size_t index = 0u; index < residual.size(); ++index) residual[index] = std::abs(final_density[index] - target_density[index]);
         write_density(output_directory / "residual.png", residual);
-        const ShapeMetrics metrics = shape_metrics(final_density, target_density, result.final_trace->state.back());
+        const ShapeMetrics metrics                                           = shape_metrics(final_density, target_density, result.final_trace->state.back());
         const fluids::gas::adjoint_control::EvaluationSummary& final_summary = result.final_trace->summary;
-        const double objective_reduction = 1.0 - final_summary.objective / uncontrolled.summary.objective;
+        const double objective_reduction                                     = 1.0 - final_summary.objective / uncontrolled.summary.objective;
 
         std::ofstream summary(output_directory / "summary.json");
-        summary << std::setprecision(17)
-                << "{\n"
+        summary << std::setprecision(17) << "{\n"
                 << "  \"resolution\": " << configuration.resolution << ",\n"
                 << "  \"controlled_step_count\": " << configuration.step_count << ",\n"
                 << "  \"post_step_count\": " << configuration.post_step_count << ",\n"
@@ -288,51 +352,49 @@ namespace physica::examples::adjoint_control {
     }
 
     std::pair<std::size_t, double> Experiment::measure_gradient() {
-        const auto begin = std::chrono::steady_clock::now();
-        const fluids::gas::adjoint_control::EvaluationTrace trace = evaluator.evaluate(control.parameters.values, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
+        const auto begin                                          = std::chrono::steady_clock::now();
+        const fluids::gas::adjoint_control::EvaluationTrace trace = evaluator.evaluate(control.parameter_values, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
         stream.sync();
         return {trace.reverse->parameter_gradient.size(), std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count()};
     }
 
-    fluids::gas::adjoint_control::DomainConfiguration Experiment::create_domain_configuration() const {
-        fluids::gas::adjoint_control::DomainConfiguration result{
-            .dimension = fluids::gas::adjoint_control::SpatialDimension::volumetric,
+    fluids::gas::DomainConfiguration Experiment::create_domain_configuration() const {
+        fluids::gas::DomainConfiguration result{
             .resolution = {configuration.resolution, configuration.resolution, configuration.resolution},
-            .cell_size = 1.0F / configuration.resolution,
-            .time_step = configuration.time_step,
+            .cell_size  = 1.0F / configuration.resolution,
+            .time_step  = configuration.time_step,
         };
-        result.velocity_boundary.x_min.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.x_max.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.y_min.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.y_max.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.z_min.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
-        result.velocity_boundary.z_max.mode = fluids::gas::adjoint_control::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.y_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.y_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.z_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
+        result.velocity_boundary.z_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
         return result;
     }
 
     fluids::gas::adjoint_control::ControlConfiguration Experiment::create_control_configuration() const {
         return {
-            .lattice = configuration.control_lattice,
-            .step_count = configuration.step_count,
+            .lattice        = configuration.control_lattice,
+            .step_count     = configuration.step_count,
             .gaussian_sigma = 0.075F,
-            .lower_bound = -18.0,
-            .upper_bound = 18.0,
+            .lower_bound    = -18.0,
+            .upper_bound    = 18.0,
         };
     }
 
     std::vector<fluids::gas::adjoint_control::Keyframe> Experiment::create_keyframes() {
         std::vector<float> target = create_target_density();
         return {{
-            .step = configuration.step_count,
-            .target = create_state(target),
-            .density_weight = 1.0 / static_cast<double>(target.size()),
+            .step            = configuration.step_count,
+            .target          = create_state(target),
+            .density_weight  = 1.0 / static_cast<double>(target.size()),
             .velocity_weight = 0.0,
         }};
     }
 
     fluids::gas::adjoint_control::State Experiment::create_state(const std::span<const float> density) {
         fluids::gas::adjoint_control::State state = solver.allocate_state(domain);
-        solver.clear(domain, state);
         ::cuda::copy_bytes(stream, density, state.density.values);
         return state;
     }
@@ -342,16 +404,18 @@ namespace physica::examples::adjoint_control {
         std::vector<float> density(static_cast<std::size_t>(resolution) * resolution * resolution);
         const float cell_size = 1.0F / resolution;
         const Point center{0.5F, 0.18F, 0.5F};
-        const float radius = 0.14F;
+        const float radius    = 0.14F;
         const float thickness = 0.035F;
-        for (std::uint32_t z = 0u; z < resolution; ++z) for (std::uint32_t y = 0u; y < resolution; ++y) for (std::uint32_t x = 0u; x < resolution; ++x) {
-            const float px = (x + 0.5F) * cell_size - center.x;
-            const float py = (y + 0.5F) * cell_size - center.y;
-            const float pz = (z + 0.5F) * cell_size - center.z;
-            const float distance = std::sqrt(px * px + py * py + pz * pz);
-            const float shell = (distance - radius) / thickness;
-            density[x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z)] = std::exp(-0.5F * shell * shell);
-        }
+        for (std::uint32_t z = 0u; z < resolution; ++z)
+            for (std::uint32_t y = 0u; y < resolution; ++y)
+                for (std::uint32_t x = 0u; x < resolution; ++x) {
+                    const float px                                                                                     = (x + 0.5F) * cell_size - center.x;
+                    const float py                                                                                     = (y + 0.5F) * cell_size - center.y;
+                    const float pz                                                                                     = (z + 0.5F) * cell_size - center.z;
+                    const float distance                                                                               = std::sqrt(px * px + py * py + pz * pz);
+                    const float shell                                                                                  = (distance - radius) / thickness;
+                    density[x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z)] = std::exp(-0.5F * shell * shell);
+                }
         return density;
     }
 
@@ -360,10 +424,14 @@ namespace physica::examples::adjoint_control {
         Point minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
         Point maximum{std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()};
         for (const Point point : vertices) {
-            minimum.x = std::min(minimum.x, point.x); minimum.y = std::min(minimum.y, point.y); minimum.z = std::min(minimum.z, point.z);
-            maximum.x = std::max(maximum.x, point.x); maximum.y = std::max(maximum.y, point.y); maximum.z = std::max(maximum.z, point.z);
+            minimum.x = std::min(minimum.x, point.x);
+            minimum.y = std::min(minimum.y, point.y);
+            minimum.z = std::min(minimum.z, point.z);
+            maximum.x = std::max(maximum.x, point.x);
+            maximum.y = std::max(maximum.y, point.y);
+            maximum.z = std::max(maximum.z, point.z);
         }
-        const float scale = std::min({0.58F / (maximum.x - minimum.x), 0.58F / (maximum.y - minimum.y), 0.48F / (maximum.z - minimum.z)});
+        const float scale    = std::min({0.58F / (maximum.x - minimum.x), 0.58F / (maximum.y - minimum.y), 0.48F / (maximum.z - minimum.z)});
         const float x_center = 0.5F * (minimum.x + maximum.x);
         const float z_center = 0.5F * (minimum.z + maximum.z);
         for (Point& point : vertices) {
@@ -373,25 +441,27 @@ namespace physica::examples::adjoint_control {
         }
 
         const std::uint32_t resolution = configuration.resolution;
-        const float cell_size = 1.0F / resolution;
-        const float sigma = 1.15F * cell_size;
-        const int radius = static_cast<int>(std::ceil(3.0F * sigma / cell_size));
+        const float cell_size          = 1.0F / resolution;
+        const float sigma              = 1.15F * cell_size;
+        const int radius               = static_cast<int>(std::ceil(3.0F * sigma / cell_size));
         std::vector<float> density(static_cast<std::size_t>(resolution) * resolution * resolution);
         for (const Point point : vertices) {
             const int center_x = static_cast<int>(point.x / cell_size);
             const int center_y = static_cast<int>(point.y / cell_size);
             const int center_z = static_cast<int>(point.z / cell_size);
-            for (int z = std::max(0, center_z - radius); z <= std::min(static_cast<int>(resolution) - 1, center_z + radius); ++z) for (int y = std::max(0, center_y - radius); y <= std::min(static_cast<int>(resolution) - 1, center_y + radius); ++y) for (int x = std::max(0, center_x - radius); x <= std::min(static_cast<int>(resolution) - 1, center_x + radius); ++x) {
-                const float dx = (x + 0.5F) * cell_size - point.x;
-                const float dy = (y + 0.5F) * cell_size - point.y;
-                const float dz = (z + 0.5F) * cell_size - point.z;
-                const float value = std::exp(-0.5F * (dx * dx + dy * dy + dz * dz) / (sigma * sigma));
-                const std::size_t index = x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z);
-                density[index] = std::max(density[index], value);
-            }
+            for (int z = std::max(0, center_z - radius); z <= std::min(static_cast<int>(resolution) - 1, center_z + radius); ++z)
+                for (int y = std::max(0, center_y - radius); y <= std::min(static_cast<int>(resolution) - 1, center_y + radius); ++y)
+                    for (int x = std::max(0, center_x - radius); x <= std::min(static_cast<int>(resolution) - 1, center_x + radius); ++x) {
+                        const float dx          = (x + 0.5F) * cell_size - point.x;
+                        const float dy          = (y + 0.5F) * cell_size - point.y;
+                        const float dz          = (z + 0.5F) * cell_size - point.z;
+                        const float value       = std::exp(-0.5F * (dx * dx + dy * dy + dz * dz) / (sigma * sigma));
+                        const std::size_t index = x + static_cast<std::size_t>(resolution) * (y + static_cast<std::size_t>(resolution) * z);
+                        density[index]          = std::max(density[index], value);
+                    }
         }
         const std::vector<float> initial = create_initial_density();
-        const double mass_scale = sum(initial) / sum(density);
+        const double mass_scale          = sum(initial) / sum(density);
         for (float& value : density) value = static_cast<float>(mass_scale * value);
         return density;
     }
@@ -418,9 +488,9 @@ namespace physica::examples::adjoint_control {
 
     ShapeMetrics Experiment::shape_metrics(const std::span<const float> density, const std::span<const float> target, const fluids::gas::adjoint_control::State& state) const {
         double residual_squared = 0.0;
-        double target_squared = 0.0;
-        double density_squared = 0.0;
-        double product = 0.0;
+        double target_squared   = 0.0;
+        double density_squared  = 0.0;
+        double product          = 0.0;
         for (std::size_t index = 0u; index < density.size(); ++index) {
             const double residual = density[index] - target[index];
             residual_squared += residual * residual;
@@ -429,34 +499,36 @@ namespace physica::examples::adjoint_control {
             product += density[index] * target[index];
         }
         const std::array<std::vector<float>, 3> velocity = download_velocity(state);
-        const std::uint32_t n = configuration.resolution;
-        double maximum_divergence = 0.0;
-        double divergence_squared = 0.0;
-        double maximum_speed = 0.0;
-        for (std::uint32_t z = 0u; z < n; ++z) for (std::uint32_t y = 0u; y < n; ++y) for (std::uint32_t x = 0u; x < n; ++x) {
-            const double divergence = (velocity[0][x + 1u + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)] - velocity[0][x + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)]
-                                     + velocity[1][x + static_cast<std::size_t>(n) * (y + 1u + static_cast<std::size_t>(n + 1u) * z)] - velocity[1][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n + 1u) * z)]
-                                     + velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * (z + 1u))] - velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * z)]) * n;
-            maximum_divergence = std::max(maximum_divergence, std::abs(divergence));
-            divergence_squared += divergence * divergence;
-            const double vx = 0.5 * (velocity[0][x + 1u + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)] + velocity[0][x + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)]);
-            const double vy = 0.5 * (velocity[1][x + static_cast<std::size_t>(n) * (y + 1u + static_cast<std::size_t>(n + 1u) * z)] + velocity[1][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n + 1u) * z)]);
-            const double vz = 0.5 * (velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * (z + 1u))] + velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * z)]);
-            maximum_speed = std::max(maximum_speed, std::sqrt(vx * vx + vy * vy + vz * vz));
-        }
+        const std::uint32_t n                            = configuration.resolution;
+        double maximum_divergence                        = 0.0;
+        double divergence_squared                        = 0.0;
+        double maximum_speed                             = 0.0;
+        for (std::uint32_t z = 0u; z < n; ++z)
+            for (std::uint32_t y = 0u; y < n; ++y)
+                for (std::uint32_t x = 0u; x < n; ++x) {
+                    const double divergence = (velocity[0][x + 1u + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)] - velocity[0][x + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)] + velocity[1][x + static_cast<std::size_t>(n) * (y + 1u + static_cast<std::size_t>(n + 1u) * z)] - velocity[1][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n + 1u) * z)] + velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * (z + 1u))] - velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * z)]) * n;
+                    maximum_divergence      = std::max(maximum_divergence, std::abs(divergence));
+                    divergence_squared += divergence * divergence;
+                    const double vx = 0.5 * (velocity[0][x + 1u + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)] + velocity[0][x + static_cast<std::size_t>(n + 1u) * (y + static_cast<std::size_t>(n) * z)]);
+                    const double vy = 0.5 * (velocity[1][x + static_cast<std::size_t>(n) * (y + 1u + static_cast<std::size_t>(n + 1u) * z)] + velocity[1][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n + 1u) * z)]);
+                    const double vz = 0.5 * (velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * (z + 1u))] + velocity[2][x + static_cast<std::size_t>(n) * (y + static_cast<std::size_t>(n) * z)]);
+                    maximum_speed   = std::max(maximum_speed, std::sqrt(vx * vx + vy * vy + vz * vz));
+                }
         return {
-            .relative_l2 = std::sqrt(residual_squared / target_squared),
-            .normalized_cross_correlation = product / std::sqrt(density_squared * target_squared),
-            .soft_dice = 2.0 * product / (density_squared + target_squared),
-            .mass_relative_error = std::abs(sum(density) - sum(target)) / sum(target),
-            .maximum_divergence = maximum_divergence,
-            .rms_divergence = std::sqrt(divergence_squared / density.size()),
-            .maximum_speed = maximum_speed,
+            .relative_l2                      = std::sqrt(residual_squared / target_squared),
+            .normalized_cross_correlation     = product / std::sqrt(density_squared * target_squared),
+            .soft_dice                        = 2.0 * product / (density_squared + target_squared),
+            .mass_relative_error              = std::abs(sum(density) - sum(target)) / sum(target),
+            .maximum_divergence               = maximum_divergence,
+            .rms_divergence                   = std::sqrt(divergence_squared / density.size()),
+            .maximum_speed                    = maximum_speed,
             .dimensionless_maximum_divergence = maximum_divergence / (n * maximum_speed),
         };
     }
 
-    void Experiment::write_density(const std::filesystem::path& path, const std::span<const float> density) const { write_front(path, density, configuration.resolution, 6u); }
+    void Experiment::write_density(const std::filesystem::path& path, const std::span<const float> density) const {
+        write_front(path, density, configuration.resolution, 6u);
+    }
 
     void Experiment::write_sequence(const std::filesystem::path& path, const std::vector<std::vector<float>>& frames) const {
         const std::uint32_t final_step = configuration.step_count + configuration.post_step_count;
@@ -479,10 +551,10 @@ namespace physica::examples::adjoint_control {
 
     void run_verification(const std::string_view bunny_path, const std::string_view output_directory) {
         ExperimentConfiguration configuration;
-        configuration.resolution = 14u;
-        configuration.step_count = 4u;
-        configuration.post_step_count = 0u;
-        configuration.control_lattice = {4u, 4u, 4u};
+        configuration.resolution           = 14u;
+        configuration.step_count           = 4u;
+        configuration.post_step_count      = 0u;
+        configuration.control_lattice      = {4u, 4u, 4u};
         configuration.optimizer_iterations = 2u;
         Experiment experiment{configuration, std::filesystem::path{bunny_path}};
         experiment.verify(std::filesystem::path{output_directory});
@@ -503,10 +575,10 @@ namespace physica::examples::adjoint_control {
         output << "lattice,parameter_count,gradient_seconds,forward_simulations,reverse_simulations\n" << std::setprecision(17);
         for (const std::uint32_t lattice : lattices) {
             ExperimentConfiguration configuration;
-            configuration.resolution = 18u;
-            configuration.step_count = 20u;
-            configuration.post_step_count = 0u;
-            configuration.control_lattice = {lattice, lattice, lattice};
+            configuration.resolution           = 18u;
+            configuration.step_count           = 20u;
+            configuration.post_step_count      = 0u;
+            configuration.control_lattice      = {lattice, lattice, lattice};
             configuration.optimizer_iterations = 1u;
             Experiment experiment{configuration, asset};
             experiment.measure_gradient();

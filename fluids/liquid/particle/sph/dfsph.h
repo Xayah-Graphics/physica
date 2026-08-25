@@ -2,7 +2,6 @@
 #define PHYSICA_FLUIDS_LIQUID_PARTICLE_SPH_DFSPH_H
 
 #include "kernels.h"
-
 #include <cstdint>
 
 namespace physica::fluids::liquid::particle::cuda_detail::dfsph {
