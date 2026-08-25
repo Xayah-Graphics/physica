@@ -5,6 +5,10 @@
 
 namespace physica::fluids::gas::operators::cuda_backend {
     namespace {
+        __global__ void accumulate_kernel(const double* contribution, double* objective) {
+            objective[0] += contribution[0];
+        }
+
         __global__ void inject_copy_kernel(const float* source, const double scale, double* destination, const std::uint64_t count) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index < count) destination[index] += scale * source[index];
@@ -183,6 +187,10 @@ namespace physica::fluids::gas::operators::cuda_backend {
 
     void control_effort(const ::cuda::stream_ref stream, const detail::cuda::Grid grid, const double weight, const detail::cuda::CenteredVectorView<const float> control, double* result) {
         ::cuda::launch(stream, ::cuda::distribute<detail::cuda::block_size>(detail::cuda::block_size), control_effort_kernel, grid, control, weight, result);
+    }
+
+    void accumulate(const ::cuda::stream_ref stream, const double* contribution, double* objective) {
+        ::cuda::launch(stream, ::cuda::distribute<1u>(1u), accumulate_kernel, contribution, objective);
     }
 
     void control_effort_jvp(const ::cuda::stream_ref stream, const detail::cuda::Grid grid, const double weight, const detail::cuda::CenteredVectorView<const float> control, const detail::cuda::CenteredVectorView<const float> control_tangent, double* result) {

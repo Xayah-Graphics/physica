@@ -1,3 +1,7 @@
+module;
+
+#include <physica/cuda.h>
+
 export module physica.fluids.gas.keyframe_smoke.optimization;
 
 import std;
@@ -28,6 +32,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
         OptimizationCoordinates coordinates;
         std::vector<double> parameters;
         EvaluationSummary summary;
+        double gradient_norm{};
+        double projected_gradient_norm{};
     };
 
     struct OptimizationResult final {
@@ -35,6 +41,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
         std::vector<OptimizationEvaluation> evaluations;
         std::vector<optimization::LbfgsbStopReason> level_stop_reasons;
         std::optional<EvaluationTrace> final_trace;
+        double gradient_norm{};
+        double projected_gradient_norm{};
     };
 
     template <typename SolverType>
@@ -52,6 +60,7 @@ export namespace physica::fluids::gas::keyframe_smoke {
     OptimizationResult OptimizationRunner<SolverType>::run(const std::span<const double> initial_parameters, const std::span<const std::uint8_t> active_parameters, OptimizationCoordinates coordinates) {
         OptimizationResult result{};
         result.parameters.assign(initial_parameters.begin(), initial_parameters.end());
+        ::cuda::device_buffer<double> final_parameters(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), initial_parameters.size(), ::cuda::no_init);
         const std::uint32_t first_continuation_level = coordinates.continuation_level;
         for (std::uint32_t level = 0u; level < continuation.size(); ++level) {
             const ContinuationLevel& level_configuration = continuation[level];
@@ -63,25 +72,29 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 lower_bounds[parameter] = result.parameters[parameter];
                 upper_bounds[parameter] = result.parameters[parameter];
             }
-            optimization::Lbfgsb optimizer(level_configuration.optimizer, result.parameters, lower_bounds, upper_bounds);
+            optimization::Lbfgsb optimizer(domain.stream, level_configuration.optimizer, result.parameters, lower_bounds, upper_bounds);
             while (optimizer.request().kind == optimization::LbfgsbRequestKind::objective_gradient) {
                 const optimization::LbfgsbRequest request = optimizer.request();
-                EvaluationTrace trace                     = evaluator.evaluate(level_objective, request.parameters, EvaluationMode::objective_gradient);
-                coordinates.continuation_level            = first_continuation_level + level;
-                coordinates.optimizer_iteration           = request.iteration;
-                coordinates.objective_evaluation          = request.evaluation;
-                coordinates.line_search_evaluation        = request.line_search_evaluation;
-                coordinates.line_search_step              = request.step_length;
-                const double value                        = trace.summary.objective;
-                const std::vector<double> gradient        = trace.reverse->parameter_gradient;
-                result.evaluations.push_back({.coordinates = coordinates, .parameters = {request.parameters.begin(), request.parameters.end()}, .summary = trace.summary});
-                optimizer.submit(value, gradient);
+                std::vector<double> evaluation_parameters(request.parameters.size());
+                ::cuda::copy_bytes(domain.stream, request.parameters, ::cuda::std::span{evaluation_parameters.data(), evaluation_parameters.size()});
+                EvaluationTrace trace                             = evaluator.evaluate(level_objective, request.parameters, EvaluationMode::objective_gradient);
+                coordinates.continuation_level                    = first_continuation_level + level;
+                coordinates.optimizer_iteration                   = request.iteration;
+                coordinates.objective_evaluation                  = request.evaluation;
+                coordinates.line_search_evaluation                = request.line_search_evaluation;
+                coordinates.line_search_step                      = request.step_length;
+                const optimization::LbfgsbGradientMetrics metrics = optimizer.submit(trace.objective.data(), {trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()});
+                result.evaluations.push_back({.coordinates = coordinates, .parameters = std::move(evaluation_parameters), .summary = trace.summary, .gradient_norm = metrics.gradient_norm, .projected_gradient_norm = metrics.projected_gradient_norm});
             }
-            result.parameters = optimizer.parameters;
+            ::cuda::copy_bytes(domain.stream, optimizer.parameters, final_parameters);
+            ::cuda::copy_bytes(domain.stream, optimizer.parameters, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+            domain.stream.sync();
             result.level_stop_reasons.push_back(optimizer.stop_reason);
+            result.gradient_norm           = optimizer.gradient_norm;
+            result.projected_gradient_norm = optimizer.projected_gradient_norm;
         }
         operators::Quadratic final_objective = objective_function.with_blur_sigma(domain, continuation.back().blur_sigma_cells);
-        result.final_trace.emplace(evaluator.evaluate(final_objective, result.parameters, EvaluationMode::objective_gradient));
+        result.final_trace.emplace(evaluator.evaluate(final_objective, {final_parameters.data(), final_parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
 } // namespace physica::fluids::gas::keyframe_smoke

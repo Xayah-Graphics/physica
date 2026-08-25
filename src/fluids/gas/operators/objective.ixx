@@ -48,6 +48,7 @@ export namespace physica::fluids::gas::operators {
         void keyframe_jvp(const Domain& domain, const CellField<float>& density_tangent, const StaggeredVectorField<float>& velocity_tangent, double density_weight, double velocity_weight, KeyframeCache& cache, Workspace& workspace) const;
         void keyframe_vjp(const Domain& domain, double density_weight, double velocity_weight, const KeyframeCache& cache, CellField<double>& density_adjoint, StaggeredVectorField<double>& velocity_adjoint, Workspace& workspace) const;
         void evaluate_control_effort(const Domain& domain, const CenteredVectorField<float>& control, StepCache& cache) const;
+        void accumulate(const Domain& domain, const ::cuda::device_buffer<double>& contribution, ::cuda::device_buffer<double>& objective) const;
         void control_effort_jvp(const Domain& domain, const CenteredVectorField<float>& control, const CenteredVectorField<float>& control_tangent, StepCache& cache) const;
         void control_effort_vjp(const Domain& domain, const CenteredVectorField<float>& control, CenteredVectorField<double>& control_adjoint) const;
 

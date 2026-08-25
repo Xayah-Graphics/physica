@@ -200,6 +200,8 @@ namespace physica::examples::keyframe_smoke {
 
         std::uint64_t record_index = 0u;
         fluids::gas::keyframe_smoke::EvaluationSummary final_summary{};
+        double final_gradient_norm{};
+        double final_projected_gradient_norm{};
         std::vector<float> final_density;
         for (std::uint32_t level = 0u; level < continuation.size(); ++level) {
             fluids::gas::keyframe_smoke::OptimizationRunner runner{
@@ -213,14 +215,16 @@ namespace physica::examples::keyframe_smoke {
             for (const fluids::gas::keyframe_smoke::OptimizationEvaluation& evaluation : result.evaluations) {
                 const std::filesystem::path parameter_path = std::filesystem::path{"parameters"} / std::format("evaluation-{:06}.bin", record_index);
                 write_parameters(output_directory / parameter_path, evaluation.parameters);
-                evaluations << record_index << ',' << evaluation.coordinates.continuation_level << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.summary.gradient_norm << ',' << evaluation.summary.projected_gradient_norm << ',' << parameter_path.generic_string() << '\n';
+                evaluations << record_index << ',' << evaluation.coordinates.continuation_level << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.gradient_norm << ',' << evaluation.projected_gradient_norm << ',' << parameter_path.generic_string() << '\n';
                 ++record_index;
             }
             evaluations.flush();
             parameters = result.parameters;
             write_parameters(output_directory / std::format("checkpoint-level-{}.bin", level), parameters);
-            final_summary = result.final_trace->summary;
-            final_density = download_density(result.final_trace->state.back());
+            final_summary                 = result.final_trace->summary;
+            final_gradient_norm           = result.gradient_norm;
+            final_projected_gradient_norm = result.projected_gradient_norm;
+            final_density                 = download_density(result.final_trace->state.back());
             write_density(output_directory / "levels" / std::format("level-{}.png", level), final_density);
             std::println("{} level {}: objective={:.9e}, density={:.9e}, control={:.9e}, evaluations={}, stop={}", letter, level, final_summary.objective, final_summary.density_loss, final_summary.control_effort, result.evaluations.size(), static_cast<std::uint32_t>(result.level_stop_reasons.front()));
 
@@ -251,8 +255,8 @@ namespace physica::examples::keyframe_smoke {
                 << "  \"objective\": " << final_summary.objective << ",\n"
                 << "  \"density_loss\": " << final_summary.density_loss << ",\n"
                 << "  \"control_effort\": " << final_summary.control_effort << ",\n"
-                << "  \"gradient_norm\": " << final_summary.gradient_norm << ",\n"
-                << "  \"projected_gradient_norm\": " << final_summary.projected_gradient_norm << ",\n"
+                << "  \"gradient_norm\": " << final_gradient_norm << ",\n"
+                << "  \"projected_gradient_norm\": " << final_projected_gradient_norm << ",\n"
                 << "  \"relative_l2\": " << metrics.relative_l2 << ",\n"
                 << "  \"normalized_cross_correlation\": " << metrics.normalized_cross_correlation << ",\n"
                 << "  \"soft_dice\": " << metrics.soft_dice << ",\n"

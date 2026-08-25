@@ -23,13 +23,10 @@ export namespace physica::fluids::gas::keyframe_smoke {
         double velocity_loss{};
         double control_effort{};
         double directional_derivative{};
-        double gradient_dot_direction{};
-        double gradient_norm{};
-        double projected_gradient_norm{};
     };
 
     struct ReverseTrace final {
-        std::vector<double> parameter_gradient;
+        ::cuda::device_buffer<double> parameter_gradient;
     };
 
     struct TangentTrace final {
@@ -60,8 +57,12 @@ export namespace physica::fluids::gas::keyframe_smoke {
     };
 
     struct EvaluationTrace final {
+        explicit EvaluationTrace(const Domain& domain) : objective(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), 1u, ::cuda::no_init) {
+            ::cuda::fill_bytes(domain.stream, objective, 0u);
+        }
+
         std::uint64_t evaluation{};
-        std::vector<double> parameters;
+        ::cuda::device_buffer<double> objective;
         std::vector<State> state;
         std::vector<StepRecord> steps;
         std::vector<KeyframeRecord> keyframes;
@@ -74,8 +75,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
     struct Evaluator final {
         Evaluator(const Domain& next_domain, SolverType& next_solver, ControlSystem& next_control, operators::Quadratic& next_objective, const Problem& next_problem) : domain(next_domain), solver(next_solver), control(next_control), objective_function(next_objective), problem(next_problem) {}
 
-        [[nodiscard]] EvaluationTrace evaluate(std::span<const double> parameters, EvaluationMode mode = EvaluationMode::objective_gradient, std::span<const double> direction = {});
-        [[nodiscard]] EvaluationTrace evaluate(operators::Quadratic& objective_function, std::span<const double> parameters, EvaluationMode mode, std::span<const double> direction = {});
+        [[nodiscard]] EvaluationTrace evaluate(::cuda::std::span<const double> parameters, EvaluationMode mode = EvaluationMode::objective_gradient, ::cuda::std::span<const double> direction = {});
+        [[nodiscard]] EvaluationTrace evaluate(operators::Quadratic& objective_function, ::cuda::std::span<const double> parameters, EvaluationMode mode, ::cuda::std::span<const double> direction = {});
 
     private:
         const Domain& domain;
@@ -87,22 +88,20 @@ export namespace physica::fluids::gas::keyframe_smoke {
     };
 
     template <typename SolverType>
-    EvaluationTrace Evaluator<SolverType>::evaluate(const std::span<const double> parameter_values, const EvaluationMode mode, const std::span<const double> direction) {
+    EvaluationTrace Evaluator<SolverType>::evaluate(const ::cuda::std::span<const double> parameter_values, const EvaluationMode mode, const ::cuda::std::span<const double> direction) {
         return evaluate(objective_function, parameter_values, mode, direction);
     }
 
     template <typename SolverType>
-    EvaluationTrace Evaluator<SolverType>::evaluate(operators::Quadratic& selected_objective, const std::span<const double> parameter_values, const EvaluationMode mode, const std::span<const double> direction) {
-        EvaluationTrace trace{};
+    EvaluationTrace Evaluator<SolverType>::evaluate(operators::Quadratic& selected_objective, const ::cuda::std::span<const double> parameter_values, const EvaluationMode mode, const ::cuda::std::span<const double> direction) {
+        EvaluationTrace trace{domain};
         trace.evaluation = evaluation_count++;
-        trace.parameters.assign(parameter_values.begin(), parameter_values.end());
         trace.state.reserve(problem.step_count + 1u);
         trace.steps.reserve(problem.step_count);
         trace.keyframes.reserve(problem.keyframes.size());
         trace.state.push_back(solver.allocate_state(domain));
         domain.copy(problem.initial_state.density, trace.state.front().density);
         domain.copy(problem.initial_state.velocity, trace.state.front().velocity);
-        control.upload_parameters(domain, parameter_values);
 
         DenseControl dense_control                       = solver.allocate_control(domain);
         typename SolverType::StepCache step_cache        = solver.allocate_step_cache(domain);
@@ -119,7 +118,6 @@ export namespace physica::fluids::gas::keyframe_smoke {
             trace.tangent.emplace();
             trace.tangent->state.reserve(problem.step_count + 1u);
             trace.tangent->state.push_back(solver.allocate_state_tangent(domain));
-            control.upload_direction(domain, direction);
         }
 
         for (std::uint32_t state_index = 0u; state_index <= problem.step_count; ++state_index) {
@@ -128,15 +126,16 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 trace.state.push_back(solver.allocate_state(domain));
                 trace.steps.push_back({.step = step});
                 StepRecord& record = trace.steps.back();
-                control.forward(domain, step, dense_control);
+                control.forward(domain, step, parameter_values, dense_control);
                 selected_objective.evaluate_control_effort(domain, dense_control.force, step_objective);
+                selected_objective.accumulate(domain, step_objective.control_effort, trace.objective);
                 solver.forward(domain, trace.state[state_index - 1u], dense_control, trace.state[state_index], step_cache, forward_workspace);
                 ::cuda::copy_bytes(domain.stream, step_cache.conservation.input_mass, ::cuda::std::span{&record.metrics.input_mass, 1u});
                 ::cuda::copy_bytes(domain.stream, step_cache.conservation.advected_mass, ::cuda::std::span{&record.metrics.advected_mass, 1u});
                 ::cuda::copy_bytes(domain.stream, step_objective.control_effort, ::cuda::std::span{&record.metrics.control_effort, 1u});
                 if (trace.tangent) {
                     trace.tangent->state.push_back(solver.allocate_state_tangent(domain));
-                    control.jvp(domain, step, *dense_control_tangent);
+                    control.jvp(domain, step, parameter_values, direction, *dense_control_tangent);
                     selected_objective.control_effort_jvp(domain, dense_control.force, dense_control_tangent->force, step_objective);
                     solver.jvp(domain, trace.state[state_index - 1u], trace.state[state_index], step_cache, trace.tangent->state[state_index - 1u], *dense_control_tangent, trace.tangent->state[state_index], *tangent_workspace);
                     ::cuda::copy_bytes(domain.stream, step_objective.directional_derivative, ::cuda::std::span{&record.metrics.directional_derivative, 1u});
@@ -149,6 +148,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 trace.keyframes.push_back({.keyframe_index = keyframe_index});
                 KeyframeRecord& record = trace.keyframes.back();
                 selected_objective.evaluate_keyframe(domain, trace.state[state_index].density, trace.state[state_index].velocity, keyframe.target.density, keyframe.target.velocity, keyframe.density_weight, keyframe.velocity_weight, keyframe_cache, objective_workspace);
+                selected_objective.accumulate(domain, keyframe_cache.density_loss, trace.objective);
+                selected_objective.accumulate(domain, keyframe_cache.velocity_loss, trace.objective);
                 ::cuda::copy_bytes(domain.stream, keyframe_cache.density_loss, ::cuda::std::span{&record.metrics.density_loss, 1u});
                 ::cuda::copy_bytes(domain.stream, keyframe_cache.velocity_loss, ::cuda::std::span{&record.metrics.velocity_loss, 1u});
                 if (trace.tangent) {
@@ -160,13 +161,13 @@ export namespace physica::fluids::gas::keyframe_smoke {
         domain.stream.sync();
 
         if (mode != EvaluationMode::objective) {
-            trace.reverse.emplace();
+            trace.reverse.emplace(ReverseTrace{.parameter_gradient = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), parameter_values.size(), ::cuda::no_init}});
+            ::cuda::fill_bytes(domain.stream, trace.reverse->parameter_gradient, 0u);
             typename SolverType::AdjointWorkspace adjoint_workspace = solver.allocate_adjoint_workspace(domain);
             State replay                                            = solver.allocate_state(domain);
             StateAdjoint current                                    = solver.allocate_state_adjoint(domain);
             StateAdjoint previous                                   = solver.allocate_state_adjoint(domain);
             DenseControlAdjoint control_adjoint                     = solver.allocate_control_adjoint(domain);
-            control.clear_gradient(domain);
             for (std::uint32_t reverse_index = 0u; reverse_index <= problem.step_count; ++reverse_index) {
                 const std::uint32_t state_index = problem.step_count - reverse_index;
                 for (const Keyframe& keyframe : problem.keyframes) {
@@ -176,15 +177,13 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 }
                 if (state_index == 0u) continue;
                 const std::uint32_t step = problem.begin_step + state_index - 1u;
-                control.forward(domain, step, dense_control);
+                control.forward(domain, step, parameter_values, dense_control);
                 solver.forward(domain, trace.state[state_index - 1u], dense_control, replay, step_cache, forward_workspace);
                 solver.vjp(domain, trace.state[state_index - 1u], replay, step_cache, current, previous, control_adjoint, adjoint_workspace);
                 selected_objective.control_effort_vjp(domain, dense_control.force, control_adjoint.force);
-                control.vjp(domain, step, control_adjoint);
+                control.vjp(domain, step, parameter_values, control_adjoint, {trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()});
                 std::swap(current, previous);
             }
-            trace.reverse->parameter_gradient.resize(parameter_values.size());
-            control.download_gradient(domain, trace.reverse->parameter_gradient);
         }
 
         for (const StepRecord& record : trace.steps) {
@@ -198,19 +197,6 @@ export namespace physica::fluids::gas::keyframe_smoke {
         }
         trace.summary.objective = trace.summary.density_loss + trace.summary.velocity_loss + trace.summary.control_effort;
 
-        if (trace.reverse) {
-            double gradient_squared           = 0.0;
-            double projected_gradient_squared = 0.0;
-            for (std::size_t parameter = 0u; parameter < parameter_values.size(); ++parameter) {
-                const double gradient = trace.reverse->parameter_gradient[parameter];
-                gradient_squared += gradient * gradient;
-                const double projected = parameter_values[parameter] - std::clamp(parameter_values[parameter] - gradient, control.lower_bounds[parameter], control.upper_bounds[parameter]);
-                projected_gradient_squared += projected * projected;
-                if (trace.tangent) trace.summary.gradient_dot_direction += gradient * direction[parameter];
-            }
-            trace.summary.gradient_norm           = std::sqrt(gradient_squared);
-            trace.summary.projected_gradient_norm = std::sqrt(projected_gradient_squared);
-        }
         return trace;
     }
 } // namespace physica::fluids::gas::keyframe_smoke

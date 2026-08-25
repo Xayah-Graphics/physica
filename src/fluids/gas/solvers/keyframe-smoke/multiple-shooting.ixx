@@ -121,7 +121,9 @@ export namespace physica::fluids::gas::keyframe_smoke {
             propagated = true;
         }
         Evaluator evaluator(domain, solver, control, objective_function, problem);
-        result.final_trace.emplace(evaluator.evaluate(result.parameters, EvaluationMode::objective_gradient));
+        ::cuda::device_buffer<double> final_parameters(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), result.parameters.size(), ::cuda::no_init);
+        ::cuda::copy_bytes(domain.stream, result.parameters, final_parameters);
+        result.final_trace.emplace(evaluator.evaluate({final_parameters.data(), final_parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
 

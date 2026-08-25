@@ -89,6 +89,10 @@ namespace physica::fluids::gas::operators {
         cuda_backend::control_effort(domain.stream, detail::cuda::grid(domain.configuration), configuration.control_effort_weight, detail::cuda::centered(control), cache.control_effort.data());
     }
 
+    void Quadratic::accumulate(const Domain& domain, const ::cuda::device_buffer<double>& contribution, ::cuda::device_buffer<double>& objective) const {
+        cuda_backend::accumulate(domain.stream, contribution.data(), objective.data());
+    }
+
     void Quadratic::control_effort_jvp(const Domain& domain, const CenteredVectorField<float>& control, const CenteredVectorField<float>& control_tangent, StepCache& cache) const {
         cuda_backend::control_effort_jvp(domain.stream, detail::cuda::grid(domain.configuration), configuration.control_effort_weight, detail::cuda::centered(control), detail::cuda::centered(control_tangent), cache.directional_derivative.data());
     }

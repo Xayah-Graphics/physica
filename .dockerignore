@@ -4,11 +4,7 @@
 !LICENSE
 !cmake/
 !cmake/**
-!reconstruction/
-!reconstruction/**
-!fluids/
-!fluids/**
-!deformables/
-!deformables/**
+!src/
+!src/**
 !examples/
 !examples/**

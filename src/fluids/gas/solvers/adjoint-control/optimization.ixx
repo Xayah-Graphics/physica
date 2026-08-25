@@ -1,8 +1,13 @@
+module;
+
+#include <physica/cuda.h>
+
 export module physica.fluids.gas.adjoint_control.optimization;
 
 import std;
 import physica.fluids.gas.adjoint_control.control;
 import physica.fluids.gas.adjoint_control.evaluation;
+import physica.fluids.gas.domain;
 import physica.optimization.lbfgsb;
 
 export namespace physica::fluids::gas::adjoint_control {
@@ -16,6 +21,8 @@ export namespace physica::fluids::gas::adjoint_control {
     struct OptimizationEvaluation final {
         OptimizationCoordinates coordinates;
         EvaluationSummary summary;
+        double gradient_norm{};
+        double projected_gradient_norm{};
     };
 
     struct OptimizationResult final {
@@ -23,10 +30,13 @@ export namespace physica::fluids::gas::adjoint_control {
         std::vector<OptimizationEvaluation> evaluations;
         optimization::LbfgsbStopReason stop_reason{optimization::LbfgsbStopReason::running};
         std::optional<EvaluationTrace> final_trace;
+        double gradient_norm{};
+        double projected_gradient_norm{};
     };
 
     template <typename SolverType>
     struct OptimizationRunner final {
+        const Domain& domain;
         Evaluator<SolverType>& evaluator;
         const ControlSystem& control;
         const optimization::LbfgsbConfiguration configuration;
@@ -43,11 +53,12 @@ export namespace physica::fluids::gas::adjoint_control {
             lower_bounds[parameter] = initial_parameters[parameter];
             upper_bounds[parameter] = initial_parameters[parameter];
         }
-        optimization::Lbfgsb optimizer(configuration, initial_parameters, lower_bounds, upper_bounds);
+        optimization::Lbfgsb optimizer(domain.stream, configuration, initial_parameters, lower_bounds, upper_bounds);
         OptimizationResult result{};
         while (optimizer.request().kind == optimization::LbfgsbRequestKind::objective_gradient) {
-            const optimization::LbfgsbRequest request = optimizer.request();
-            EvaluationTrace trace                     = evaluator.evaluate(request.parameters, EvaluationMode::objective_gradient);
+            const optimization::LbfgsbRequest request         = optimizer.request();
+            EvaluationTrace trace                             = evaluator.evaluate(request.parameters, EvaluationMode::objective_gradient);
+            const optimization::LbfgsbGradientMetrics metrics = optimizer.submit(trace.objective.data(), {trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()});
             result.evaluations.push_back({
                 .coordinates =
                     {
@@ -56,13 +67,18 @@ export namespace physica::fluids::gas::adjoint_control {
                         .line_search_evaluation = request.line_search_evaluation,
                         .line_search_step       = request.step_length,
                     },
-                .summary = trace.summary,
+                .summary                 = trace.summary,
+                .gradient_norm           = metrics.gradient_norm,
+                .projected_gradient_norm = metrics.projected_gradient_norm,
             });
-            optimizer.submit(trace.summary.objective, trace.reverse->parameter_gradient);
         }
-        result.parameters  = optimizer.parameters;
-        result.stop_reason = optimizer.stop_reason;
-        result.final_trace.emplace(evaluator.evaluate(result.parameters, EvaluationMode::objective_gradient));
+        result.parameters.resize(optimizer.parameters.size());
+        ::cuda::copy_bytes(domain.stream, optimizer.parameters, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+        domain.stream.sync();
+        result.stop_reason             = optimizer.stop_reason;
+        result.gradient_norm           = optimizer.gradient_norm;
+        result.projected_gradient_norm = optimizer.projected_gradient_norm;
+        result.final_trace.emplace(evaluator.evaluate({optimizer.parameters.data(), optimizer.parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
 } // namespace physica::fluids::gas::adjoint_control

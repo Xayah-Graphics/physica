@@ -52,12 +52,12 @@ endif ()
 # ============================================================================
 # Targets
 # ============================================================================
-add_subdirectory(reconstruction/dataset)
-add_subdirectory(reconstruction/instant-ngp)
-add_subdirectory(optimization/lbfgsb)
-add_subdirectory(fluids/gas)
-add_subdirectory(fluids/liquid)
-add_subdirectory(deformables/cloth)
+add_subdirectory(src/reconstruction/dataset)
+add_subdirectory(src/reconstruction/instant-ngp)
+add_subdirectory(src/optimization/lbfgsb)
+add_subdirectory(src/fluids/gas)
+add_subdirectory(src/fluids/liquid)
+add_subdirectory(src/deformables/cloth)
 if (PHYSICA_EXAMPLES)
     add_subdirectory(examples/reconstruction/instant-ngp)
     add_subdirectory(examples/fluids/gas/smoke)

@@ -24,20 +24,11 @@ export namespace physica::fluids::gas::adjoint_control {
         std::vector<double> lower_bounds;
         std::vector<double> upper_bounds;
 
-        ControlSystem(const Domain& domain, ControlConfiguration configuration);
+        explicit ControlSystem(ControlConfiguration configuration);
 
-        void upload_parameters(const Domain& domain, std::span<const double> values);
-        void upload_direction(const Domain& domain, std::span<const double> direction);
-        void clear_gradient(const Domain& domain);
-        void forward(const Domain& domain, std::uint32_t step, DenseControl& output) const;
-        void jvp(const Domain& domain, std::uint32_t step, DenseControlTangent& output_tangent) const;
-        void vjp(const Domain& domain, std::uint32_t step, const DenseControlAdjoint& output_adjoint);
-        void download_gradient(const Domain& domain, std::span<double> gradient) const;
+        void forward(const Domain& domain, std::uint32_t step, ::cuda::std::span<const double> parameters, DenseControl& output) const;
+        void jvp(const Domain& domain, std::uint32_t step, ::cuda::std::span<const double> direction, DenseControlTangent& output_tangent) const;
+        void vjp(const Domain& domain, std::uint32_t step, const DenseControlAdjoint& output_adjoint, ::cuda::std::span<double> gradient) const;
         [[nodiscard]] std::vector<std::uint8_t> active_parameters(std::uint32_t begin_step, std::uint32_t end_step) const;
-
-    private:
-        ::cuda::device_buffer<double> device_parameters;
-        ::cuda::device_buffer<double> device_direction;
-        ::cuda::device_buffer<double> device_gradient;
     };
 } // namespace physica::fluids::gas::adjoint_control
