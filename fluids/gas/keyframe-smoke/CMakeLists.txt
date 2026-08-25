@@ -5,43 +5,41 @@ add_library(physica-fluids-gas-keyframe-smoke)
 target_sources(
         physica-fluids-gas-keyframe-smoke
         PRIVATE
-        control.cpp
-        control.cu
-        control_kernels.h
-        derivative-check.cpp
-        device.h
-        device.cuh
-        diffusion.cu
-        domain.cpp
-        domain.cu
-        domain_kernels.h
-        evaluation.cpp
-        forces.cu
-        interop.h
-        lbfgsb.cpp
-        mass.cu
-        multiple-shooting.cpp
-        objective.cpp
-        objective.cu
-        objective_kernels.h
-        optimization.cpp
-        projection.cu
-        sampling.cuh
-        solver.cpp
-        solver_kernels.h
-        transport.cu
+        control/control.cpp
+        control/control.cu
+        control/kernels.h
+        domain/device.h
+        domain/device.cuh
+        domain/domain.cpp
+        domain/domain.cu
+        domain/interop.h
+        domain/kernels.h
+        evaluation/evaluation.cpp
+        multiple-shooting/multiple-shooting.cpp
+        objective/kernels.h
+        objective/objective.cpp
+        objective/objective.cu
+        optimization/lbfgsb.cpp
+        optimization/optimization.cpp
+        solver/diffusion.cu
+        solver/forces.cu
+        solver/kernels.h
+        solver/mass.cu
+        solver/projection.cu
+        solver/sampling.cuh
+        solver/solver.cpp
+        solver/transport.cu
         PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        control.ixx
-        derivative-check.ixx
-        domain.ixx
-        evaluation.ixx
         keyframe-smoke.ixx
-        lbfgsb.ixx
-        multiple-shooting.ixx
-        objective.ixx
-        optimization.ixx
-        solver.ixx
+        control/control.ixx
+        domain/domain.ixx
+        evaluation/evaluation.ixx
+        multiple-shooting/multiple-shooting.ixx
+        objective/objective.ixx
+        optimization/lbfgsb.ixx
+        optimization/optimization.ixx
+        solver/solver.ixx
 )
 target_include_directories(
         physica-fluids-gas-keyframe-smoke

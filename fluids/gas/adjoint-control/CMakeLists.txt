@@ -5,39 +5,39 @@ add_library(physica-fluids-gas-adjoint-control)
 target_sources(
         physica-fluids-gas-adjoint-control
         PRIVATE
-        control.cpp
-        control.cu
-        control_kernels.h
-        derivative-check.cpp
-        device.h
-        device.cuh
-        diffusion.cu
-        domain.cpp
-        domain.cu
-        domain_kernels.h
-        evaluation.cpp
-        forces.cu
-        interop.h
-        lbfgsb.cpp
-        mass.cu
-        objective.cpp
-        objective.cu
-        objective_kernels.h
-        projection.cu
-        sampling.cuh
-        solver.cpp
-        solver_kernels.h
-        transport.cu
+        control/control.cpp
+        control/control.cu
+        control/kernels.h
+        domain/device.h
+        domain/device.cuh
+        domain/domain.cpp
+        domain/domain.cu
+        domain/interop.h
+        domain/kernels.h
+        evaluation/derivative-check.cpp
+        evaluation/evaluation.cpp
+        objective/kernels.h
+        objective/objective.cpp
+        objective/objective.cu
+        optimization/lbfgsb.cpp
+        solver/diffusion.cu
+        solver/forces.cu
+        solver/kernels.h
+        solver/mass.cu
+        solver/projection.cu
+        solver/sampling.cuh
+        solver/solver.cpp
+        solver/transport.cu
         PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        control.ixx
-        derivative-check.ixx
-        domain.ixx
-        evaluation.ixx
         adjoint-control.ixx
-        lbfgsb.ixx
-        objective.ixx
-        solver.ixx
+        control/control.ixx
+        domain/domain.ixx
+        evaluation/derivative-check.ixx
+        evaluation/evaluation.ixx
+        objective/objective.ixx
+        optimization/lbfgsb.ixx
+        solver/solver.ixx
 )
 target_include_directories(
         physica-fluids-gas-adjoint-control

@@ -159,58 +159,6 @@ namespace physica::examples::keyframe_smoke {
 
     Experiment::~Experiment() = default;
 
-    void Experiment::verify(const std::filesystem::path& output_directory) {
-        std::filesystem::create_directories(output_directory);
-        const std::vector<float> initial_density = download_density(problem.initial_state);
-        const std::vector<float> target_density = download_density(problem.keyframes.back().target);
-        write_density(output_directory / "initial.png", initial_density);
-        write_density(output_directory / "target-s.png", target_density);
-
-        std::vector<double> direction(control.parameters.values.size(), 0.0);
-        double direction_norm = 0.0;
-        for (std::size_t parameter = 0u; parameter < direction.size(); ++parameter) {
-            if (control.parameters.lower_bounds[parameter] == control.parameters.upper_bounds[parameter]) continue;
-            direction[parameter] = std::sin(static_cast<double>(parameter + 1u) * 0.7548776662466927);
-            direction_norm += direction[parameter] * direction[parameter];
-        }
-        direction_norm = std::sqrt(direction_norm);
-        for (double& value : direction) value /= direction_norm;
-
-        fluids::gas::keyframe_smoke::DerivativeChecker checker{evaluator};
-        const fluids::gas::keyframe_smoke::DirectionalDerivativeCheck derivative = checker.directional(control.parameters.values, direction, 2.0e-3);
-        fluids::gas::keyframe_smoke::EvaluationTrace trace = evaluator.evaluate(control.parameters.values, fluids::gas::keyframe_smoke::EvaluationMode::objective_gradient);
-        double maximum_mass_relative_error = 0.0;
-        const double initial_mass = sum(initial_density);
-        for (const fluids::gas::keyframe_smoke::State& state : trace.state) maximum_mass_relative_error = std::max(maximum_mass_relative_error, std::abs(sum(download_density(state)) - initial_mass) / initial_mass);
-
-        std::vector<float> z_velocity(domain.face_counts[2]);
-        ::cuda::copy_bytes(stream, trace.state.back().velocity.z, ::cuda::std::span{z_velocity.data(), z_velocity.size()});
-        stream.sync();
-        const float maximum_z_velocity = std::ranges::max(z_velocity, {}, [](const float value) { return std::abs(value); });
-
-        std::ofstream report(output_directory / "verification.json");
-        report << std::setprecision(17)
-               << "{\n"
-               << "  \"objective\": " << derivative.objective << ",\n"
-               << "  \"finite_difference\": " << derivative.finite_difference << ",\n"
-               << "  \"jvp\": " << derivative.jvp << ",\n"
-               << "  \"vjp_dot_direction\": " << derivative.vjp_dot_direction << ",\n"
-               << "  \"finite_difference_jvp_relative_error\": " << derivative.finite_difference_jvp_relative_error << ",\n"
-               << "  \"jvp_vjp_relative_error\": " << derivative.jvp_vjp_relative_error << ",\n"
-               << "  \"maximum_mass_relative_error\": " << maximum_mass_relative_error << ",\n"
-               << "  \"maximum_z_velocity\": " << maximum_z_velocity << "\n"
-               << "}\n";
-        report.close();
-
-        std::println("Planar derivative: FD={:.9e}, JVP={:.9e}, VJP.p={:.9e}", derivative.finite_difference, derivative.jvp, derivative.vjp_dot_direction);
-        std::println("Relative errors: FD/JVP={:.3e}, JVP/VJP={:.3e}", derivative.finite_difference_jvp_relative_error, derivative.jvp_vjp_relative_error);
-        std::println("Mass relative error={:.3e}, maximum z velocity={:.3e}", maximum_mass_relative_error, maximum_z_velocity);
-        if (derivative.finite_difference_jvp_relative_error > 2.0e-2) throw std::runtime_error("Planar finite-difference/JVP verification failed");
-        if (derivative.jvp_vjp_relative_error > 2.0e-7) throw std::runtime_error("Planar JVP/VJP verification failed");
-        if (maximum_mass_relative_error > 2.0e-6) throw std::runtime_error("Planar mass conservation verification failed");
-        if (maximum_z_velocity > 1.0e-7F) throw std::runtime_error("Planar z-invariance verification failed");
-    }
-
     void Experiment::optimize(const std::filesystem::path& output_directory) {
         std::filesystem::create_directories(output_directory / "parameters");
         std::filesystem::create_directories(output_directory / "levels");

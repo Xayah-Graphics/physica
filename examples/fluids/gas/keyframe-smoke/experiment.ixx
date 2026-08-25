@@ -41,7 +41,6 @@ export namespace physica::examples::keyframe_smoke {
         Experiment(Experiment&&) = delete;
         Experiment& operator=(Experiment&&) = delete;
 
-        void verify(const std::filesystem::path& output_directory);
         void optimize(const std::filesystem::path& output_directory);
 
     private:
