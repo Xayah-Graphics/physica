@@ -3,6 +3,13 @@ name: Windows Build
 on:
   workflow_dispatch:
   push:
+    paths:
+      - .github/workflows/windows-build.yml
+      - cmake/**
+      - examples/**
+      - src/**
+      - CMakeLists.txt
+      - VERSION
   pull_request:
 
 permissions:

@@ -3,6 +3,15 @@ name: Docker
 on:
   workflow_dispatch:
   push:
+    paths:
+      - .github/workflows/docker.yml
+      - cmake/**
+      - examples/**
+      - src/**
+      - .dockerignore
+      - CMakeLists.txt
+      - Dockerfile
+      - VERSION
   pull_request:
 
 permissions:

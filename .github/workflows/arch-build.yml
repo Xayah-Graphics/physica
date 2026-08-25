@@ -3,6 +3,13 @@ name: Arch Build
 on:
   workflow_dispatch:
   push:
+    paths:
+      - .github/workflows/arch-build.yml
+      - cmake/**
+      - examples/**
+      - src/**
+      - CMakeLists.txt
+      - VERSION
   pull_request:
 
 permissions:
