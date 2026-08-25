@@ -65,7 +65,7 @@ export namespace physica::examples::pbf_dam_break {
         const spectra::sdk::cuda::Particles particles    = frame.particles<"particles">(Simulation::particle_count);
         const std::span<spectra::sdk::Float3> positions  = particles.positions;
         const std::span<spectra::sdk::Float3> velocities = particles.field<"velocity", spectra::sdk::Float3>();
-        spectra_cuda::write_vectors(simulation->stream, Simulation::particle_count, simulation->current_state.particles.positions.x.data(), simulation->current_state.particles.positions.y.data(), simulation->current_state.particles.positions.z.data(), simulation->current_state.particles.velocities.x.data(), simulation->current_state.particles.velocities.y.data(), simulation->current_state.particles.velocities.z.data(), positions.data(), velocities.data());
+        spectra_cuda::write_vectors(simulation->stream, Simulation::particle_count, simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), simulation->current_state.velocities.x.data(), simulation->current_state.velocities.y.data(), simulation->current_state.velocities.z.data(), positions.data(), velocities.data());
         const std::span<float> vorticity = particles.field<"vorticity", float>();
         ::cuda::copy_bytes(simulation->stream, simulation->step_cache.vorticity_magnitudes.values, ::cuda::std::span{vorticity.data(), vorticity.size()});
         frame.metric<"step">().upload(simulation->step_index);

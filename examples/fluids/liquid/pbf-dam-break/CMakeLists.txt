@@ -8,7 +8,7 @@ target_sources(
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         simulation.ixx
 )
-target_link_libraries(physica-example-pbf-dam-break PUBLIC physica-fluids-liquid-particle)
+target_link_libraries(physica-example-pbf-dam-break PUBLIC physica-fluids-liquid-pbf)
 
 # ============================================================================
 # Command-Line Example
