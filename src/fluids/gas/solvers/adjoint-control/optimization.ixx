@@ -73,7 +73,7 @@ export namespace physica::fluids::gas::adjoint_control {
             });
         }
         result.parameters.resize(optimizer.parameters.size());
-        ::cuda::copy_bytes(domain.stream, optimizer.parameters, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+        ::cuda::copy_bytes(domain.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
         domain.stream.sync();
         result.stop_reason             = optimizer.stop_reason;
         result.gradient_norm           = optimizer.gradient_norm;

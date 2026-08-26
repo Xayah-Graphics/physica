@@ -1,7 +1,6 @@
 module;
 
 #include "../../detail/cuda/interop.h"
-
 #include "pbf-kernels.h"
 #include <physica/cuda.h>
 
@@ -261,7 +260,7 @@ namespace physica::fluids::liquid::pbf {
     }
 
     void Solver::jvp(const Domain& domain, const State& state, const Parameters& parameters, const StepCache& cache, const StateTangent& state_tangent, const ControlTangent& control_tangent, const ParameterTangent& parameter_tangent, StateTangent& next_state_tangent, TangentWorkspace& workspace) const {
-        const std::uint32_t count  = domain.configuration.particle_count;
+        const std::uint32_t count = domain.configuration.particle_count;
         cuda_detail::pbf::launch_predict_jvp(domain.stream, count, domain.configuration.time_step, cuda_detail::vector(state_tangent.positions), cuda_detail::vector(state_tangent.velocities), cuda_detail::vector(control_tangent.external_accelerations), cuda_detail::vector(workspace.current_positions));
         domain.copy(cache.predicted_positions, workspace.positions);
         for (std::uint32_t iteration = 0u; iteration < configuration.pressure_iterations; ++iteration) {
@@ -284,7 +283,7 @@ namespace physica::fluids::liquid::pbf {
     }
 
     void Solver::vjp(const Domain& domain, const State& state, const Parameters& parameters, const StepCache& cache, const StateAdjoint& next_state_adjoint, StateAdjoint& previous_state_adjoint, ControlAdjoint& control_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const {
-        const std::uint32_t count  = domain.configuration.particle_count;
+        const std::uint32_t count = domain.configuration.particle_count;
         domain.copy(next_state_adjoint.positions, workspace.current_positions);
         domain.clear(workspace.confined_velocities);
         cuda_detail::pbf::launch_xsph_vjp(domain.stream, count, domain.configuration.support_radius, cuda_detail::vector(cache.predicted_positions), cuda_detail::vector(cache.corrected_positions), cuda_detail::vector(cache.confined_velocities), cuda_detail::neighborhood(cache.neighborhood), parameters.xsph_viscosity.data(), cuda_detail::vector(next_state_adjoint.velocities), cuda_detail::vector(workspace.current_positions), cuda_detail::vector(workspace.confined_velocities), parameter_adjoint.xsph_viscosity.data());

@@ -1,7 +1,6 @@
 module;
 
 #include "../detail/cuda/interop.h"
-
 #include "sph-dynamics-kernels.h"
 #include <physica/cuda.h>
 
@@ -579,10 +578,10 @@ namespace physica::fluids::liquid::operators {
 
     DivergenceFree::TangentWorkspace DivergenceFree::allocate_tangent_workspace(const Domain& domain) const {
         return {
-            .primal                            = allocate_iteration_cache(domain),
-            .tangent                           = allocate_iteration_tangent(domain),
-            .non_pressure_accelerations        = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-            .divergence_pressure_accelerations = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+            .primal                               = allocate_iteration_cache(domain),
+            .tangent                              = allocate_iteration_tangent(domain),
+            .non_pressure_accelerations           = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+            .divergence_pressure_accelerations    = domain.allocate_vector_field<float>(domain.configuration.particle_count),
             .primal_total_pressure_accelerations  = domain.allocate_vector_field<float>(domain.configuration.particle_count),
             .tangent_total_pressure_accelerations = domain.allocate_vector_field<float>(domain.configuration.particle_count),
         };
@@ -590,13 +589,13 @@ namespace physica::fluids::liquid::operators {
 
     DivergenceFree::AdjointWorkspace DivergenceFree::allocate_adjoint_workspace(const Domain& domain) const {
         AdjointWorkspace workspace{
-            .adjoint                               = allocate_iteration_adjoint(domain),
-            .previous_adjoint                      = allocate_iteration_adjoint(domain),
-            .total_pressure_accelerations          = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-            .target_densities                      = domain.allocate_scalar_field<double>(domain.configuration.particle_count),
-            .non_pressure_accelerations            = domain.allocate_vector_field<double>(domain.configuration.particle_count),
-            .divergence_pressure_accelerations     = domain.allocate_vector_field<double>(domain.configuration.particle_count),
-            .total_pressure_accelerations_adjoint  = domain.allocate_vector_field<double>(domain.configuration.particle_count),
+            .adjoint                              = allocate_iteration_adjoint(domain),
+            .previous_adjoint                     = allocate_iteration_adjoint(domain),
+            .total_pressure_accelerations         = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+            .target_densities                     = domain.allocate_scalar_field<double>(domain.configuration.particle_count),
+            .non_pressure_accelerations           = domain.allocate_vector_field<double>(domain.configuration.particle_count),
+            .divergence_pressure_accelerations    = domain.allocate_vector_field<double>(domain.configuration.particle_count),
+            .total_pressure_accelerations_adjoint = domain.allocate_vector_field<double>(domain.configuration.particle_count),
         };
         workspace.recomputed_iterations.reserve(configuration.checkpoint_interval + 1u);
         for (std::uint32_t iteration = 0u; iteration <= configuration.checkpoint_interval; ++iteration) workspace.recomputed_iterations.push_back(allocate_iteration_cache(domain));
@@ -730,9 +729,9 @@ namespace physica::fluids::liquid::operators {
                 const PressureIterationCache& last  = checkpoints[checkpoint];
                 copy_iteration(domain, first, workspace.recomputed_iterations[0]);
                 for (std::uint32_t iteration = first.iteration + 1u; iteration <= last.iteration; ++iteration) {
-                    PressureIterationCache& previous       = workspace.recomputed_iterations[iteration - first.iteration - 1u];
-                    PressureIterationCache& current        = workspace.recomputed_iterations[iteration - first.iteration];
-                    current.iteration                      = iteration;
+                    PressureIterationCache& previous              = workspace.recomputed_iterations[iteration - first.iteration - 1u];
+                    PressureIterationCache& current               = workspace.recomputed_iterations[iteration - first.iteration];
+                    current.iteration                             = iteration;
                     const VectorField<float>* prediction_pressure = &previous.pressure_accelerations;
                     if (base_pressure_accelerations != nullptr) {
                         add(domain, *base_pressure_accelerations, previous.pressure_accelerations, workspace.total_pressure_accelerations);

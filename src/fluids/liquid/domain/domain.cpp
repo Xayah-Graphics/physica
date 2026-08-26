@@ -9,14 +9,12 @@ module physica.fluids.liquid.domain;
 import std;
 
 namespace physica::fluids::liquid {
-    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream) :
-        configuration(std::move(next_configuration)),
-        stream(source_stream),
-        boundary{
-            .positions  = allocate_vector_field<float>(configuration.boundary_particles.size()),
-            .velocities = allocate_vector_field<float>(configuration.boundary_particles.size()),
-            .volumes    = allocate_scalar_field<float>(configuration.boundary_particles.size()),
-        } {
+    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream)
+        : configuration(std::move(next_configuration)), stream(source_stream), boundary{
+                                                                                   .positions  = allocate_vector_field<float>(configuration.boundary_particles.size()),
+                                                                                   .velocities = allocate_vector_field<float>(configuration.boundary_particles.size()),
+                                                                                   .volumes    = allocate_scalar_field<float>(configuration.boundary_particles.size()),
+                                                                               } {
         std::vector<float> position_x(configuration.boundary_particles.size());
         std::vector<float> position_y(configuration.boundary_particles.size());
         std::vector<float> position_z(configuration.boundary_particles.size());

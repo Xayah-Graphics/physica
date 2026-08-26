@@ -58,7 +58,7 @@ export namespace physica::fluids::gas::adjoint_control {
 
     struct EvaluationTrace final {
         explicit EvaluationTrace(const Domain& domain) : objective(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), 1u, ::cuda::no_init) {
-            ::cuda::fill_bytes(domain.stream, objective, 0u);
+            ::cuda::fill_bytes(domain.stream, ::cuda::std::span{objective.data(), objective.size()}, 0u);
         }
 
         std::uint64_t evaluation{};
@@ -124,15 +124,15 @@ export namespace physica::fluids::gas::adjoint_control {
                 objective_function.evaluate_control_effort(domain, dense_control.force, step_objective);
                 objective_function.accumulate(domain, step_objective.control_effort, trace.objective);
                 solver.forward(domain, trace.state[state_index - 1u], dense_control, trace.state[state_index], step_cache, forward_workspace);
-                ::cuda::copy_bytes(domain.stream, step_cache.conservation.input_mass, ::cuda::std::span{&record.metrics.input_mass, 1u});
-                ::cuda::copy_bytes(domain.stream, step_cache.conservation.advected_mass, ::cuda::std::span{&record.metrics.advected_mass, 1u});
-                ::cuda::copy_bytes(domain.stream, step_objective.control_effort, ::cuda::std::span{&record.metrics.control_effort, 1u});
+                ::cuda::copy_bytes(domain.stream, ::cuda::std::span{step_cache.conservation.input_mass.data(), step_cache.conservation.input_mass.size()}, ::cuda::std::span{&record.metrics.input_mass, 1u});
+                ::cuda::copy_bytes(domain.stream, ::cuda::std::span{step_cache.conservation.advected_mass.data(), step_cache.conservation.advected_mass.size()}, ::cuda::std::span{&record.metrics.advected_mass, 1u});
+                ::cuda::copy_bytes(domain.stream, ::cuda::std::span{step_objective.control_effort.data(), step_objective.control_effort.size()}, ::cuda::std::span{&record.metrics.control_effort, 1u});
                 if (trace.tangent) {
                     trace.tangent->state.push_back(solver.allocate_state_tangent(domain));
                     control.jvp(domain, step, direction, *dense_control_tangent);
                     objective_function.control_effort_jvp(domain, dense_control.force, dense_control_tangent->force, step_objective);
                     solver.jvp(domain, trace.state[state_index - 1u], step_cache, trace.tangent->state[state_index - 1u], *dense_control_tangent, trace.tangent->state[state_index], *tangent_workspace);
-                    ::cuda::copy_bytes(domain.stream, step_objective.directional_derivative, ::cuda::std::span{&record.metrics.directional_derivative, 1u});
+                    ::cuda::copy_bytes(domain.stream, ::cuda::std::span{step_objective.directional_derivative.data(), step_objective.directional_derivative.size()}, ::cuda::std::span{&record.metrics.directional_derivative, 1u});
                 }
             }
 
@@ -144,11 +144,11 @@ export namespace physica::fluids::gas::adjoint_control {
                 objective_function.evaluate_keyframe(domain, trace.state[state_index].density, trace.state[state_index].velocity, keyframe.target.density, keyframe.target.velocity, keyframe.density_weight, keyframe.velocity_weight, keyframe_cache, objective_workspace);
                 objective_function.accumulate(domain, keyframe_cache.density_loss, trace.objective);
                 objective_function.accumulate(domain, keyframe_cache.velocity_loss, trace.objective);
-                ::cuda::copy_bytes(domain.stream, keyframe_cache.density_loss, ::cuda::std::span{&record.metrics.density_loss, 1u});
-                ::cuda::copy_bytes(domain.stream, keyframe_cache.velocity_loss, ::cuda::std::span{&record.metrics.velocity_loss, 1u});
+                ::cuda::copy_bytes(domain.stream, ::cuda::std::span{keyframe_cache.density_loss.data(), keyframe_cache.density_loss.size()}, ::cuda::std::span{&record.metrics.density_loss, 1u});
+                ::cuda::copy_bytes(domain.stream, ::cuda::std::span{keyframe_cache.velocity_loss.data(), keyframe_cache.velocity_loss.size()}, ::cuda::std::span{&record.metrics.velocity_loss, 1u});
                 if (trace.tangent) {
                     objective_function.keyframe_jvp(domain, trace.tangent->state[state_index].density, trace.tangent->state[state_index].velocity, keyframe.density_weight, keyframe.velocity_weight, keyframe_cache, objective_workspace);
-                    ::cuda::copy_bytes(domain.stream, keyframe_cache.directional_derivative, ::cuda::std::span{&record.metrics.directional_derivative, 1u});
+                    ::cuda::copy_bytes(domain.stream, ::cuda::std::span{keyframe_cache.directional_derivative.data(), keyframe_cache.directional_derivative.size()}, ::cuda::std::span{&record.metrics.directional_derivative, 1u});
                 }
             }
         }
@@ -156,7 +156,7 @@ export namespace physica::fluids::gas::adjoint_control {
 
         if (mode != EvaluationMode::objective) {
             trace.reverse.emplace(ReverseTrace{.parameter_gradient = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), parameter_values.size(), ::cuda::no_init}});
-            ::cuda::fill_bytes(domain.stream, trace.reverse->parameter_gradient, 0u);
+            ::cuda::fill_bytes(domain.stream, ::cuda::std::span{trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()}, 0u);
             typename SolverType::AdjointWorkspace adjoint_workspace = solver.allocate_adjoint_workspace(domain);
             State replay                                            = solver.allocate_state(domain);
             StateAdjoint current                                    = solver.allocate_state_adjoint(domain);

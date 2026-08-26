@@ -370,23 +370,25 @@ export namespace physica::fluids::liquid::operators {
     };
 
     template <class Algorithm>
-    concept SPHDynamicsAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, const ParticleState& state, const ParticleStateTangent& state_tangent, const ParticleStateAdjoint& next_state_adjoint, ParticleState& next_state, ParticleStateTangent& next_state_tangent, ParticleStateAdjoint& previous_state_adjoint, const Control& control, const ControlTangent& control_tangent, ControlAdjoint& control_adjoint, const ParticleParameters& particles, const ParticleParameterTangent& particle_tangent, ParticleParameterAdjoint& particle_adjoint, const Neighborhood& neighborhood, const ScalarField<float>& densities, const ScalarField<float>& density_tangent, ScalarField<double>& density_adjoint, const typename Algorithm::State& method_state, typename Algorithm::State& next_method_state, const typename Algorithm::StateTangent& method_state_tangent, typename Algorithm::StateTangent& next_method_state_tangent, const typename Algorithm::StateAdjoint& next_method_state_adjoint, typename Algorithm::StateAdjoint& previous_method_state_adjoint, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
-        { algorithm.allocate_state(domain) } -> std::same_as<typename Algorithm::State>;
-        { algorithm.allocate_state_tangent(domain) } -> std::same_as<typename Algorithm::StateTangent>;
-        { algorithm.allocate_state_adjoint(domain) } -> std::same_as<typename Algorithm::StateAdjoint>;
-        { algorithm.allocate_parameters(domain) } -> std::same_as<typename Algorithm::Parameters>;
-        { algorithm.allocate_parameter_tangent(domain) } -> std::same_as<typename Algorithm::ParameterTangent>;
-        { algorithm.allocate_parameter_adjoint(domain) } -> std::same_as<typename Algorithm::ParameterAdjoint>;
-        { algorithm.allocate_cache(domain) } -> std::same_as<typename Algorithm::Cache>;
-        { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
-        { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
-        { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;
-        algorithm.copy_state(domain, method_state, next_method_state);
-        algorithm.copy_state_tangent(domain, method_state_tangent, next_method_state_tangent);
-        algorithm.copy_state_adjoint(domain, next_method_state_adjoint, previous_method_state_adjoint);
-        algorithm.accumulate_state_adjoint(domain, next_method_state_adjoint, previous_method_state_adjoint);
-        algorithm.forward(domain, state, method_state, control, particles, parameters, neighborhood, densities, next_state, next_method_state, cache, workspace);
-        algorithm.jvp(domain, state, method_state, particles, parameters, neighborhood, densities, constant_cache, state_tangent, method_state_tangent, control_tangent, particle_tangent, parameter_tangent, density_tangent, next_state_tangent, next_method_state_tangent, tangent_workspace);
-        algorithm.vjp(domain, state, method_state, particles, parameters, neighborhood, densities, constant_cache, next_state_adjoint, next_method_state_adjoint, previous_state_adjoint, previous_method_state_adjoint, control_adjoint, particle_adjoint, parameter_adjoint, density_adjoint, adjoint_workspace);
-    };
+    concept SPHDynamicsAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration>
+                                && requires(const Algorithm& algorithm, const Domain& domain, const ParticleState& state, const ParticleStateTangent& state_tangent, const ParticleStateAdjoint& next_state_adjoint, ParticleState& next_state, ParticleStateTangent& next_state_tangent, ParticleStateAdjoint& previous_state_adjoint, const Control& control, const ControlTangent& control_tangent, ControlAdjoint& control_adjoint, const ParticleParameters& particles, const ParticleParameterTangent& particle_tangent, ParticleParameterAdjoint& particle_adjoint, const Neighborhood& neighborhood, const ScalarField<float>& densities, const ScalarField<float>& density_tangent, ScalarField<double>& density_adjoint, const typename Algorithm::State& method_state, typename Algorithm::State& next_method_state, const typename Algorithm::StateTangent& method_state_tangent, typename Algorithm::StateTangent& next_method_state_tangent, const typename Algorithm::StateAdjoint& next_method_state_adjoint,
+                                    typename Algorithm::StateAdjoint& previous_method_state_adjoint, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
+                                       { algorithm.allocate_state(domain) } -> std::same_as<typename Algorithm::State>;
+                                       { algorithm.allocate_state_tangent(domain) } -> std::same_as<typename Algorithm::StateTangent>;
+                                       { algorithm.allocate_state_adjoint(domain) } -> std::same_as<typename Algorithm::StateAdjoint>;
+                                       { algorithm.allocate_parameters(domain) } -> std::same_as<typename Algorithm::Parameters>;
+                                       { algorithm.allocate_parameter_tangent(domain) } -> std::same_as<typename Algorithm::ParameterTangent>;
+                                       { algorithm.allocate_parameter_adjoint(domain) } -> std::same_as<typename Algorithm::ParameterAdjoint>;
+                                       { algorithm.allocate_cache(domain) } -> std::same_as<typename Algorithm::Cache>;
+                                       { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
+                                       { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
+                                       { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;
+                                       algorithm.copy_state(domain, method_state, next_method_state);
+                                       algorithm.copy_state_tangent(domain, method_state_tangent, next_method_state_tangent);
+                                       algorithm.copy_state_adjoint(domain, next_method_state_adjoint, previous_method_state_adjoint);
+                                       algorithm.accumulate_state_adjoint(domain, next_method_state_adjoint, previous_method_state_adjoint);
+                                       algorithm.forward(domain, state, method_state, control, particles, parameters, neighborhood, densities, next_state, next_method_state, cache, workspace);
+                                       algorithm.jvp(domain, state, method_state, particles, parameters, neighborhood, densities, constant_cache, state_tangent, method_state_tangent, control_tangent, particle_tangent, parameter_tangent, density_tangent, next_state_tangent, next_method_state_tangent, tangent_workspace);
+                                       algorithm.vjp(domain, state, method_state, particles, parameters, neighborhood, densities, constant_cache, next_state_adjoint, next_method_state_adjoint, previous_state_adjoint, previous_method_state_adjoint, control_adjoint, particle_adjoint, parameter_adjoint, density_adjoint, adjoint_workspace);
+                                   };
 } // namespace physica::fluids::liquid::operators

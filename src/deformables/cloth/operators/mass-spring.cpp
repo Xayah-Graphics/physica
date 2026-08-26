@@ -44,16 +44,18 @@ namespace physica::deformables::cloth::operators {
 
     MassSpringForce::Parameters MassSpringForce::allocate_parameters(const Domain& domain) const {
         Parameters result{
-            .stretch = {
-                .stiffnesses  = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-                .dampings     = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-            },
-            .bending = {
-                .stiffnesses  = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-                .dampings     = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-            },
+            .stretch =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                },
+            .bending =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                },
         };
         domain.clear(result.stretch.stiffnesses);
         domain.clear(result.stretch.dampings);
@@ -72,16 +74,18 @@ namespace physica::deformables::cloth::operators {
 
     MassSpringForce::ParameterTangent MassSpringForce::allocate_parameter_tangent(const Domain& domain) const {
         ParameterTangent result{
-            .stretch = {
-                .stiffnesses  = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-                .dampings     = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
-            },
-            .bending = {
-                .stiffnesses  = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-                .dampings     = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
-            },
+            .stretch =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<float>(topology.stretch.springs.size()),
+                },
+            .bending =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<float>(topology.bending.springs.size()),
+                },
         };
         domain.clear(result.stretch.stiffnesses);
         domain.clear(result.stretch.dampings);
@@ -94,16 +98,18 @@ namespace physica::deformables::cloth::operators {
 
     MassSpringForce::ParameterAdjoint MassSpringForce::allocate_parameter_adjoint(const Domain& domain) const {
         ParameterAdjoint result{
-            .stretch = {
-                .stiffnesses  = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
-                .dampings     = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
-            },
-            .bending = {
-                .stiffnesses  = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
-                .dampings     = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
-                .rest_lengths = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
-            },
+            .stretch =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<double>(topology.stretch.springs.size()),
+                },
+            .bending =
+                {
+                    .stiffnesses  = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
+                    .dampings     = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
+                    .rest_lengths = domain.allocate_scalar_field<double>(topology.bending.springs.size()),
+                },
         };
         domain.clear(result.stretch.stiffnesses);
         domain.clear(result.stretch.dampings);

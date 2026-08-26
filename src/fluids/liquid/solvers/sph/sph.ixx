@@ -77,10 +77,11 @@ export namespace physica::fluids::liquid::sph {
 
         [[nodiscard]] State allocate_state(const Domain& domain) const {
             State state{
-                .particles = {
-                    .positions  = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-                    .velocities = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-                },
+                .particles =
+                    {
+                        .positions  = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+                        .velocities = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+                    },
                 .dynamics = dynamics.allocate_state(domain),
             };
             domain.clear(state.particles.positions);
@@ -97,12 +98,13 @@ export namespace physica::fluids::liquid::sph {
         [[nodiscard]] Parameters allocate_parameters(const Domain& domain) const {
             const std::size_t count = domain.configuration.particle_count;
             return {
-                .particles = {
-                    .masses           = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .rest_densities   = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .viscosities      = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .surface_tensions = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                },
+                .particles =
+                    {
+                        .masses           = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                    },
                 .dynamics = dynamics.allocate_parameters(domain),
             };
         }
@@ -117,10 +119,11 @@ export namespace physica::fluids::liquid::sph {
 
         [[nodiscard]] StateTangent allocate_state_tangent(const Domain& domain) const {
             StateTangent tangent{
-                .particles = {
-                    .positions  = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-                    .velocities = domain.allocate_vector_field<float>(domain.configuration.particle_count),
-                },
+                .particles =
+                    {
+                        .positions  = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+                        .velocities = domain.allocate_vector_field<float>(domain.configuration.particle_count),
+                    },
                 .dynamics = dynamics.allocate_state_tangent(domain),
             };
             domain.clear(tangent.particles.positions);
@@ -137,12 +140,13 @@ export namespace physica::fluids::liquid::sph {
         [[nodiscard]] ParameterTangent allocate_parameter_tangent(const Domain& domain) const {
             const std::size_t count = domain.configuration.particle_count;
             ParameterTangent tangent{
-                .particles = {
-                    .masses           = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .rest_densities   = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .viscosities      = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .surface_tensions = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                },
+                .particles =
+                    {
+                        .masses           = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<float>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                    },
                 .dynamics = dynamics.allocate_parameter_tangent(domain),
             };
             ::cuda::fill_bytes(domain.stream, tangent.particles.masses, 0u);
@@ -158,10 +162,11 @@ export namespace physica::fluids::liquid::sph {
 
         [[nodiscard]] StateAdjoint allocate_state_adjoint(const Domain& domain) const {
             StateAdjoint adjoint{
-                .particles = {
-                    .positions  = domain.allocate_vector_field<double>(domain.configuration.particle_count),
-                    .velocities = domain.allocate_vector_field<double>(domain.configuration.particle_count),
-                },
+                .particles =
+                    {
+                        .positions  = domain.allocate_vector_field<double>(domain.configuration.particle_count),
+                        .velocities = domain.allocate_vector_field<double>(domain.configuration.particle_count),
+                    },
                 .dynamics = dynamics.allocate_state_adjoint(domain),
             };
             domain.clear(adjoint.particles.positions);
@@ -178,12 +183,13 @@ export namespace physica::fluids::liquid::sph {
         [[nodiscard]] ParameterAdjoint allocate_parameter_adjoint(const Domain& domain) const {
             const std::size_t count = domain.configuration.particle_count;
             ParameterAdjoint adjoint{
-                .particles = {
-                    .masses           = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .rest_densities   = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .viscosities      = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                    .surface_tensions = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
-                },
+                .particles =
+                    {
+                        .masses           = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<double>{domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), count, ::cuda::no_init},
+                    },
                 .dynamics = dynamics.allocate_parameter_adjoint(domain),
             };
             ::cuda::fill_bytes(domain.stream, adjoint.particles.masses, 0u);

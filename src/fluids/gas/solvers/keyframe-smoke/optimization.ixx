@@ -86,8 +86,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 const optimization::LbfgsbGradientMetrics metrics = optimizer.submit(trace.objective.data(), {trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()});
                 result.evaluations.push_back({.coordinates = coordinates, .parameters = std::move(evaluation_parameters), .summary = trace.summary, .gradient_norm = metrics.gradient_norm, .projected_gradient_norm = metrics.projected_gradient_norm});
             }
-            ::cuda::copy_bytes(domain.stream, optimizer.parameters, final_parameters);
-            ::cuda::copy_bytes(domain.stream, optimizer.parameters, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+            ::cuda::copy_bytes(domain.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
+            ::cuda::copy_bytes(domain.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
             domain.stream.sync();
             result.level_stop_reasons.push_back(optimizer.stop_reason);
             result.gradient_norm           = optimizer.gradient_norm;

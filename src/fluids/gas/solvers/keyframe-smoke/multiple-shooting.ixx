@@ -11,6 +11,7 @@ import physica.fluids.gas.domain;
 import physica.fluids.gas.keyframe_smoke.evaluation;
 import physica.fluids.gas.operators.objective;
 import physica.fluids.gas.keyframe_smoke.optimization;
+import physica.optimization.lbfgsb;
 
 export namespace physica::fluids::gas::keyframe_smoke {
     struct ShootingSegment final {
@@ -122,7 +123,7 @@ export namespace physica::fluids::gas::keyframe_smoke {
         }
         Evaluator evaluator(domain, solver, control, objective_function, problem);
         ::cuda::device_buffer<double> final_parameters(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), result.parameters.size(), ::cuda::no_init);
-        ::cuda::copy_bytes(domain.stream, result.parameters, final_parameters);
+        ::cuda::copy_bytes(domain.stream, ::cuda::std::span<const double>{result.parameters.data(), result.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
         result.final_trace.emplace(evaluator.evaluate({final_parameters.data(), final_parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }

@@ -2,7 +2,6 @@
 #define PHYSICA_FLUIDS_LIQUID_SOLVERS_PBF_KERNELS_H
 
 #include "../../detail/cuda/types.h"
-
 #include <cstdint>
 #include <physica/cuda_stream.h>
 

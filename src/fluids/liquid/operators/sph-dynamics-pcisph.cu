@@ -1,5 +1,4 @@
 #include "../detail/cuda/device.cuh"
-
 #include "sph-dynamics-kernels.h"
 #include <cstdint>
 #include <cuda_runtime.h>

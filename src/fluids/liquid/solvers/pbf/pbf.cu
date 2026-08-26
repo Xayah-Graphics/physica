@@ -1,5 +1,4 @@
 #include "../../detail/cuda/device.cuh"
-
 #include "pbf-kernels.h"
 #include <cmath>
 #include <cstdint>
