@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <physica/cuda.h>
 
 import std;
@@ -14,7 +13,7 @@ int main() {
         }
         return 0;
     } catch (const std::exception& error) {
-        std::println(stderr, "PBF dam-break example failed: {}", error.what());
+        std::println(std::cerr, "PBF dam-break example failed: {}", error.what());
         return 1;
     }
 }
