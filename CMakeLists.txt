@@ -130,6 +130,7 @@ target_sources(
         physica-dataset
         PRIVATE
         physica/reconstruction/dataset/ffmpeg.h
+        physica/reconstruction/dataset/ffmpeg.cpp
         physica/reconstruction/dataset/nerf_synthetic.cpp
         physica/reconstruction/dataset/pinf.cpp
         PUBLIC

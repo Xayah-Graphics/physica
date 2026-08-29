@@ -16,47 +16,6 @@ namespace physica::reconstruction::dataset::pinf {
             std::uint32_t frame_count = 0u;
             std::uint32_t view_index  = 0u;
         };
-
-        struct VideoDecoder final {
-            AVFormatContext* format = nullptr;
-            AVCodecContext* codec   = nullptr;
-            SwsContext* conversion  = nullptr;
-            AVPacket* packet        = av_packet_alloc();
-            AVFrame* decoded        = av_frame_alloc();
-            AVFrame* rgba           = av_frame_alloc();
-            int stream_index        = 0;
-
-            VideoDecoder(const std::filesystem::path& path, const std::uint32_t resolution_divisor) {
-                avformat_open_input(&format, path.string().c_str(), nullptr, nullptr);
-                avformat_find_stream_info(format, nullptr);
-                while (format->streams[stream_index]->codecpar->codec_type != AVMEDIA_TYPE_VIDEO) ++stream_index;
-                AVStream* stream       = format->streams[stream_index];
-                const AVCodec* decoder = avcodec_find_decoder(stream->codecpar->codec_id);
-                codec                  = avcodec_alloc_context3(decoder);
-                avcodec_parameters_to_context(codec, stream->codecpar);
-                avcodec_open2(codec, decoder, nullptr);
-
-                const int width  = codec->width / static_cast<int>(resolution_divisor);
-                const int height = codec->height / static_cast<int>(resolution_divisor);
-                conversion       = sws_getContext(codec->width, codec->height, codec->pix_fmt, width, height, AV_PIX_FMT_RGBA, SWS_AREA, nullptr, nullptr, nullptr);
-                av_image_alloc(rgba->data, rgba->linesize, width, height, AV_PIX_FMT_RGBA, 32);
-            }
-
-            ~VideoDecoder() noexcept {
-                av_freep(&rgba->data[0]);
-                av_frame_free(&rgba);
-                av_frame_free(&decoded);
-                av_packet_free(&packet);
-                sws_freeContext(conversion);
-                avcodec_free_context(&codec);
-                avformat_close_input(&format);
-            }
-
-            VideoDecoder(const VideoDecoder&)            = delete;
-            VideoDecoder& operator=(const VideoDecoder&) = delete;
-            VideoDecoder(VideoDecoder&&)                 = delete;
-            VideoDecoder& operator=(VideoDecoder&&)      = delete;
-        };
     } // namespace
 
     bool is_dataset(const std::filesystem::path& path) {
@@ -125,14 +84,13 @@ namespace physica::reconstruction::dataset::pinf {
                             for (const std::size_t column : std::views::iota(0uz, 4uz)) video.world_from_camera[frame_index](row, column) = transforms.at(frame_index).at(row).at(column).get<float>();
                 }
 
-                VideoDecoder decoder{path / video.file_name, resolution_divisor};
-                const std::uint32_t width  = static_cast<std::uint32_t>(decoder.codec->width) / resolution_divisor;
-                const std::uint32_t height = static_cast<std::uint32_t>(decoder.codec->height) / resolution_divisor;
+                VideoDecoder decoder{(path / video.file_name).string().c_str(), resolution_divisor};
+                const std::uint32_t width  = decoder.width;
+                const std::uint32_t height = decoder.height;
                 const float focal          = 0.5F * static_cast<float>(width) / std::tan(0.5F * video_json.at("camera_angle_x").get<float>());
                 frame_set.time_count       = video.frame_count;
 
                 const auto append_frame = [&](const std::uint32_t time_index) {
-                    sws_scale(decoder.conversion, decoder.decoded->data, decoder.decoded->linesize, 0, decoder.codec->height, decoder.rgba->data, decoder.rgba->linesize);
                     multiview::Frame frame{
                         .name              = std::format("{}#{:04}", video.file_name, time_index),
                         .rgba              = std::vector<std::uint8_t>(static_cast<std::size_t>(width) * height * 4uz),
@@ -149,20 +107,11 @@ namespace physica::reconstruction::dataset::pinf {
                         .view_index = video.view_index,
                         .time_index = time_index,
                     };
-                    for (const std::uint32_t row : std::views::iota(0u, height)) std::memcpy(frame.rgba.data() + static_cast<std::size_t>(row) * width * 4uz, decoder.rgba->data[0] + static_cast<std::ptrdiff_t>(row) * decoder.rgba->linesize[0], static_cast<std::size_t>(width) * 4uz);
+                    decoder.read(frame.rgba.data());
                     frame_set.frames.push_back(std::move(frame));
                 };
 
-                std::uint32_t time_index = 0u;
-                while (av_read_frame(decoder.format, decoder.packet) >= 0 && time_index < video.frame_count) {
-                    if (decoder.packet->stream_index == decoder.stream_index) {
-                        avcodec_send_packet(decoder.codec, decoder.packet);
-                        while (time_index < video.frame_count && avcodec_receive_frame(decoder.codec, decoder.decoded) == 0) append_frame(time_index++);
-                    }
-                    av_packet_unref(decoder.packet);
-                }
-                avcodec_send_packet(decoder.codec, nullptr);
-                while (time_index < video.frame_count && avcodec_receive_frame(decoder.codec, decoder.decoded) == 0) append_frame(time_index++);
+                for (const std::uint32_t time_index : std::views::iota(0u, video.frame_count)) append_frame(time_index);
             }
             result.multiview.frame_sets.push_back(std::move(frame_set));
         }
