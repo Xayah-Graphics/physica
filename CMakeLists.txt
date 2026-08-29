@@ -38,6 +38,7 @@ physica_require_dependency(cuda)
 physica_require_dependency(cccl)
 physica_require_dependency(nlohmann_json)
 physica_require_dependency(stb)
+physica_require_dependency(ffmpeg)
 include(cmake/ClionCudaFacade.cmake)
 
 # ============================================================================
@@ -128,17 +129,21 @@ add_library(physica-dataset STATIC)
 target_sources(
         physica-dataset
         PRIVATE
+        physica/reconstruction/dataset/ffmpeg.h
         physica/reconstruction/dataset/nerf_synthetic.cpp
+        physica/reconstruction/dataset/pinf.cpp
         PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         physica/reconstruction/dataset/multiview.ixx
         physica/reconstruction/dataset/nerf_synthetic.ixx
+        physica/reconstruction/dataset/pinf.ixx
 )
 target_link_libraries(
         physica-dataset
         PUBLIC
         physica-math
         PRIVATE
+        FFmpeg::FFmpeg
         nlohmann_json::nlohmann_json
         physica::stb
 )
@@ -180,6 +185,57 @@ target_link_libraries(
         PRIVATE
         CUDA::cublas
         CUDA::cublasLt
+        nlohmann_json::nlohmann_json
+)
+
+# ============================================================================
+# PINFS
+# ============================================================================
+add_library(physica-pinfs STATIC)
+target_sources(
+        physica-pinfs
+        PRIVATE
+        physica/reconstruction/pinfs/pinfs.cpp
+        physica/reconstruction/pinfs/field/field.cpp
+        physica/reconstruction/pinfs/field/field.cu
+        physica/reconstruction/pinfs/field/kernels.h
+        physica/reconstruction/pinfs/network/network.cpp
+        physica/reconstruction/pinfs/network/network.cu
+        physica/reconstruction/pinfs/network/kernels.h
+        physica/reconstruction/pinfs/perceptual/perceptual.cpp
+        physica/reconstruction/pinfs/perceptual/perceptual.cu
+        physica/reconstruction/pinfs/perceptual/kernels.h
+        physica/reconstruction/pinfs/physics/physics.cpp
+        physica/reconstruction/pinfs/physics/physics.cu
+        physica/reconstruction/pinfs/physics/kernels.h
+        physica/reconstruction/pinfs/rendering/rendering.cpp
+        physica/reconstruction/pinfs/rendering/rendering.cu
+        physica/reconstruction/pinfs/rendering/kernels.h
+        physica/reconstruction/pinfs/sampling/sampling.cpp
+        physica/reconstruction/pinfs/sampling/sampling.cu
+        physica/reconstruction/pinfs/sampling/kernels.h
+        physica/reconstruction/pinfs/scene/scene.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/reconstruction/pinfs/pinfs.ixx
+        physica/reconstruction/pinfs/field/field.ixx
+        physica/reconstruction/pinfs/network/network.ixx
+        physica/reconstruction/pinfs/perceptual/perceptual.ixx
+        physica/reconstruction/pinfs/physics/physics.ixx
+        physica/reconstruction/pinfs/rendering/rendering.ixx
+        physica/reconstruction/pinfs/sampling/sampling.ixx
+        physica/reconstruction/pinfs/scene/scene.ixx
+)
+target_include_directories(physica-pinfs PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-pinfs
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-dataset
+        physica-math
+        PRIVATE
+        CUDA::cublas
         nlohmann_json::nlohmann_json
 )
 
@@ -392,6 +448,26 @@ if (PHYSICA_EXAMPLES)
             physica-dataset
             physica-instant-ngp
     )
+
+    add_executable(
+            physica-example-pinfs-cli
+            examples/reconstruction/pinfs/main.cpp
+    )
+    target_link_libraries(
+            physica-example-pinfs-cli
+            PRIVATE
+            physica-dataset
+            physica-pinfs
+            physica::stb
+    )
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-pinfs-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-pinfs-cli> $<TARGET_FILE_DIR:physica-example-pinfs-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
 
     add_library(physica-example-smoke STATIC)
     target_sources(

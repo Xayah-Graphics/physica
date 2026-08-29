@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
         base-devel \
         cmake \
         cuda \
+        ffmpeg \
         git \
         ninja
 
