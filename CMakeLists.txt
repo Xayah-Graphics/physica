@@ -43,7 +43,9 @@ include(cmake/ClionCudaFacade.cmake)
 # ============================================================================
 # Compiler Configuration
 # ============================================================================
-add_compile_definitions(NOMINMAX)
+if (WIN32)
+    add_compile_definitions(NOMINMAX)
+endif ()
 
 if (MSVC)
     add_compile_options(
@@ -56,7 +58,7 @@ endif ()
 # ============================================================================
 # Math
 # ============================================================================
-add_library(physica-math)
+add_library(physica-math STATIC)
 target_sources(
         physica-math
         PUBLIC
@@ -71,7 +73,7 @@ target_link_libraries(physica-math PUBLIC CCCL::libcudacxx)
 # ============================================================================
 # Field
 # ============================================================================
-add_library(physica-field)
+add_library(physica-field STATIC)
 target_sources(
         physica-field
         PRIVATE
@@ -97,7 +99,7 @@ target_link_libraries(
 # ============================================================================
 # Fluid Grid
 # ============================================================================
-add_library(physica-fluids-grid)
+add_library(physica-fluids-grid STATIC)
 target_sources(
         physica-fluids-grid
         PUBLIC
@@ -122,7 +124,7 @@ target_link_libraries(
 # ============================================================================
 # Reconstruction Datasets
 # ============================================================================
-add_library(physica-dataset)
+add_library(physica-dataset STATIC)
 target_sources(
         physica-dataset
         PRIVATE
@@ -144,7 +146,7 @@ target_link_libraries(
 # ============================================================================
 # Instant-NGP
 # ============================================================================
-add_library(physica-instant-ngp)
+add_library(physica-instant-ngp STATIC)
 target_sources(
         physica-instant-ngp
         PRIVATE
@@ -173,18 +175,18 @@ target_link_libraries(
         PUBLIC
         CCCL::libcudacxx
         CUDA::toolkit
-        CUDA::cublasLt
         physica-dataset
         physica-math
         PRIVATE
         CUDA::cublas
+        CUDA::cublasLt
         nlohmann_json::nlohmann_json
 )
 
 # ============================================================================
 # L-BFGS-B
 # ============================================================================
-add_library(physica-optimization-lbfgsb)
+add_library(physica-optimization-lbfgsb STATIC)
 target_sources(
         physica-optimization-lbfgsb
         PRIVATE
@@ -206,7 +208,7 @@ target_link_libraries(
 # ============================================================================
 # Gas Fluids
 # ============================================================================
-add_library(physica-fluids-gas)
+add_library(physica-fluids-gas STATIC)
 target_sources(
         physica-fluids-gas
         PRIVATE
@@ -280,7 +282,7 @@ target_link_libraries(
 # ============================================================================
 # Liquid Fluids
 # ============================================================================
-add_library(physica-fluids-liquid)
+add_library(physica-fluids-liquid STATIC)
 target_sources(
         physica-fluids-liquid
         PRIVATE
@@ -338,13 +340,14 @@ target_link_libraries(
         PUBLIC
         CCCL::libcudacxx
         CUDA::toolkit
+        physica-field
         physica-fluids-grid
 )
 
 # ============================================================================
 # Deformable Cloth
 # ============================================================================
-add_library(physica-deformables-cloth)
+add_library(physica-deformables-cloth STATIC)
 target_sources(
         physica-deformables-cloth
         PRIVATE
@@ -390,7 +393,7 @@ if (PHYSICA_EXAMPLES)
             physica-instant-ngp
     )
 
-    add_library(physica-example-smoke)
+    add_library(physica-example-smoke STATIC)
     target_sources(
             physica-example-smoke
             PRIVATE
@@ -443,7 +446,7 @@ if (PHYSICA_EXAMPLES)
             physica::stb
     )
 
-    add_library(physica-example-pbf-dam-break)
+    add_library(physica-example-pbf-dam-break STATIC)
     target_sources(
             physica-example-pbf-dam-break
             PUBLIC
@@ -457,7 +460,7 @@ if (PHYSICA_EXAMPLES)
     )
     target_link_libraries(physica-example-pbf-dam-break-cli PRIVATE physica-example-pbf-dam-break)
 
-    add_library(physica-example-flip-apic-dam-break)
+    add_library(physica-example-flip-apic-dam-break STATIC)
     target_sources(
             physica-example-flip-apic-dam-break
             PUBLIC
@@ -471,7 +474,7 @@ if (PHYSICA_EXAMPLES)
     )
     target_link_libraries(physica-example-flip-apic-dam-break-cli PRIVATE physica-example-flip-apic-dam-break)
 
-    add_library(physica-example-cloth)
+    add_library(physica-example-cloth STATIC)
     target_sources(
             physica-example-cloth
             PRIVATE
@@ -630,4 +633,9 @@ if (PHYSICA_EXAMPLES)
                 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${physica_cloth_bundle_directory}>"
         )
     endif ()
+endif ()
+
+# MSVC interprets a bare @cmake_cxx_std.lib as a response file.
+if (MSVC)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/cxx-modules")
 endif ()
