@@ -1,12 +1,13 @@
 #include "simulation_kernels.h"
 #include <cuda/launch>
-#include <math.h>
+#include <cuda/std/cmath>
+#include <cuda/std/numbers>
 
 namespace physica::examples::cloth::simulation_cuda {
     namespace {
         constexpr std::uint32_t block_size = 256u;
-        constexpr float two_pi             = 6.28318530717958647692F;
-        constexpr float one_third_pi       = 1.04719755119659774615F;
+        constexpr float two_pi             = 2.0F * ::cuda::std::numbers::pi_v<float>;
+        constexpr float one_third_pi       = ::cuda::std::numbers::pi_v<float> / 3.0F;
 
         struct WindVelocity final {
             float x;
@@ -14,10 +15,10 @@ namespace physica::examples::cloth::simulation_cuda {
         };
 
         __device__ WindVelocity wind_velocity(const float time, const float normalized_x, const float normalized_y, const Wind wind) {
-            const float ramp_coordinate = fminf(time / wind.ramp_duration, 1.0F);
+            const float ramp_coordinate = ::cuda::std::min(time / wind.ramp_duration, 1.0F);
             const float ramp            = ramp_coordinate * ramp_coordinate * (3.0F - 2.0F * ramp_coordinate);
-            const float primary_gust    = sinf(two_pi * (wind.gust_frequency * time - 0.85F * normalized_x + 0.12F * normalized_y));
-            const float secondary_gust  = sinf(two_pi * (1.73F * wind.gust_frequency * time - 1.70F * normalized_x - 0.28F * normalized_y) + one_third_pi);
+            const float primary_gust    = ::cuda::std::sin(two_pi * (wind.gust_frequency * time - 0.85F * normalized_x + 0.12F * normalized_y));
+            const float secondary_gust  = ::cuda::std::sin(two_pi * (1.73F * wind.gust_frequency * time - 1.70F * normalized_x - 0.28F * normalized_y) + one_third_pi);
             return {
                 .x = ramp * wind.speed * (1.0F + 0.20F * wind.gust_strength * primary_gust),
                 .z = ramp * wind.speed * wind.gust_strength * (0.72F * primary_gust + 0.28F * secondary_gust),
@@ -64,12 +65,12 @@ namespace physica::examples::cloth::simulation_cuda {
             const float tangent_x         = relative_x - normal_speed * normal_x;
             const float tangent_y         = relative_y - normal_speed * normal_y;
             const float tangent_z         = relative_z - normal_speed * normal_z;
-            const float tangent_speed     = sqrtf(tangent_x * tangent_x + tangent_y * tangent_y + tangent_z * tangent_z);
+            const float tangent_speed     = ::cuda::std::sqrt(tangent_x * tangent_x + tangent_y * tangent_y + tangent_z * tangent_z);
             const float edge_weight_x     = column == grid.columns - 1u ? 0.5F : 1.0F;
             const float edge_weight_y     = row == 0u || row == grid.rows - 1u ? 0.5F : 1.0F;
             const float particle_area     = grid.width * grid.height / static_cast<float>((grid.columns - 1u) * (grid.rows - 1u));
             const float area_scale        = 0.5F * wind.air_density * particle_area * edge_weight_x * edge_weight_y;
-            const float normal_force      = area_scale * wind.drag_coefficient * normal_speed * fabsf(normal_speed);
+            const float normal_force      = area_scale * wind.drag_coefficient * normal_speed * ::cuda::std::abs(normal_speed);
             const float tangent_force     = area_scale * wind.skin_drag_coefficient * tangent_speed;
             force_x[particle]             = normal_force * normal_x + tangent_force * tangent_x;
             force_y[particle]             = normal_force * normal_y + tangent_force * tangent_y;

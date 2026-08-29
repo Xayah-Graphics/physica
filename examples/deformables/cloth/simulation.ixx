@@ -6,7 +6,7 @@ module;
 export module physica.example.deformables.cloth;
 
 import std;
-import physica.deformables.cloth.domain;
+import physica.deformables.cloth.model;
 import physica.deformables.cloth.explicit_dynamics;
 import physica.deformables.cloth.operators.fixed_position;
 import physica.deformables.cloth.operators.mass_spring;
@@ -37,7 +37,7 @@ export namespace physica::examples::cloth {
         ::cuda::stream stream;
 
     private:
-        deformables::cloth::Domain domain;
+        deformables::cloth::Model model;
         deformables::cloth::explicit_dynamics::Solver<deformables::cloth::operators::MassSpringForce, deformables::cloth::operators::SemiImplicitEuler, deformables::cloth::operators::FixedPositionConstraint> solver;
 
     public:
@@ -62,12 +62,12 @@ export namespace physica::examples::cloth {
         decltype(solver)::StepCache step_cache;
         decltype(solver)::Workspace workspace;
 
-        [[nodiscard]] static deformables::cloth::DomainConfiguration create_domain_configuration();
-        [[nodiscard]] static deformables::cloth::operators::FixedPositionConstraint::Configuration create_constraint_configuration(const deformables::cloth::DomainConfiguration& domain_configuration);
+        [[nodiscard]] static deformables::cloth::ModelConfiguration create_configuration();
+        [[nodiscard]] static deformables::cloth::operators::FixedPositionConstraint::Configuration create_constraint_configuration(const deformables::cloth::ModelConfiguration& configuration);
     };
 
-    Simulation::Simulation() : stream{::cuda::devices[0]}, domain(create_domain_configuration(), stream), solver(domain, {.force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .integrator = {.time_step = time_step / static_cast<float>(integration_substeps)}, .constraint = create_constraint_configuration(domain.configuration)}), current_state(solver.allocate_state(domain)), next_state(solver.allocate_state(domain)), control(solver.allocate_control(domain)), parameters(solver.allocate_parameters(domain)), step_cache(solver.allocate_step_cache(domain)), workspace(solver.allocate_workspace(domain)) {
-        const std::vector<float> masses(domain.particle_count, mass);
+    Simulation::Simulation() : stream{::cuda::devices[0]}, model(create_configuration(), stream), solver(model, {.force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .integrator = {.time_step = time_step / static_cast<float>(integration_substeps)}, .constraint = create_constraint_configuration(model.configuration)}), current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
+        const std::vector<float> masses(model.particle_count, mass);
         const std::vector<float> stretch_stiffnesses(parameters.force.stretch.stiffnesses.values.size(), stretch_stiffness);
         const std::vector<float> stretch_dampings(parameters.force.stretch.dampings.values.size(), stretch_damping);
         const std::vector<float> bending_stiffnesses(parameters.force.bending.stiffnesses.values.size(), bending_stiffness);
@@ -82,11 +82,11 @@ export namespace physica::examples::cloth {
     }
 
     void Simulation::reset() {
-        domain.upload(domain.configuration.rest_positions, current_state.positions);
-        domain.clear(current_state.velocities);
-        domain.upload(domain.configuration.rest_positions, next_state.positions);
-        domain.clear(next_state.velocities);
-        domain.clear(control.external_forces);
+        model.fields.upload(model.configuration.rest_positions, current_state.positions);
+        model.fields.clear(current_state.velocities);
+        model.fields.upload(model.configuration.rest_positions, next_state.positions);
+        model.fields.clear(next_state.velocities);
+        model.fields.clear(control.external_forces);
         step_index    = 0u;
         physical_time = 0.0;
     }
@@ -95,16 +95,16 @@ export namespace physica::examples::cloth {
         constexpr float substep_time_step = time_step / static_cast<float>(integration_substeps);
         for (std::uint32_t substep = 0u; substep < integration_substeps; ++substep) {
             simulation_cuda::write_control(stream, {.rows = rows, .columns = columns, .width = width, .height = height}, step_index * integration_substeps + substep, substep_time_step, {.speed = wind_speed, .gust_strength = gust_strength, .gust_frequency = gust_frequency, .air_density = air_density, .drag_coefficient = drag_coefficient, .skin_drag_coefficient = skin_drag_coefficient, .ramp_duration = wind_ramp_duration}, current_state.positions.x.data(), current_state.positions.y.data(), current_state.positions.z.data(), current_state.velocities.x.data(), current_state.velocities.y.data(), current_state.velocities.z.data(), control.external_forces.x.data(), control.external_forces.y.data(), control.external_forces.z.data());
-            solver.forward(domain, current_state, control, parameters, next_state, step_cache, workspace);
+            solver.forward(model, current_state, control, parameters, next_state, step_cache, workspace);
             std::swap(current_state, next_state);
         }
         ++step_index;
         physical_time = static_cast<double>(step_index) * time_step;
     }
 
-    deformables::cloth::DomainConfiguration Simulation::create_domain_configuration() {
-        deformables::cloth::DomainConfiguration result{
-            .rest_positions = std::vector<deformables::cloth::Vector3>(static_cast<std::size_t>(rows) * columns),
+    deformables::cloth::ModelConfiguration Simulation::create_configuration() {
+        deformables::cloth::ModelConfiguration result{
+            .rest_positions = std::vector<Vector3<float>>(static_cast<std::size_t>(rows) * columns),
             .triangles      = {},
         };
         const float spacing_x = width / static_cast<float>(columns - 1u);
@@ -134,12 +134,12 @@ export namespace physica::examples::cloth {
         return result;
     }
 
-    deformables::cloth::operators::FixedPositionConstraint::Configuration Simulation::create_constraint_configuration(const deformables::cloth::DomainConfiguration& domain_configuration) {
+    deformables::cloth::operators::FixedPositionConstraint::Configuration Simulation::create_constraint_configuration(const deformables::cloth::ModelConfiguration& configuration) {
         deformables::cloth::operators::FixedPositionConstraint::Configuration result{.anchors = {}};
         result.anchors.reserve(rows);
         for (std::uint32_t row = 0u; row < rows; ++row) {
             const std::uint32_t particle = row * columns;
-            result.anchors.push_back({.particle = particle, .position = domain_configuration.rest_positions[particle]});
+            result.anchors.push_back({.particle = particle, .position = configuration.rest_positions[particle]});
         }
         return result;
     }

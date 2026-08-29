@@ -3,9 +3,6 @@ module;
 #include <physica/cuda.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
-#undef max
-#undef min
-
 module physica.example.fluids.gas.adjoint_control;
 
 import std;
@@ -44,18 +41,18 @@ namespace physica::examples::adjoint_control {
 
         template <typename Solver>
         struct DerivativeChecker final {
-            DerivativeChecker(const fluids::gas::Domain& next_domain, fluids::gas::adjoint_control::Evaluator<Solver>& next_evaluator, const std::size_t parameter_count) : domain(next_domain), evaluator(next_evaluator), device_parameters(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), parameter_count, ::cuda::no_init), device_direction(domain.stream, ::cuda::device_default_memory_pool(domain.stream.device()), parameter_count, ::cuda::no_init) {}
+            DerivativeChecker(const fluids::gas::Domain& next_domain, fluids::gas::adjoint_control::Evaluator<Solver>& next_evaluator, const std::size_t parameter_count) : domain(next_domain), evaluator(next_evaluator), device_parameters(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), parameter_count, ::cuda::no_init), device_direction(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), parameter_count, ::cuda::no_init) {}
 
             [[nodiscard]] fluids::gas::adjoint_control::EvaluationTrace evaluate(const std::span<const double> parameters, const fluids::gas::adjoint_control::EvaluationMode mode, const std::span<const double> direction = {}) {
-                ::cuda::copy_bytes(domain.stream, parameters, device_parameters);
-                if (!direction.empty()) ::cuda::copy_bytes(domain.stream, direction, device_direction);
+                ::cuda::copy_bytes(domain.grid.fields.stream, parameters, device_parameters);
+                if (!direction.empty()) ::cuda::copy_bytes(domain.grid.fields.stream, direction, device_direction);
                 return evaluator.evaluate({device_parameters.data(), device_parameters.size()}, mode, direction.empty() ? ::cuda::std::span<const double>{} : ::cuda::std::span<const double>{device_direction.data(), device_direction.size()});
             }
 
             [[nodiscard]] std::vector<double> download_gradient(const fluids::gas::adjoint_control::EvaluationTrace& trace) const {
                 std::vector<double> result(trace.reverse->parameter_gradient.size());
-                ::cuda::copy_bytes(domain.stream, trace.reverse->parameter_gradient, ::cuda::std::span{result.data(), result.size()});
-                domain.stream.sync();
+                ::cuda::copy_bytes(domain.grid.fields.stream, trace.reverse->parameter_gradient, ::cuda::std::span{result.data(), result.size()});
+                domain.grid.fields.stream.sync();
                 return result;
             }
 
@@ -113,10 +110,6 @@ namespace physica::examples::adjoint_control {
             ::cuda::device_buffer<double> device_parameters;
             ::cuda::device_buffer<double> device_direction;
         };
-
-        double sum(const std::span<const float> values) {
-            return std::accumulate(values.begin(), values.end(), 0.0);
-        }
 
         std::vector<Point> load_vertices(const std::filesystem::path& path) {
             std::ifstream input(path);
@@ -209,8 +202,8 @@ namespace physica::examples::adjoint_control {
         const std::vector<ComponentDerivativeCheck> component_checks = checker.components(parameters, components, 5.0e-2);
         const fluids::gas::adjoint_control::EvaluationTrace trace    = checker.evaluate(parameters, fluids::gas::adjoint_control::EvaluationMode::objective_gradient);
         double maximum_mass_relative_error                           = 0.0;
-        const double initial_mass                                    = sum(initial_density);
-        for (const fluids::gas::adjoint_control::State& state : trace.state) maximum_mass_relative_error = std::max(maximum_mass_relative_error, std::abs(sum(download_density(state)) - initial_mass) / initial_mass);
+        const double initial_mass                                    = std::ranges::fold_left(initial_density, 0.0, std::plus{});
+        for (const fluids::gas::adjoint_control::State& state : trace.state) maximum_mass_relative_error = std::max(maximum_mass_relative_error, std::abs(std::ranges::fold_left(download_density(state), 0.0, std::plus{}) - initial_mass) / initial_mass);
 
         const std::array<double, 4> quadratic_target{2.0, -3.0, 0.5, 1.5};
         const std::array<double, 4> quadratic_lower{-1.0, -1.0, -1.0, -0.25};
@@ -250,7 +243,7 @@ namespace physica::examples::adjoint_control {
                << "  \"jvp_vjp_relative_error\": " << derivative.jvp_vjp_relative_error << ",\n"
                << "  \"maximum_mass_relative_error\": " << maximum_mass_relative_error << ",\n"
                << "  \"lbfgsb_maximum_error\": " << quadratic_maximum_error << ",\n"
-               << "  \"lbfgsb_stop_reason\": " << static_cast<std::uint32_t>(quadratic_optimizer.stop_reason) << ",\n"
+               << "  \"lbfgsb_stop_reason\": " << std::to_underlying(quadratic_optimizer.stop_reason) << ",\n"
                << "  \"components\": [\n";
         for (std::size_t index = 0u; index < component_checks.size(); ++index) {
             const ComponentDerivativeCheck& component = component_checks[index];
@@ -313,8 +306,8 @@ namespace physica::examples::adjoint_control {
         fluids::gas::adjoint_control::DenseControl dense_control = solver.allocate_control(domain);
         decltype(solver)::StepCache cache                        = solver.allocate_step_cache(domain);
         decltype(solver)::Workspace workspace                    = solver.allocate_workspace(domain);
-        domain.copy(result.final_trace->state.back().density, current.density);
-        domain.copy(result.final_trace->state.back().velocity, current.velocity);
+        domain.grid.copy(result.final_trace->state.back().density, current.density);
+        domain.grid.copy(result.final_trace->state.back().velocity, current.velocity);
         ::cuda::copy_bytes(stream, result.parameters, uncontrolled_parameters);
         for (std::uint32_t offset = 0u; offset < configuration.post_step_count; ++offset) {
             const std::uint32_t step = configuration.step_count + offset;
@@ -358,7 +351,7 @@ namespace physica::examples::adjoint_control {
                 << "  \"dimensionless_maximum_divergence\": " << metrics.dimensionless_maximum_divergence << ",\n"
                 << "  \"optimization_evaluations\": " << result.evaluations.size() << ",\n"
                 << "  \"optimization_seconds\": " << optimization_seconds << ",\n"
-                << "  \"stop_reason\": " << static_cast<std::uint32_t>(result.stop_reason) << "\n"
+                << "  \"stop_reason\": " << std::to_underlying(result.stop_reason) << "\n"
                 << "}\n";
 
         std::ofstream report(output_directory / "REPORT.md");
@@ -395,9 +388,8 @@ namespace physica::examples::adjoint_control {
 
     fluids::gas::DomainConfiguration Experiment::create_domain_configuration() const {
         fluids::gas::DomainConfiguration result{
-            .resolution = {configuration.resolution, configuration.resolution, configuration.resolution},
-            .cell_size  = 1.0F / configuration.resolution,
-            .time_step  = configuration.time_step,
+            .grid      = {.resolution = {configuration.resolution, configuration.resolution, configuration.resolution}, .cell_size = 1.0F / configuration.resolution},
+            .time_step = configuration.time_step,
         };
         result.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
         result.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
@@ -496,13 +488,13 @@ namespace physica::examples::adjoint_control {
                     }
         }
         const std::vector<float> initial = create_initial_density();
-        const double mass_scale          = sum(initial) / sum(density);
+        const double mass_scale          = std::ranges::fold_left(initial, 0.0, std::plus{}) / std::ranges::fold_left(density, 0.0, std::plus{});
         for (float& value : density) value = static_cast<float>(mass_scale * value);
         return density;
     }
 
     std::vector<float> Experiment::download_density(const fluids::gas::adjoint_control::State& state) const {
-        std::vector<float> result(domain.cell_count);
+        std::vector<float> result(domain.grid.cell_count);
         ::cuda::copy_bytes(stream, state.density.values, ::cuda::std::span{result.data(), result.size()});
         stream.sync();
         return result;
@@ -510,9 +502,9 @@ namespace physica::examples::adjoint_control {
 
     std::array<std::vector<float>, 3> Experiment::download_velocity(const fluids::gas::adjoint_control::State& state) const {
         std::array<std::vector<float>, 3> result{
-            std::vector<float>(domain.face_counts[0]),
-            std::vector<float>(domain.face_counts[1]),
-            std::vector<float>(domain.face_counts[2]),
+            std::vector<float>(domain.grid.face_counts[0]),
+            std::vector<float>(domain.grid.face_counts[1]),
+            std::vector<float>(domain.grid.face_counts[2]),
         };
         ::cuda::copy_bytes(stream, state.velocity.x, ::cuda::std::span{result[0].data(), result[0].size()});
         ::cuda::copy_bytes(stream, state.velocity.y, ::cuda::std::span{result[1].data(), result[1].size()});
@@ -553,7 +545,7 @@ namespace physica::examples::adjoint_control {
             .relative_l2                      = std::sqrt(residual_squared / target_squared),
             .normalized_cross_correlation     = product / std::sqrt(density_squared * target_squared),
             .soft_dice                        = 2.0 * product / (density_squared + target_squared),
-            .mass_relative_error              = std::abs(sum(density) - sum(target)) / sum(target),
+            .mass_relative_error              = std::abs(std::ranges::fold_left(density, 0.0, std::plus{}) - std::ranges::fold_left(target, 0.0, std::plus{})) / std::ranges::fold_left(target, 0.0, std::plus{}),
             .maximum_divergence               = maximum_divergence,
             .rms_divergence                   = std::sqrt(divergence_squared / density.size()),
             .maximum_speed                    = maximum_speed,

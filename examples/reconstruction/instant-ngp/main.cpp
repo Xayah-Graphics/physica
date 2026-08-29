@@ -19,7 +19,7 @@ int main() {
 
     float best_psnr = std::numeric_limits<float>::lowest();
     while (instant_ngp.state.step < training_steps) {
-        const std::uint32_t iterations                                         = (std::min) (report_interval, training_steps - instant_ngp.state.step);
+        const std::uint32_t iterations                                         = std::min(report_interval, training_steps - instant_ngp.state.step);
         const physica::reconstruction::instant_ngp::OptimizationStats training = instant_ngp.optimize(iterations);
         std::println("train step={:>6} loss={:.7f} rays={} samples={}/{} efficiency={:.2f}% occupancy={:.2f}% time={:.2f}ms", training.end_step, training.loss, training.rays, training.compacted_samples, training.generated_samples, training.sample_efficiency * 100.0F, training.occupancy_ratio * 100.0F, training.elapsed_ms);
 

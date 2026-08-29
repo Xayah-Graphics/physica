@@ -25,11 +25,11 @@ export namespace physica::examples::smoke {
         inline static constexpr float density_buoyancy            = -0.1F;
         inline static constexpr float temperature_buoyancy        = 1.0F;
         inline static constexpr float vorticity_confinement       = 2.0F;
-        inline static constexpr fluids::gas::Vector3 left_source_center{0.25F, 0.10F, 0.36F};
-        inline static constexpr fluids::gas::Vector3 right_source_center{0.75F, 0.10F, 0.64F};
+        inline static constexpr Vector3<float> left_source_center{0.25F, 0.10F, 0.36F};
+        inline static constexpr Vector3<float> right_source_center{0.75F, 0.10F, 0.64F};
         inline static constexpr float source_radius = 0.055F;
-        inline static constexpr fluids::gas::Vector3 left_acceleration{3.5F, 5.0F, 1.8F};
-        inline static constexpr fluids::gas::Vector3 right_acceleration{-3.5F, 5.0F, -1.8F};
+        inline static constexpr Vector3<float> left_acceleration{3.5F, 5.0F, 1.8F};
+        inline static constexpr Vector3<float> right_acceleration{-3.5F, 5.0F, -1.8F};
         inline static constexpr float pulse_period = 0.9F;
 
         ::cuda::stream stream;
@@ -82,18 +82,18 @@ export namespace physica::examples::smoke {
     }
 
     void Simulation::reset() {
-        domain.clear(current_state.density);
-        domain.clear(current_state.temperature);
-        domain.clear(current_state.velocity);
-        domain.clear(next_state.density);
-        domain.clear(next_state.temperature);
-        domain.clear(next_state.velocity);
+        domain.grid.clear(current_state.density);
+        domain.grid.clear(current_state.temperature);
+        domain.grid.clear(current_state.velocity);
+        domain.grid.clear(next_state.density);
+        domain.grid.clear(next_state.temperature);
+        domain.grid.clear(next_state.velocity);
         step_index    = 0u;
         physical_time = 0.0;
     }
 
     void Simulation::step() {
-        simulation_cuda::write_control(stream, {.nx = resolution[0], .ny = resolution[1], .nz = resolution[2], .cell_size = cell_size, .time_step = time_step}, step_index, pulse_period, {.x = left_source_center.x, .y = left_source_center.y, .z = left_source_center.z}, {.x = right_source_center.x, .y = right_source_center.y, .z = right_source_center.z}, source_radius, density_source_rate, temperature_source_rate, {.x = left_acceleration.x, .y = left_acceleration.y, .z = left_acceleration.z}, {.x = right_acceleration.x, .y = right_acceleration.y, .z = right_acceleration.z}, control.density_source.values.data(), control.temperature_source.values.data(), control.external_acceleration.x.values.data(), control.external_acceleration.y.values.data(), control.external_acceleration.z.values.data());
+        simulation_cuda::write_control(stream, {.nx = resolution[0], .ny = resolution[1], .nz = resolution[2], .cell_size = cell_size, .time_step = time_step}, step_index, pulse_period, {.x = left_source_center.x, .y = left_source_center.y, .z = left_source_center.z}, {.x = right_source_center.x, .y = right_source_center.y, .z = right_source_center.z}, source_radius, density_source_rate, temperature_source_rate, {.x = left_acceleration.x, .y = left_acceleration.y, .z = left_acceleration.z}, {.x = right_acceleration.x, .y = right_acceleration.y, .z = right_acceleration.z}, control.density_source.values.data(), control.temperature_source.values.data(), control.external_acceleration.x.data(), control.external_acceleration.y.data(), control.external_acceleration.z.data());
         solver.forward(domain, current_state, control, parameters, next_state, step_cache, workspace);
         std::swap(current_state, next_state);
         ++step_index;
@@ -102,9 +102,8 @@ export namespace physica::examples::smoke {
 
     fluids::gas::DomainConfiguration Simulation::create_domain_configuration() {
         fluids::gas::DomainConfiguration result{
-            .resolution = resolution,
-            .cell_size  = cell_size,
-            .time_step  = time_step,
+            .grid      = {.resolution = resolution, .cell_size = cell_size},
+            .time_step = time_step,
         };
         result.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
         result.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;

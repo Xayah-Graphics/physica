@@ -7,7 +7,7 @@ on:
       - .github/workflows/arch-build.yml
       - cmake/**
       - examples/**
-      - src/**
+      - physica/**
       - CMakeLists.txt
       - VERSION
   pull_request:

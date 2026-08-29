@@ -2,6 +2,7 @@
 #define PHYSICA_EXAMPLES_FLUIDS_GAS_SMOKE_SIMULATION_KERNELS_H
 
 #include <cstdint>
+#include <physica/math.h>
 #include <physica/cuda_stream.h>
 
 namespace physica::examples::smoke::simulation_cuda {
@@ -13,13 +14,7 @@ namespace physica::examples::smoke::simulation_cuda {
         float time_step;
     };
 
-    struct Vector final {
-        float x;
-        float y;
-        float z;
-    };
-
-    void write_control(::cuda::stream_ref stream, Grid grid, std::uint64_t step, float pulse_period, Vector left_center, Vector right_center, float source_radius, float density_source_rate, float temperature_source_rate, Vector left_acceleration, Vector right_acceleration, float* density_source, float* temperature_source, float* acceleration_x, float* acceleration_y, float* acceleration_z);
+    void write_control(::cuda::stream_ref stream, Grid grid, std::uint64_t step, float pulse_period, Vector3<float> left_center, Vector3<float> right_center, float source_radius, float density_source_rate, float temperature_source_rate, Vector3<float> left_acceleration, Vector3<float> right_acceleration, float* density_source, float* temperature_source, float* acceleration_x, float* acceleration_y, float* acceleration_z);
 } // namespace physica::examples::smoke::simulation_cuda
 
 #endif

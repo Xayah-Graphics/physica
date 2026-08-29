@@ -3,9 +3,6 @@ module;
 #include <physica/cuda.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
-#undef max
-#undef min
-
 module physica.example.fluids.gas.keyframe_smoke;
 
 import std;
@@ -42,10 +39,6 @@ namespace physica::examples::keyframe_smoke {
 
         void append_polyline(std::vector<Segment>& segments, const std::initializer_list<Point> points) {
             for (auto point = points.begin(); std::next(point) != points.end(); ++point) segments.push_back({.begin = *point, .end = *std::next(point)});
-        }
-
-        double sum(std::span<const float> values) {
-            return std::accumulate(values.begin(), values.end(), 0.0);
         }
 
         void write_density_image(const std::filesystem::path& path, const std::span<const float> density, const std::uint32_t width, const std::uint32_t height, const std::uint32_t scale, const float maximum) {
@@ -90,9 +83,8 @@ namespace physica::examples::keyframe_smoke {
 
         ::cuda::stream stream{::cuda::devices[0]};
         fluids::gas::DomainConfiguration domain_configuration{
-            .resolution = {width, height, 1u},
-            .cell_size  = Experiment::cell_size,
-            .time_step  = Experiment::time_step,
+            .grid      = {.resolution = {width, height, 1u}, .cell_size = Experiment::cell_size},
+            .time_step = Experiment::time_step,
         };
         domain_configuration.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
         domain_configuration.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
@@ -113,16 +105,16 @@ namespace physica::examples::keyframe_smoke {
         decltype(solver)::StepCache cache                 = solver.allocate_step_cache(domain);
         decltype(solver)::Workspace workspace             = solver.allocate_workspace(domain);
         ::cuda::copy_bytes(stream, combined, current.density.values);
-        domain.clear(current.velocity);
+        domain.grid.clear(current.velocity);
 
-        const double initial_mass = sum(combined);
+        const double initial_mass = std::ranges::fold_left(combined, 0.0, std::plus{});
         std::ofstream masses(output_directory / "mass.csv");
         masses << "step,physical_time,mass,expected_mass\n" << std::setprecision(17);
         for (std::uint32_t step = 0u; step <= dissipation_steps; ++step) {
             ::cuda::copy_bytes(stream, current.density.values, ::cuda::std::span{combined.data(), combined.size()});
             stream.sync();
             const double physical_time = step * Experiment::time_step;
-            masses << step << ',' << physical_time << ',' << sum(combined) << ',' << initial_mass * std::exp(-dissipation_rate * physical_time) << '\n';
+            masses << step << ',' << physical_time << ',' << std::ranges::fold_left(combined, 0.0, std::plus{}) << ',' << initial_mass * std::exp(-dissipation_rate * physical_time) << '\n';
             write_density_image(output_directory / "frames" / std::format("dissipation-{:03}.png", step), combined, width, height, 6u, initial_maximum);
             std::ofstream raw(output_directory / "frames" / std::format("dissipation-{:03}.bin", step), std::ios::binary);
             raw.write(reinterpret_cast<const char*>(combined.data()), static_cast<std::streamsize>(combined.size() * sizeof(float)));
@@ -269,9 +261,8 @@ namespace physica::examples::keyframe_smoke {
 
     fluids::gas::DomainConfiguration Experiment::create_domain_configuration() {
         fluids::gas::DomainConfiguration result{
-            .resolution = {resolution, resolution, 1u},
-            .cell_size  = cell_size,
-            .time_step  = time_step,
+            .grid      = {.resolution = {resolution, resolution, 1u}, .cell_size = cell_size},
+            .time_step = time_step,
         };
         result.velocity_boundary.x_min.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
         result.velocity_boundary.x_max.mode = fluids::gas::VelocityBoundaryMode::normal_fixed_tangent_zero_gradient;
@@ -371,7 +362,7 @@ namespace physica::examples::keyframe_smoke {
     fluids::gas::keyframe_smoke::State Experiment::create_state(const std::span<const float> density) {
         fluids::gas::keyframe_smoke::State result = solver.allocate_state(domain);
         ::cuda::copy_bytes(stream, density, result.density.values);
-        domain.clear(result.velocity);
+        domain.grid.clear(result.velocity);
         return result;
     }
 
@@ -423,7 +414,7 @@ namespace physica::examples::keyframe_smoke {
             }
         }
         const std::vector<float> initial = create_initial_density();
-        const double scale               = sum(initial) / sum(result);
+        const double scale               = std::ranges::fold_left(initial, 0.0, std::plus{}) / std::ranges::fold_left(result, 0.0, std::plus{});
         for (float& value : result) value = static_cast<float>(value * scale);
         return result;
     }
@@ -449,7 +440,7 @@ namespace physica::examples::keyframe_smoke {
         double target_mass = 0.0;
         for (const TransportSample sample : source_samples) source_mass += sample.mass;
         for (const TransportSample sample : target_samples) target_mass += sample.mass;
-        const double desired_mass = sum(initial);
+        const double desired_mass = std::ranges::fold_left(initial, 0.0, std::plus{});
         for (TransportSample& sample : source_samples) sample.mass *= desired_mass / source_mass;
         for (TransportSample& sample : target_samples) sample.mass *= desired_mass / target_mass;
 
@@ -497,13 +488,13 @@ namespace physica::examples::keyframe_smoke {
                 }
             }
         }
-        const double scale = desired_mass / sum(result);
+        const double scale = desired_mass / std::ranges::fold_left(result, 0.0, std::plus{});
         for (float& value : result) value = static_cast<float>(value * scale);
         return result;
     }
 
     std::vector<float> Experiment::download_density(const fluids::gas::keyframe_smoke::State& state) const {
-        std::vector<float> result(domain.cell_count);
+        std::vector<float> result(domain.grid.cell_count);
         ::cuda::copy_bytes(stream, state.density.values, ::cuda::std::span{result.data(), result.size()});
         stream.sync();
         return result;
@@ -525,7 +516,7 @@ namespace physica::examples::keyframe_smoke {
             .relative_l2                  = std::sqrt(difference_squared / target_squared),
             .normalized_cross_correlation = dot / std::sqrt(density_squared * target_squared),
             .soft_dice                    = 2.0 * dot / (density_squared + target_squared),
-            .mass_relative_error          = std::abs(sum(density) - sum(target)) / sum(target),
+            .mass_relative_error          = std::abs(std::ranges::fold_left(density, 0.0, std::plus{}) - std::ranges::fold_left(target, 0.0, std::plus{})) / std::ranges::fold_left(target, 0.0, std::plus{}),
         };
     }
 

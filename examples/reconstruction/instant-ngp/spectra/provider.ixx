@@ -51,12 +51,12 @@ export namespace physica::examples::instant_ngp {
         std::vector<spectra::sdk::Camera> cameras;
         cameras.reserve(training_frames.frames.size());
         for (const reconstruction::dataset::multiview::Frame& frame : training_frames.frames) {
-            const std::array<float, 16>& transform = frame.world_from_camera;
+            const Matrix4<float>& transform = frame.world_from_camera;
             cameras.push_back({
-                .right     = {transform[4], transform[8], transform[0]},
-                .down      = {-transform[5], -transform[9], -transform[1]},
-                .forward   = {-transform[6], -transform[10], -transform[2]},
-                .position  = {transform[7] * scene_scale + 0.5F, transform[11] * scene_scale + 0.5F, transform[3] * scene_scale + 0.5F},
+                .right     = {transform(1uz, 0uz), transform(2uz, 0uz), transform(0uz, 0uz)},
+                .down      = {-transform(1uz, 1uz), -transform(2uz, 1uz), -transform(0uz, 1uz)},
+                .forward   = {-transform(1uz, 2uz), -transform(2uz, 2uz), -transform(0uz, 2uz)},
+                .position  = {transform(1uz, 3uz) * scene_scale + 0.5F, transform(2uz, 3uz) * scene_scale + 0.5F, transform(0uz, 3uz) * scene_scale + 0.5F},
                 .focal     = {frame.intrinsics.focal_x, frame.intrinsics.focal_y},
                 .principal = {frame.intrinsics.principal_x, frame.intrinsics.principal_y},
             });

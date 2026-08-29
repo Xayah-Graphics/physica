@@ -7,7 +7,7 @@ on:
       - .github/workflows/docker.yml
       - cmake/**
       - examples/**
-      - src/**
+      - physica/**
       - .dockerignore
       - CMakeLists.txt
       - Dockerfile
