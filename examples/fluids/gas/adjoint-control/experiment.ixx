@@ -11,9 +11,9 @@ import physica.fluids.gas.operators.diffusion;
 import physica.fluids.gas.operators.projection;
 import physica.fluids.gas.operators.force;
 import physica.fluids.gas.operators.objective;
-import physica.fluids.gas.adjoint_control;
-import physica.fluids.gas.adjoint_control.control;
-import physica.fluids.gas.adjoint_control.evaluation;
+import physica.fluids.gas.solvers.adjoint_control;
+import physica.fluids.gas.solvers.adjoint_control.control;
+import physica.fluids.gas.solvers.adjoint_control.evaluation;
 
 export namespace physica::examples::adjoint_control {
     struct ExperimentConfiguration final {
@@ -40,12 +40,12 @@ export namespace physica::examples::adjoint_control {
         const ExperimentConfiguration configuration;
         ::cuda::stream stream;
         fluids::gas::Domain domain;
-        fluids::gas::adjoint_control::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::ImplicitVelocityDiffusion, fluids::gas::operators::DensityBuoyancy, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
-        fluids::gas::adjoint_control::ControlSystem control;
+        fluids::gas::solvers::adjoint_control::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::ImplicitVelocityDiffusion, fluids::gas::operators::DensityBuoyancy, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
+        fluids::gas::solvers::adjoint_control::ControlSystem control;
         fluids::gas::operators::Quadratic objective;
         const std::filesystem::path bunny_path;
-        fluids::gas::adjoint_control::Problem problem;
-        fluids::gas::adjoint_control::Evaluator<decltype(solver)> evaluator;
+        fluids::gas::solvers::adjoint_control::Problem problem;
+        fluids::gas::solvers::adjoint_control::Evaluator<decltype(solver)> evaluator;
 
         Experiment(ExperimentConfiguration configuration, std::filesystem::path bunny_path);
         ~Experiment();
@@ -61,14 +61,14 @@ export namespace physica::examples::adjoint_control {
 
     private:
         [[nodiscard]] fluids::gas::DomainConfiguration create_domain_configuration() const;
-        [[nodiscard]] fluids::gas::adjoint_control::ControlConfiguration create_control_configuration() const;
-        [[nodiscard]] std::vector<fluids::gas::adjoint_control::Keyframe> create_keyframes();
-        [[nodiscard]] fluids::gas::adjoint_control::State create_state(std::span<const float> density);
+        [[nodiscard]] fluids::gas::solvers::adjoint_control::ControlConfiguration create_control_configuration() const;
+        [[nodiscard]] std::vector<fluids::gas::solvers::adjoint_control::Keyframe> create_keyframes();
+        [[nodiscard]] fluids::gas::solvers::adjoint_control::State create_state(std::span<const float> density);
         [[nodiscard]] std::vector<float> create_initial_density() const;
         [[nodiscard]] std::vector<float> create_target_density() const;
-        [[nodiscard]] std::vector<float> download_density(const fluids::gas::adjoint_control::State& state) const;
-        [[nodiscard]] std::array<std::vector<float>, 3> download_velocity(const fluids::gas::adjoint_control::State& state) const;
-        [[nodiscard]] ShapeMetrics shape_metrics(std::span<const float> density, std::span<const float> target, const fluids::gas::adjoint_control::State& state) const;
+        [[nodiscard]] std::vector<float> download_density(const fluids::gas::solvers::adjoint_control::State& state) const;
+        [[nodiscard]] std::array<std::vector<float>, 3> download_velocity(const fluids::gas::solvers::adjoint_control::State& state) const;
+        [[nodiscard]] ShapeMetrics shape_metrics(std::span<const float> density, std::span<const float> target, const fluids::gas::solvers::adjoint_control::State& state) const;
         void write_density(const std::filesystem::path& path, std::span<const float> density) const;
         void write_sequence(const std::filesystem::path& path, const std::vector<std::vector<float>>& frames) const;
         void write_parameters(const std::filesystem::path& path, std::span<const double> parameters) const;

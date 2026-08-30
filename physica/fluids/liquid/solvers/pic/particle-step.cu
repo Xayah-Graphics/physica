@@ -1,4 +1,4 @@
-#include <physica/fluids/grid/device.cuh>
+#include <fluids/grid/device.cuh>
 #include "particle-step-kernels.h"
 #include <cub/device/device_reduce.cuh>
 #include <cub/device/device_scan.cuh>
@@ -6,20 +6,20 @@
 #include <cuda/std/algorithm>
 #include <cuda_runtime_api.h>
 
-namespace physica::fluids::liquid::pic::kernels::particle_step {
+namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
     namespace {
         constexpr std::uint32_t fluid = 1u;
-        __global__ void particle_speeds_kernel(const std::uint32_t particle_count, const field::VectorView<const float> velocities, float* speeds) {
+        __global__ void particle_speeds_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> velocities, float* speeds) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            speeds[particle] = length(field::load(velocities, particle));
+            speeds[particle] = length(simulation::load(velocities, particle));
         }
 
-        __global__ void particle_diagnostics_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const std::size_t stride, const float particle_mass, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, float* values) {
+        __global__ void particle_diagnostics_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const std::size_t stride, const float particle_mass, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, float* values) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
-            const Vector3<float> velocity = field::load(velocities, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
+            const Vector3<float> velocity = simulation::load(velocities, particle);
             const Vector3<float> relative_position{position.x - grid.origin_x, position.y - grid.origin_y, position.z - grid.origin_z};
             values[particle]              = 0.5F * particle_mass * dot(velocity, velocity);
             values[stride + particle]     = particle_mass * velocity.x;
@@ -43,29 +43,29 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
             }
         }
 
-        __global__ void advect_kernel(const grid::device::Grid grid, const float particle_radius, const bool no_slip, const float time_step, const std::uint32_t particle_count, const field::VectorView<const float> grid_velocity, const field::VectorView<float> positions, const field::VectorView<float> velocities) {
+        __global__ void advect_kernel(const grid::device::Grid grid, const float particle_radius, const bool no_slip, const float time_step, const std::uint32_t particle_count, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> positions, const simulation::VectorView<float> velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
             const Vector3<float> first_velocity = grid::device::sample_velocity(grid, position, grid_velocity);
             const Vector3<float> midpoint       = (position + (first_velocity * 0.5F * time_step));
             const Vector3<float> second_velocity = grid::device::sample_velocity(grid, midpoint, grid_velocity);
             Vector3<float> next_position        = (position + (second_velocity * time_step));
-            Vector3<float> next_velocity        = field::load(velocities, particle);
+            Vector3<float> next_velocity        = simulation::load(velocities, particle);
             bool collided{};
             collide_axis(grid.origin_x + grid.cell_size + particle_radius, grid.origin_x + (static_cast<float>(grid.nx) - 1.0F) * grid.cell_size - particle_radius, grid.velocity_x, next_position.x, next_velocity.x, collided);
             collide_axis(grid.origin_y + grid.cell_size + particle_radius, grid.origin_y + (static_cast<float>(grid.ny) - 1.0F) * grid.cell_size - particle_radius, grid.velocity_y, next_position.y, next_velocity.y, collided);
             collide_axis(grid.origin_z + grid.cell_size + particle_radius, grid.origin_z + (static_cast<float>(grid.nz) - 1.0F) * grid.cell_size - particle_radius, grid.velocity_z, next_position.z, next_velocity.z, collided);
             if (collided && no_slip) next_velocity = {grid.velocity_x, grid.velocity_y, grid.velocity_z};
-            field::store(positions, particle, next_position);
-            field::store(velocities, particle, next_velocity);
+            simulation::store(positions, particle, next_position);
+            simulation::store(velocities, particle, next_velocity);
         }
 
-        __global__ void rank_particles_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const std::uint32_t maximum_particles_per_cell, const field::VectorView<const float> positions, std::uint32_t* raw_counts, std::uint32_t* survivor_counts, std::uint32_t* keep_flags) {
+        __global__ void rank_particles_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const std::uint32_t maximum_particles_per_cell, const simulation::VectorView<const float> positions, std::uint32_t* raw_counts, std::uint32_t* survivor_counts, std::uint32_t* keep_flags) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             int x, y, z;
-            grid::device::interior_cell(grid, field::load(positions, particle), x, y, z);
+            grid::device::interior_cell(grid, simulation::load(positions, particle), x, y, z);
             const std::size_t cell = grid::device::cell_index(grid, x, y, z);
             const std::uint32_t rank = atomicAdd(raw_counts + cell, 1u);
             keep_flags[particle] = rank < maximum_particles_per_cell ? 1u : 0u;
@@ -90,12 +90,12 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
             totals[1] = ::cuda::std::min(requested, particle_count - totals[0]);
         }
 
-        __global__ void compact_kernel(const std::uint32_t particle_count, const field::VectorView<const float> source_positions, const field::VectorView<const float> source_velocities, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const field::VectorView<float> output_positions, const field::VectorView<float> output_velocities) {
+        __global__ void compact_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> source_positions, const simulation::VectorView<const float> source_velocities, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const simulation::VectorView<float> output_positions, const simulation::VectorView<float> output_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count || keep_flags[particle] == 0u) return;
             const std::uint32_t destination = destinations[particle];
-            field::store(output_positions, destination, field::load(source_positions, particle));
-            field::store(output_velocities, destination, field::load(source_velocities, particle));
+            simulation::store(output_positions, destination, simulation::load(source_positions, particle));
+            simulation::store(output_velocities, destination, simulation::load(source_velocities, particle));
         }
 
         __device__ std::uint32_t hash(std::uint32_t value) {
@@ -110,7 +110,7 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
             return static_cast<float>(hash(value) & 0x00ffffffu) / 16777216.0F;
         }
 
-        __global__ void seed_kernel(const grid::device::Grid grid, const std::uint64_t seed, const std::uint32_t survivor_count, const std::uint32_t seed_count, const std::uint32_t* seed_counts, const std::uint32_t* seed_offsets, const field::VectorView<const float> grid_velocity, const field::VectorView<float> output_positions, const field::VectorView<float> output_velocities) {
+        __global__ void seed_kernel(const grid::device::Grid grid, const std::uint64_t seed, const std::uint32_t survivor_count, const std::uint32_t seed_count, const std::uint32_t* seed_counts, const std::uint32_t* seed_offsets, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> output_positions, const simulation::VectorView<float> output_velocities) {
             const std::size_t cell = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (cell >= grid::device::cell_count(grid) || seed_counts[cell] == 0u) return;
             int x, y, z;
@@ -125,8 +125,8 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
                     grid.origin_y + (static_cast<float>(y) + 0.2F + 0.6F * random_fraction(key + 1u)) * grid.cell_size,
                     grid.origin_z + (static_cast<float>(z) + 0.2F + 0.6F * random_fraction(key + 2u)) * grid.cell_size,
                 };
-                field::store(output_positions, particle, position);
-                field::store(output_velocities, particle, grid::device::sample_velocity(grid, position, grid_velocity));
+                simulation::store(output_positions, particle, position);
+                simulation::store(output_velocities, particle, grid::device::sample_velocity(grid, position, grid_velocity));
             }
         }
     } // namespace
@@ -145,11 +145,11 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
         return maximum_bytes > sum_bytes ? maximum_bytes : sum_bytes;
     }
 
-    void particle_speeds(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const field::VectorView<const float> velocities, float* speeds) {
+    void particle_speeds(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const simulation::VectorView<const float> velocities, float* speeds) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), particle_speeds_kernel, particle_count, velocities, speeds);
     }
 
-    void particle_diagnostics(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const std::size_t stride, const float particle_mass, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, float* values) {
+    void particle_diagnostics(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const std::size_t stride, const float particle_mass, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, float* values) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), particle_diagnostics_kernel, grid, particle_count, stride, particle_mass, positions, velocities, values);
     }
 
@@ -161,11 +161,11 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
         cub::DeviceReduce::Sum(scratch, scratch_bytes, values, output, count, stream.get());
     }
 
-    void advect(const ::cuda::stream_ref stream, const grid::device::Grid grid, const float particle_radius, const bool no_slip, const float time_step, const std::uint32_t particle_count, const field::VectorView<const float> grid_velocity, const field::VectorView<float> positions, const field::VectorView<float> velocities) {
+    void advect(const ::cuda::stream_ref stream, const grid::device::Grid grid, const float particle_radius, const bool no_slip, const float time_step, const std::uint32_t particle_count, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> positions, const simulation::VectorView<float> velocities) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), advect_kernel, grid, particle_radius, no_slip, time_step, particle_count, grid_velocity, positions, velocities);
     }
 
-    void plan_maintenance(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const std::uint32_t minimum_particles_per_cell, const std::uint32_t target_particles_per_cell, const std::uint32_t maximum_particles_per_cell, const field::VectorView<const float> positions, const std::uint32_t* cell_types, const float* level_set, std::uint32_t* raw_counts, std::uint32_t* survivor_counts, std::uint32_t* keep_flags, std::uint32_t* destinations, std::uint32_t* seed_counts, std::uint32_t* seed_offsets, std::uint32_t* totals, void* scan_scratch, std::size_t scan_scratch_bytes) {
+    void plan_maintenance(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const std::uint32_t minimum_particles_per_cell, const std::uint32_t target_particles_per_cell, const std::uint32_t maximum_particles_per_cell, const simulation::VectorView<const float> positions, const std::uint32_t* cell_types, const float* level_set, std::uint32_t* raw_counts, std::uint32_t* survivor_counts, std::uint32_t* keep_flags, std::uint32_t* destinations, std::uint32_t* seed_counts, std::uint32_t* seed_offsets, std::uint32_t* totals, void* scan_scratch, std::size_t scan_scratch_bytes) {
         cudaMemsetAsync(raw_counts, 0, grid::device::cell_count(grid) * sizeof(std::uint32_t), stream.get());
         cudaMemsetAsync(survivor_counts, 0, grid::device::cell_count(grid) * sizeof(std::uint32_t), stream.get());
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), rank_particles_kernel, grid, particle_count, maximum_particles_per_cell, positions, raw_counts, survivor_counts, keep_flags);
@@ -176,8 +176,8 @@ namespace physica::fluids::liquid::pic::kernels::particle_step {
         ::cuda::launch(stream, ::cuda::distribute<1u>(1u), seed_total_kernel, grid::device::cell_count(grid), particle_count, seed_counts, seed_offsets, totals);
     }
 
-    void compact_and_seed(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint64_t seed, const std::uint32_t particle_count, const std::uint32_t survivor_count, const std::uint32_t seed_count, const field::VectorView<const float> source_positions, const field::VectorView<const float> source_velocities, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const std::uint32_t* seed_counts, const std::uint32_t* seed_offsets, const field::VectorView<const float> grid_velocity, const field::VectorView<float> output_positions, const field::VectorView<float> output_velocities) {
+    void compact_and_seed(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint64_t seed, const std::uint32_t particle_count, const std::uint32_t survivor_count, const std::uint32_t seed_count, const simulation::VectorView<const float> source_positions, const simulation::VectorView<const float> source_velocities, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const std::uint32_t* seed_counts, const std::uint32_t* seed_offsets, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> output_positions, const simulation::VectorView<float> output_velocities) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), compact_kernel, particle_count, source_positions, source_velocities, keep_flags, destinations, output_positions, output_velocities);
         if (seed_count > 0u) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::cell_count(grid)), seed_kernel, grid, seed, survivor_count, seed_count, seed_counts, seed_offsets, grid_velocity, output_positions, output_velocities);
     }
-} // namespace physica::fluids::liquid::pic::kernels::particle_step
+} // namespace physica::fluids::liquid::solvers::pic::kernels::particle_step

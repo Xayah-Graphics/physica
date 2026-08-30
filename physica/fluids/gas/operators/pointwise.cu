@@ -1,4 +1,4 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "pointwise-kernels.h"
 #include <cuda/launch>
 
@@ -130,42 +130,42 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void source_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::ScalarView<const float> state, const field::ScalarView<const float> source, const field::ScalarView<float> output) {
+    void source_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::ScalarView<const float> state, const simulation::ScalarView<const float> source, const simulation::ScalarView<float> output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), source_forward_kernel, grid, collider_ids, state.values, source.values, output.values);
     }
 
-    void source_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::ScalarView<const float> state_tangent, const field::ScalarView<const float> source_tangent, const field::ScalarView<float> output_tangent) {
+    void source_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::ScalarView<const float> state_tangent, const simulation::ScalarView<const float> source_tangent, const simulation::ScalarView<float> output_tangent) {
         source_forward(stream, grid, collider_ids, state_tangent, source_tangent, output_tangent);
     }
 
-    void source_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::ScalarView<const double> output_adjoint, const field::ScalarView<double> state_adjoint, const field::ScalarView<double> source_adjoint) {
+    void source_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::ScalarView<const double> output_adjoint, const simulation::ScalarView<double> state_adjoint, const simulation::ScalarView<double> source_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), source_vjp_kernel, grid, collider_ids, output_adjoint.values, state_adjoint.values, source_adjoint.values);
     }
 
-    void integrate_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity, const field::VectorView<const float> force, const field::VectorView<float> output) {
+    void integrate_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity, const simulation::VectorView<const float> force, const simulation::VectorView<float> output) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), integrate_kernel, grid, axis, collider_ids, fluids::grid::device::component(velocity, axis), fluids::grid::device::component(force, axis), fluids::grid::device::component(output, axis));
     }
 
-    void integrate_velocity_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> force_tangent, const field::VectorView<float> output_tangent) {
+    void integrate_velocity_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> force_tangent, const simulation::VectorView<float> output_tangent) {
         integrate_velocity_forward(stream, grid, collider_ids, velocity_tangent, force_tangent, output_tangent);
     }
 
-    void integrate_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const double> output_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> force_adjoint) {
+    void integrate_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> force_adjoint) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), integrate_vjp_kernel, grid, axis, collider_ids, fluids::grid::device::component(output_adjoint, axis), fluids::grid::device::component(velocity_adjoint, axis), fluids::grid::device::component(force_adjoint, axis));
     }
 
-    void constrain_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const float> collider_velocity, const field::VectorView<const float> velocity, const device::VelocityBoundary boundary, const field::VectorView<float> output) {
+    void constrain_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const float> collider_velocity, const simulation::VectorView<const float> velocity, const device::VelocityBoundary boundary, const simulation::VectorView<float> output) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), constrain_velocity_forward_kernel, grid, axis, collider_ids, fluids::grid::device::component(collider_velocity, axis), fluids::grid::device::component(velocity, axis), boundary, fluids::grid::device::component(output, axis));
     }
 
-    void constrain_velocity_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity_tangent, const device::VelocityBoundary boundary, const field::VectorView<float> output_tangent) {
-        field::VectorView<const float> zero{};
+    void constrain_velocity_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity_tangent, const device::VelocityBoundary boundary, const simulation::VectorView<float> output_tangent) {
+        simulation::VectorView<const float> zero{};
         device::VelocityBoundary tangent_boundary = boundary;
         for (device::VelocityBoundaryFace& face : tangent_boundary.faces) face.value = {};
         constrain_velocity_forward(stream, grid, collider_ids, zero, velocity_tangent, tangent_boundary, output_tangent);
     }
 
-    void constrain_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const double> output_adjoint, const device::VelocityBoundary boundary, const field::VectorView<double> velocity_adjoint) {
+    void constrain_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const double> output_adjoint, const device::VelocityBoundary boundary, const simulation::VectorView<double> velocity_adjoint) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), constrain_velocity_vjp_kernel, grid, axis, collider_ids, fluids::grid::device::component(output_adjoint, axis), boundary, fluids::grid::device::component(velocity_adjoint, axis));
     }
 } // namespace physica::fluids::gas::operators::kernels

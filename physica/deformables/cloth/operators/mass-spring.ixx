@@ -15,9 +15,9 @@ export namespace physica::deformables::cloth::operators {
 
         template <class Value>
         struct SpringParameters final {
-            ScalarField<Value> stiffnesses;
-            ScalarField<Value> dampings;
-            ScalarField<Value> rest_lengths;
+            simulation::ScalarField<Value> stiffnesses;
+            simulation::ScalarField<Value> dampings;
+            simulation::ScalarField<Value> rest_lengths;
         };
 
         struct Parameters final {
@@ -50,9 +50,9 @@ export namespace physica::deformables::cloth::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Model& model) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Model& model) const;
 
-        void forward(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const VectorField<float>& external_forces, const ScalarField<float>& masses, const Parameters& parameters, VectorField<float>& forces, Cache& cache, Workspace& workspace) const;
-        void jvp(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const VectorField<float>& external_forces, const ScalarField<float>& masses, const Parameters& parameters, const VectorField<float>& forces, const Cache& cache, const VectorField<float>& position_tangent, const VectorField<float>& velocity_tangent, const VectorField<float>& external_force_tangent, const ScalarField<float>& mass_tangent, const ParameterTangent& parameter_tangent, VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const VectorField<float>& external_forces, const ScalarField<float>& masses, const Parameters& parameters, const VectorField<float>& forces, const Cache& cache, const VectorField<double>& force_adjoint, VectorField<double>& position_adjoint, VectorField<double>& velocity_adjoint, VectorField<double>& external_force_adjoint, ScalarField<double>& mass_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& external_forces, const simulation::ScalarField<float>& masses, const Parameters& parameters, simulation::VectorField<float>& forces, Cache& cache, Workspace& workspace) const;
+        void jvp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& external_forces, const simulation::ScalarField<float>& masses, const Parameters& parameters, const simulation::VectorField<float>& forces, const Cache& cache, const simulation::VectorField<float>& position_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::VectorField<float>& external_force_tangent, const simulation::ScalarField<float>& mass_tangent, const ParameterTangent& parameter_tangent, simulation::VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& external_forces, const simulation::ScalarField<float>& masses, const Parameters& parameters, const simulation::VectorField<float>& forces, const Cache& cache, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& position_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& external_force_adjoint, simulation::ScalarField<double>& mass_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         struct Spring final {
@@ -73,10 +73,10 @@ export namespace physica::deformables::cloth::operators {
         };
 
         struct DeviceSpringTopology final {
-            ScalarField<std::uint32_t> first;
-            ScalarField<std::uint32_t> second;
-            ScalarField<std::uint32_t> offsets;
-            ScalarField<std::uint32_t> indices;
+            simulation::ScalarField<std::uint32_t> first;
+            simulation::ScalarField<std::uint32_t> second;
+            simulation::ScalarField<std::uint32_t> offsets;
+            simulation::ScalarField<std::uint32_t> indices;
         };
 
         struct DeviceTopology final {

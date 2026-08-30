@@ -50,7 +50,7 @@ namespace physica::deformables::cloth::kernels {
             displacement_adjoint             = length_adjoint * direction + (direction_adjoint - dot(direction, direction_adjoint) * direction) / length;
         }
 
-        __device__ Vector3<float> gathered_force(const std::uint32_t particle, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const SpringTopologyView topology, const SpringParametersView parameters) {
+        __device__ Vector3<float> gathered_force(const std::uint32_t particle, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const SpringTopologyView topology, const SpringParametersView parameters) {
             Vector3<float> result{};
             for (std::uint32_t entry = topology.offsets[particle]; entry < topology.offsets[particle + 1u]; ++entry) {
                 const std::uint32_t spring = topology.indices[entry];
@@ -60,7 +60,7 @@ namespace physica::deformables::cloth::kernels {
             return result;
         }
 
-        __device__ Vector3<float> gathered_force_tangent(const std::uint32_t particle, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParametersView parameter_tangent) {
+        __device__ Vector3<float> gathered_force_tangent(const std::uint32_t particle, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParametersView parameter_tangent) {
             Vector3<float> result{};
             for (std::uint32_t entry = topology.offsets[particle]; entry < topology.offsets[particle + 1u]; ++entry) {
                 const std::uint32_t spring  = topology.indices[entry];
@@ -72,7 +72,7 @@ namespace physica::deformables::cloth::kernels {
             return result;
         }
 
-        __device__ void gathered_state_vjp(const std::uint32_t particle, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, Vector3<double>& position_adjoint, Vector3<double>& velocity_adjoint) {
+        __device__ void gathered_state_vjp(const std::uint32_t particle, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, Vector3<double>& position_adjoint, Vector3<double>& velocity_adjoint) {
             for (std::uint32_t entry = topology.offsets[particle]; entry < topology.offsets[particle + 1u]; ++entry) {
                 const std::uint32_t spring = topology.indices[entry];
                 const std::uint32_t first  = topology.first[spring];
@@ -89,19 +89,19 @@ namespace physica::deformables::cloth::kernels {
             }
         }
 
-        __global__ void force_forward_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> controls, const float* masses, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const field::VectorView<float> forces) {
+        __global__ void force_forward_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> controls, const float* masses, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const simulation::VectorView<float> forces) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(forces, particle, load(controls, particle) + masses[particle] * gravity + gathered_force(particle, positions, velocities, stretch_topology, stretch_parameters) + gathered_force(particle, positions, velocities, bending_topology, bending_parameters));
         }
 
-        __global__ void force_jvp_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> control_tangent, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const float* mass_tangent, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringParametersView stretch_tangent, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const SpringParametersView bending_tangent, const field::VectorView<float> output) {
+        __global__ void force_jvp_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> control_tangent, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const float* mass_tangent, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringParametersView stretch_tangent, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const SpringParametersView bending_tangent, const simulation::VectorView<float> output) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(output, particle, load(control_tangent, particle) + mass_tangent[particle] * gravity + gathered_force_tangent(particle, positions, velocities, position_tangent, velocity_tangent, stretch_topology, stretch_parameters, stretch_tangent) + gathered_force_tangent(particle, positions, velocities, position_tangent, velocity_tangent, bending_topology, bending_parameters, bending_tangent));
         }
 
-        __global__ void force_state_vjp_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const double> force_adjoint, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint, double* mass_adjoint) {
+        __global__ void force_state_vjp_kernel(const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const double> force_adjoint, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint, double* mass_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             Vector3<double> local_position_adjoint{};
@@ -115,7 +115,7 @@ namespace physica::deformables::cloth::kernels {
             mass_adjoint[particle] += gravity.x * local_force_adjoint.x + gravity.y * local_force_adjoint.y + gravity.z * local_force_adjoint.z;
         }
 
-        __global__ void force_parameter_vjp_kernel(const std::uint32_t spring_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParameterAdjointView parameter_adjoint) {
+        __global__ void force_parameter_vjp_kernel(const std::uint32_t spring_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParameterAdjointView parameter_adjoint) {
             const std::uint32_t spring = blockIdx.x * blockDim.x + threadIdx.x;
             if (spring >= spring_count) return;
             const std::uint32_t first  = topology.first[spring];
@@ -132,19 +132,19 @@ namespace physica::deformables::cloth::kernels {
         }
     } // namespace
 
-    void force_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> controls, const float* masses, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const field::VectorView<float> forces) {
+    void force_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> controls, const float* masses, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const simulation::VectorView<float> forces) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), force_forward_kernel, particle_count, gravity, positions, velocities, controls, masses, stretch_topology, stretch_parameters, bending_topology, bending_parameters, forces);
     }
 
-    void force_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> control_tangent, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const float* mass_tangent, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringParametersView stretch_tangent, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const SpringParametersView bending_tangent, const field::VectorView<float> force_tangent) {
+    void force_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> control_tangent, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const float* mass_tangent, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringParametersView stretch_tangent, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const SpringParametersView bending_tangent, const simulation::VectorView<float> force_tangent) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), force_jvp_kernel, particle_count, gravity, positions, velocities, control_tangent, position_tangent, velocity_tangent, mass_tangent, stretch_topology, stretch_parameters, stretch_tangent, bending_topology, bending_parameters, bending_tangent, force_tangent);
     }
 
-    void force_state_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const double> force_adjoint, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint, double* mass_adjoint) {
+    void force_state_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const double> force_adjoint, const SpringTopologyView stretch_topology, const SpringParametersView stretch_parameters, const SpringTopologyView bending_topology, const SpringParametersView bending_parameters, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint, double* mass_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), force_state_vjp_kernel, particle_count, gravity, positions, velocities, force_adjoint, stretch_topology, stretch_parameters, bending_topology, bending_parameters, position_adjoint, velocity_adjoint, control_adjoint, mass_adjoint);
     }
 
-    void force_parameter_vjp(const ::cuda::stream_ref stream, const std::uint32_t spring_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParameterAdjointView parameter_adjoint) {
+    void force_parameter_vjp(const ::cuda::stream_ref stream, const std::uint32_t spring_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const double> force_adjoint, const SpringTopologyView topology, const SpringParametersView parameters, const SpringParameterAdjointView parameter_adjoint) {
         if (spring_count == 0u) return;
         ::cuda::launch(stream, ::cuda::distribute<block_size>(spring_count), force_parameter_vjp_kernel, spring_count, positions, velocities, force_adjoint, topology, parameters, parameter_adjoint);
     }

@@ -2,16 +2,16 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.liquid.pic;
+export module physica.fluids.liquid.solvers.pic;
 
 import std;
-export import :model;
-export import :grid_step;
-export import :particle_step;
-export import :projection;
-export import :transfer;
+export import physica.fluids.liquid.solvers.pic.model;
+export import physica.fluids.liquid.solvers.pic.grid_step;
+export import physica.fluids.liquid.solvers.pic.particle_step;
+export import physica.fluids.liquid.solvers.pic.projection;
+export import physica.fluids.liquid.solvers.pic.transfer;
 
-export namespace physica::fluids::liquid::pic {
+export namespace physica::fluids::liquid::solvers::pic {
     struct StepDiagnostics final {
         GridStep::Diagnostics divergence_before_projection;
         GridStep::Diagnostics divergence_after_projection;
@@ -22,7 +22,7 @@ export namespace physica::fluids::liquid::pic {
     };
 
     template <class Algorithm>
-    concept TransferAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, typename Algorithm::State& state, const typename Algorithm::State& constant_state, typename Algorithm::Workspace& workspace, const VectorField<float>& positions, const VectorField<float>& velocities, VectorField<float>& output_velocities, VectorField<float>& grid_velocity, VectorField<float>& grid_mass, const ScalarField<std::uint32_t>& particle_flags, const ParticleStep::Maintenance& maintenance) {
+    concept TransferAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, typename Algorithm::State& state, const typename Algorithm::State& constant_state, typename Algorithm::Workspace& workspace, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, simulation::VectorField<float>& output_velocities, simulation::VectorField<float>& grid_velocity, simulation::VectorField<float>& grid_mass, const simulation::ScalarField<std::uint32_t>& particle_flags, const ParticleStep::Maintenance& maintenance) {
         { algorithm.allocate_state(model) } -> std::same_as<typename Algorithm::State>;
         { algorithm.allocate_workspace(model) } -> std::same_as<typename Algorithm::Workspace>;
         algorithm.clear_state(model, state);
@@ -45,8 +45,8 @@ export namespace physica::fluids::liquid::pic {
         };
 
         struct State final {
-            VectorField<float> positions;
-            VectorField<float> velocities;
+            simulation::VectorField<float> positions;
+            simulation::VectorField<float> velocities;
             typename Transfer::State transfer;
             std::uint32_t particle_count{};
         };
@@ -73,13 +73,13 @@ export namespace physica::fluids::liquid::pic {
 
         [[nodiscard]] State allocate_state(const Model& model) const {
             State state{
-                .positions      = model.grid.fields.allocate_vector_field<float>(model.maximum_particle_count),
-                .velocities     = model.grid.fields.allocate_vector_field<float>(model.maximum_particle_count),
+                .positions      = simulation::VectorField<float>(model.grid.stream, model.maximum_particle_count),
+                .velocities     = simulation::VectorField<float>(model.grid.stream, model.maximum_particle_count),
                 .transfer       = transfer.allocate_state(model),
                 .particle_count = 0u,
             };
-            model.grid.fields.clear(state.positions);
-            model.grid.fields.clear(state.velocities);
+            simulation::clear(model.grid.stream, state.positions);
+            simulation::clear(model.grid.stream, state.velocities);
             transfer.clear_state(model, state.transfer);
             return state;
         }
@@ -93,8 +93,8 @@ export namespace physica::fluids::liquid::pic {
         }
 
         void copy_state(const Model& model, const State& source, State& destination) const {
-            model.grid.fields.copy(source.positions, destination.positions);
-            model.grid.fields.copy(source.velocities, destination.velocities);
+            simulation::copy(model.grid.stream, source.positions, destination.positions);
+            simulation::copy(model.grid.stream, source.velocities, destination.velocities);
             transfer.copy_state(model, source.transfer, destination.transfer);
             destination.particle_count = source.particle_count;
         }
@@ -126,7 +126,7 @@ export namespace physica::fluids::liquid::pic {
             grid_step.apply_force_and_constrain(model, time, 0.0F, cache.grid.cell_types, cache.grid.velocity);
             grid_step.prepare_after_projection(model, time, cache.grid, workspace.grid_step);
             cache.diagnostics.divergence_after_projection = grid_step.divergence(model, time, cache.grid.cell_types, cache.grid.velocity, cache.grid.divergence, workspace.grid_step);
-            model.grid.fields.copy(state.positions, next_state.positions);
+            simulation::copy(model.grid.stream, state.positions, next_state.positions);
             transfer.grid_to_particle(model, time, state.particle_count, state.positions, state.velocities, state.transfer, cache.grid.velocity_before_projection, cache.grid.velocity, next_state.velocities, next_state.transfer);
             particle_step.advect(model, time, time_step, state.particle_count, cache.grid.velocity, next_state.positions, next_state.velocities);
             const ParticleStep::Maintenance maintenance = particle_step.plan_maintenance(model, time, state.particle_count, next_state.positions, cache.grid.cell_types, cache.grid.level_set, workspace.particle_step);
@@ -149,4 +149,4 @@ export namespace physica::fluids::liquid::pic {
         const float maximum_time_step;
         const float cfl_number;
     };
-} // namespace physica::fluids::liquid::pic
+} // namespace physica::fluids::liquid::solvers::pic

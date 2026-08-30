@@ -1,5 +1,5 @@
 #include "kernels.h"
-#include <physica/math.h>
+#include <math/math.h>
 #include <cuda/algorithm>
 #include <cuda/cmath>
 #include <cuda/launch>

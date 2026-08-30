@@ -2,15 +2,15 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.adjoint_control.optimization;
+export module physica.fluids.gas.solvers.adjoint_control.optimization;
 
 import std;
-import physica.fluids.gas.adjoint_control.control;
-import physica.fluids.gas.adjoint_control.evaluation;
+import physica.fluids.gas.solvers.adjoint_control.control;
+import physica.fluids.gas.solvers.adjoint_control.evaluation;
 import physica.fluids.gas.domain;
 import physica.optimization.lbfgsb;
 
-export namespace physica::fluids::gas::adjoint_control {
+export namespace physica::fluids::gas::solvers::adjoint_control {
     struct OptimizationCoordinates final {
         std::uint32_t optimizer_iteration{};
         std::uint32_t objective_evaluation{};
@@ -53,7 +53,7 @@ export namespace physica::fluids::gas::adjoint_control {
             lower_bounds[parameter] = initial_parameters[parameter];
             upper_bounds[parameter] = initial_parameters[parameter];
         }
-        optimization::Lbfgsb optimizer(domain.grid.fields.stream, configuration, initial_parameters, lower_bounds, upper_bounds);
+        optimization::Lbfgsb optimizer(domain.grid.stream, configuration, initial_parameters, lower_bounds, upper_bounds);
         OptimizationResult result{};
         while (optimizer.request().kind == optimization::LbfgsbRequestKind::objective_gradient) {
             const optimization::LbfgsbRequest request         = optimizer.request();
@@ -73,12 +73,12 @@ export namespace physica::fluids::gas::adjoint_control {
             });
         }
         result.parameters.resize(optimizer.parameters.size());
-        ::cuda::copy_bytes(domain.grid.fields.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
-        domain.grid.fields.stream.sync();
+        ::cuda::copy_bytes(domain.grid.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+        domain.grid.stream.sync();
         result.stop_reason             = optimizer.stop_reason;
         result.gradient_norm           = optimizer.gradient_norm;
         result.projected_gradient_norm = optimizer.projected_gradient_norm;
         result.final_trace.emplace(evaluator.evaluate({optimizer.parameters.data(), optimizer.parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
-} // namespace physica::fluids::gas::adjoint_control
+} // namespace physica::fluids::gas::solvers::adjoint_control

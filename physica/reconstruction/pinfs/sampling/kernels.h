@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <physica/cuda_stream.h>
-#include <physica/math.h>
+#include <math/math.h>
 
 namespace physica::reconstruction::pinfs::kernels {
     void sample_coarse(::cuda::stream_ref stream, const Ray3<float>* rays, float* z, Vector3<float>* positions, float* dynamic_points, Vector3<float>* directions, std::uint32_t ray_count, std::uint32_t sample_count, float near_distance, float far_distance, float time, std::uint32_t seed, std::uint32_t step, std::uint32_t random_offset, bool perturb);

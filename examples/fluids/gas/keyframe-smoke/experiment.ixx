@@ -11,9 +11,9 @@ import physica.fluids.gas.operators.advection;
 import physica.fluids.gas.operators.diffusion;
 import physica.fluids.gas.operators.projection;
 import physica.fluids.gas.operators.objective;
-import physica.fluids.gas.keyframe_smoke;
-import physica.fluids.gas.keyframe_smoke.control;
-import physica.fluids.gas.keyframe_smoke.evaluation;
+import physica.fluids.gas.solvers.keyframe_smoke;
+import physica.fluids.gas.solvers.keyframe_smoke.control;
+import physica.fluids.gas.solvers.keyframe_smoke.evaluation;
 
 export namespace physica::examples::keyframe_smoke {
     void compose(const std::filesystem::path& results_directory);
@@ -34,12 +34,12 @@ export namespace physica::examples::keyframe_smoke {
 
         ::cuda::stream stream;
         fluids::gas::Domain domain;
-        fluids::gas::keyframe_smoke::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::ImplicitVelocityDiffusion, fluids::gas::operators::ControlledDensityBuoyancyVorticity, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
-        fluids::gas::keyframe_smoke::ControlSystem control;
+        fluids::gas::solvers::keyframe_smoke::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::ImplicitVelocityDiffusion, fluids::gas::operators::ControlledDensityBuoyancyVorticity, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
+        fluids::gas::solvers::keyframe_smoke::ControlSystem control;
         fluids::gas::operators::Quadratic objective;
         char letter;
-        fluids::gas::keyframe_smoke::Problem problem;
-        fluids::gas::keyframe_smoke::Evaluator<decltype(solver)> evaluator;
+        fluids::gas::solvers::keyframe_smoke::Problem problem;
+        fluids::gas::solvers::keyframe_smoke::Evaluator<decltype(solver)> evaluator;
 
         explicit Experiment(char letter);
         ~Experiment();
@@ -53,13 +53,13 @@ export namespace physica::examples::keyframe_smoke {
 
     private:
         [[nodiscard]] static fluids::gas::DomainConfiguration create_domain_configuration();
-        [[nodiscard]] static fluids::gas::keyframe_smoke::ControlConfiguration create_control_configuration(char letter);
-        [[nodiscard]] std::vector<fluids::gas::keyframe_smoke::Keyframe> create_keyframes();
-        [[nodiscard]] fluids::gas::keyframe_smoke::State create_state(std::span<const float> density);
+        [[nodiscard]] static fluids::gas::solvers::keyframe_smoke::ControlConfiguration create_control_configuration(char letter);
+        [[nodiscard]] std::vector<fluids::gas::solvers::keyframe_smoke::Keyframe> create_keyframes();
+        [[nodiscard]] fluids::gas::solvers::keyframe_smoke::State create_state(std::span<const float> density);
         [[nodiscard]] std::vector<float> create_initial_density() const;
         [[nodiscard]] std::vector<float> create_target_density() const;
         [[nodiscard]] std::vector<float> create_transport_density(float time) const;
-        [[nodiscard]] std::vector<float> download_density(const fluids::gas::keyframe_smoke::State& state) const;
+        [[nodiscard]] std::vector<float> download_density(const fluids::gas::solvers::keyframe_smoke::State& state) const;
         [[nodiscard]] ShapeMetrics shape_metrics(std::span<const float> density, std::span<const float> target) const;
         void write_density(const std::filesystem::path& path, std::span<const float> density) const;
         void write_parameters(const std::filesystem::path& path, std::span<const double> parameters) const;

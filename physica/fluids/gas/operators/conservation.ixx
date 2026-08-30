@@ -33,9 +33,9 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const ScalarField<float>& input, const ScalarField<float>& advected, ScalarField<float>& output, Cache& cache) const;
-        void jvp(const Domain& domain, const ScalarField<float>& input, const ScalarField<float>& advected, const ScalarField<float>& input_tangent, const ScalarField<float>& advected_tangent, const Cache& cache, ScalarField<float>& output_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const ScalarField<float>& advected, const Cache& cache, const ScalarField<double>& output_adjoint, ScalarField<double>& input_adjoint, ScalarField<double>& advected_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::ScalarField<float>& input, const simulation::ScalarField<float>& advected, simulation::ScalarField<float>& output, Cache& cache) const;
+        void jvp(const Domain& domain, const simulation::ScalarField<float>& input, const simulation::ScalarField<float>& advected, const simulation::ScalarField<float>& input_tangent, const simulation::ScalarField<float>& advected_tangent, const Cache& cache, simulation::ScalarField<float>& output_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const simulation::ScalarField<float>& advected, const Cache& cache, const simulation::ScalarField<double>& output_adjoint, simulation::ScalarField<double>& input_adjoint, simulation::ScalarField<double>& advected_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;

@@ -2,41 +2,41 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.deformables.cloth.explicit_dynamics;
+export module physica.deformables.cloth.solvers.explicit_dynamics;
 
 import std;
 import physica.deformables.cloth.model;
 
-export namespace physica::deformables::cloth::explicit_dynamics {
+export namespace physica::deformables::cloth::solvers::explicit_dynamics {
     struct State final {
-        VectorField<float> positions;
-        VectorField<float> velocities;
+        simulation::VectorField<float> positions;
+        simulation::VectorField<float> velocities;
     };
 
     struct Control final {
-        VectorField<float> external_forces;
+        simulation::VectorField<float> external_forces;
     };
 
     struct StateTangent final {
-        VectorField<float> positions;
-        VectorField<float> velocities;
+        simulation::VectorField<float> positions;
+        simulation::VectorField<float> velocities;
     };
 
     struct ControlTangent final {
-        VectorField<float> external_forces;
+        simulation::VectorField<float> external_forces;
     };
 
     struct StateAdjoint final {
-        VectorField<double> positions;
-        VectorField<double> velocities;
+        simulation::VectorField<double> positions;
+        simulation::VectorField<double> velocities;
     };
 
     struct ControlAdjoint final {
-        VectorField<double> external_forces;
+        simulation::VectorField<double> external_forces;
     };
 
     template <class Algorithm>
-    concept ForceAlgorithm = std::constructible_from<Algorithm, const Model&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const VectorField<float>& vector, VectorField<float>& vector_output, const VectorField<double>& vector_adjoint, VectorField<double>& vector_adjoint_output, const ScalarField<float>& scalar, ScalarField<double>& scalar_adjoint_output, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
+    concept ForceAlgorithm = std::constructible_from<Algorithm, const Model&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const simulation::VectorField<float>& vector, simulation::VectorField<float>& vector_output, const simulation::VectorField<double>& vector_adjoint, simulation::VectorField<double>& vector_adjoint_output, const simulation::ScalarField<float>& scalar, simulation::ScalarField<double>& scalar_adjoint_output, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
         { algorithm.allocate_parameters(model) } -> std::same_as<typename Algorithm::Parameters>;
         { algorithm.allocate_parameter_tangent(model) } -> std::same_as<typename Algorithm::ParameterTangent>;
         { algorithm.allocate_parameter_adjoint(model) } -> std::same_as<typename Algorithm::ParameterAdjoint>;
@@ -50,7 +50,7 @@ export namespace physica::deformables::cloth::explicit_dynamics {
     };
 
     template <class Algorithm>
-    concept IntegratorAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const VectorField<float>& vector, VectorField<float>& vector_output, const VectorField<double>& vector_adjoint, VectorField<double>& vector_adjoint_output, const ScalarField<float>& scalar, ScalarField<double>& scalar_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
+    concept IntegratorAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const simulation::VectorField<float>& vector, simulation::VectorField<float>& vector_output, const simulation::VectorField<double>& vector_adjoint, simulation::VectorField<double>& vector_adjoint_output, const simulation::ScalarField<float>& scalar, simulation::ScalarField<double>& scalar_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
         { algorithm.allocate_cache(model) } -> std::same_as<typename Algorithm::Cache>;
         { algorithm.allocate_workspace(model) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(model) } -> std::same_as<typename Algorithm::TangentWorkspace>;
@@ -61,7 +61,7 @@ export namespace physica::deformables::cloth::explicit_dynamics {
     };
 
     template <class Algorithm>
-    concept ConstraintAlgorithm = std::constructible_from<Algorithm, const Model&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const VectorField<float>& vector, VectorField<float>& vector_output, const VectorField<double>& vector_adjoint, VectorField<double>& vector_adjoint_output, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
+    concept ConstraintAlgorithm = std::constructible_from<Algorithm, const Model&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Model& model, const simulation::VectorField<float>& vector, simulation::VectorField<float>& vector_output, const simulation::VectorField<double>& vector_adjoint, simulation::VectorField<double>& vector_adjoint_output, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
         { algorithm.allocate_cache(model) } -> std::same_as<typename Algorithm::Cache>;
         { algorithm.allocate_workspace(model) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(model) } -> std::same_as<typename Algorithm::TangentWorkspace>;
@@ -80,25 +80,25 @@ export namespace physica::deformables::cloth::explicit_dynamics {
         };
 
         struct Parameters final {
-            ScalarField<float> masses;
+            simulation::ScalarField<float> masses;
             typename Force::Parameters force;
         };
 
         struct ParameterTangent final {
-            ScalarField<float> masses;
+            simulation::ScalarField<float> masses;
             typename Force::ParameterTangent force;
         };
 
         struct ParameterAdjoint final {
-            ScalarField<double> masses;
+            simulation::ScalarField<double> masses;
             typename Force::ParameterAdjoint force;
         };
 
         struct StepCache final {
-            VectorField<float> forces;
+            simulation::VectorField<float> forces;
             [[no_unique_address]] typename Force::Cache force;
-            VectorField<float> integrated_positions;
-            VectorField<float> integrated_velocities;
+            simulation::VectorField<float> integrated_positions;
+            simulation::VectorField<float> integrated_velocities;
             [[no_unique_address]] typename Integrator::Cache integrator;
             [[no_unique_address]] typename Constraint::Cache constraint;
         };
@@ -110,19 +110,19 @@ export namespace physica::deformables::cloth::explicit_dynamics {
         };
 
         struct TangentWorkspace final {
-            VectorField<float> forces;
+            simulation::VectorField<float> forces;
             [[no_unique_address]] typename Force::TangentWorkspace force;
-            VectorField<float> integrated_positions;
-            VectorField<float> integrated_velocities;
+            simulation::VectorField<float> integrated_positions;
+            simulation::VectorField<float> integrated_velocities;
             [[no_unique_address]] typename Integrator::TangentWorkspace integrator;
             [[no_unique_address]] typename Constraint::TangentWorkspace constraint;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> integrated_positions;
-            VectorField<double> integrated_velocities;
+            simulation::VectorField<double> integrated_positions;
+            simulation::VectorField<double> integrated_velocities;
             [[no_unique_address]] typename Constraint::AdjointWorkspace constraint;
-            VectorField<double> forces;
+            simulation::VectorField<double> forces;
             [[no_unique_address]] typename Integrator::AdjointWorkspace integrator;
             [[no_unique_address]] typename Force::AdjointWorkspace force;
         };
@@ -136,32 +136,32 @@ export namespace physica::deformables::cloth::explicit_dynamics {
 
         [[nodiscard]] State allocate_state(const Model& model) const {
             State result{
-                .positions  = model.fields.allocate_vector_field<float>(model.particle_count),
-                .velocities = model.fields.allocate_vector_field<float>(model.particle_count),
+                .positions  = simulation::VectorField<float>(model.stream, model.particle_count),
+                .velocities = simulation::VectorField<float>(model.stream, model.particle_count),
             };
-            model.fields.clear(result.positions);
-            model.fields.clear(result.velocities);
+            simulation::clear(model.stream, result.positions);
+            simulation::clear(model.stream, result.velocities);
             return result;
         }
 
         [[nodiscard]] Control allocate_control(const Model& model) const {
-            Control result{.external_forces = model.fields.allocate_vector_field<float>(model.particle_count)};
-            model.fields.clear(result.external_forces);
+            Control result{.external_forces = simulation::VectorField<float>(model.stream, model.particle_count)};
+            simulation::clear(model.stream, result.external_forces);
             return result;
         }
 
         [[nodiscard]] Parameters allocate_parameters(const Model& model) const {
-            Parameters result{.masses = model.fields.allocate_scalar_field<float>(model.particle_count), .force = force.allocate_parameters(model)};
-            model.fields.clear(result.masses);
+            Parameters result{.masses = simulation::ScalarField<float>(model.stream, model.particle_count), .force = force.allocate_parameters(model)};
+            simulation::clear(model.stream, result.masses);
             return result;
         }
 
         [[nodiscard]] StepCache allocate_step_cache(const Model& model) const {
             return {
-                .forces                = model.fields.allocate_vector_field<float>(model.particle_count),
+                .forces                = simulation::VectorField<float>(model.stream, model.particle_count),
                 .force                 = force.allocate_cache(model),
-                .integrated_positions  = model.fields.allocate_vector_field<float>(model.particle_count),
-                .integrated_velocities = model.fields.allocate_vector_field<float>(model.particle_count),
+                .integrated_positions  = simulation::VectorField<float>(model.stream, model.particle_count),
+                .integrated_velocities = simulation::VectorField<float>(model.stream, model.particle_count),
                 .integrator            = integrator.allocate_cache(model),
                 .constraint            = constraint.allocate_cache(model),
             };
@@ -173,32 +173,32 @@ export namespace physica::deformables::cloth::explicit_dynamics {
 
         [[nodiscard]] StateTangent allocate_state_tangent(const Model& model) const {
             StateTangent result{
-                .positions  = model.fields.allocate_vector_field<float>(model.particle_count),
-                .velocities = model.fields.allocate_vector_field<float>(model.particle_count),
+                .positions  = simulation::VectorField<float>(model.stream, model.particle_count),
+                .velocities = simulation::VectorField<float>(model.stream, model.particle_count),
             };
-            model.fields.clear(result.positions);
-            model.fields.clear(result.velocities);
+            simulation::clear(model.stream, result.positions);
+            simulation::clear(model.stream, result.velocities);
             return result;
         }
 
         [[nodiscard]] ControlTangent allocate_control_tangent(const Model& model) const {
-            ControlTangent result{.external_forces = model.fields.allocate_vector_field<float>(model.particle_count)};
-            model.fields.clear(result.external_forces);
+            ControlTangent result{.external_forces = simulation::VectorField<float>(model.stream, model.particle_count)};
+            simulation::clear(model.stream, result.external_forces);
             return result;
         }
 
         [[nodiscard]] ParameterTangent allocate_parameter_tangent(const Model& model) const {
-            ParameterTangent result{.masses = model.fields.allocate_scalar_field<float>(model.particle_count), .force = force.allocate_parameter_tangent(model)};
-            model.fields.clear(result.masses);
+            ParameterTangent result{.masses = simulation::ScalarField<float>(model.stream, model.particle_count), .force = force.allocate_parameter_tangent(model)};
+            simulation::clear(model.stream, result.masses);
             return result;
         }
 
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Model& model) const {
             return {
-                .forces                = model.fields.allocate_vector_field<float>(model.particle_count),
+                .forces                = simulation::VectorField<float>(model.stream, model.particle_count),
                 .force                 = force.allocate_tangent_workspace(model),
-                .integrated_positions  = model.fields.allocate_vector_field<float>(model.particle_count),
-                .integrated_velocities = model.fields.allocate_vector_field<float>(model.particle_count),
+                .integrated_positions  = simulation::VectorField<float>(model.stream, model.particle_count),
+                .integrated_velocities = simulation::VectorField<float>(model.stream, model.particle_count),
                 .integrator            = integrator.allocate_tangent_workspace(model),
                 .constraint            = constraint.allocate_tangent_workspace(model),
             };
@@ -206,32 +206,32 @@ export namespace physica::deformables::cloth::explicit_dynamics {
 
         [[nodiscard]] StateAdjoint allocate_state_adjoint(const Model& model) const {
             StateAdjoint result{
-                .positions  = model.fields.allocate_vector_field<double>(model.particle_count),
-                .velocities = model.fields.allocate_vector_field<double>(model.particle_count),
+                .positions  = simulation::VectorField<double>(model.stream, model.particle_count),
+                .velocities = simulation::VectorField<double>(model.stream, model.particle_count),
             };
-            model.fields.clear(result.positions);
-            model.fields.clear(result.velocities);
+            simulation::clear(model.stream, result.positions);
+            simulation::clear(model.stream, result.velocities);
             return result;
         }
 
         [[nodiscard]] ControlAdjoint allocate_control_adjoint(const Model& model) const {
-            ControlAdjoint result{.external_forces = model.fields.allocate_vector_field<double>(model.particle_count)};
-            model.fields.clear(result.external_forces);
+            ControlAdjoint result{.external_forces = simulation::VectorField<double>(model.stream, model.particle_count)};
+            simulation::clear(model.stream, result.external_forces);
             return result;
         }
 
         [[nodiscard]] ParameterAdjoint allocate_parameter_adjoint(const Model& model) const {
-            ParameterAdjoint result{.masses = model.fields.allocate_scalar_field<double>(model.particle_count), .force = force.allocate_parameter_adjoint(model)};
-            model.fields.clear(result.masses);
+            ParameterAdjoint result{.masses = simulation::ScalarField<double>(model.stream, model.particle_count), .force = force.allocate_parameter_adjoint(model)};
+            simulation::clear(model.stream, result.masses);
             return result;
         }
 
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Model& model) const {
             return {
-                .integrated_positions  = model.fields.allocate_vector_field<double>(model.particle_count),
-                .integrated_velocities = model.fields.allocate_vector_field<double>(model.particle_count),
+                .integrated_positions  = simulation::VectorField<double>(model.stream, model.particle_count),
+                .integrated_velocities = simulation::VectorField<double>(model.stream, model.particle_count),
                 .constraint            = constraint.allocate_adjoint_workspace(model),
-                .forces                = model.fields.allocate_vector_field<double>(model.particle_count),
+                .forces                = simulation::VectorField<double>(model.stream, model.particle_count),
                 .integrator            = integrator.allocate_adjoint_workspace(model),
                 .force                 = force.allocate_adjoint_workspace(model),
             };
@@ -250,12 +250,12 @@ export namespace physica::deformables::cloth::explicit_dynamics {
         }
 
         void vjp(const Model& model, const State& state, const Control& control, const Parameters& parameters, const State& next_state, const StepCache& cache, const StateAdjoint& next_state_adjoint, StateAdjoint& previous_state_adjoint, ControlAdjoint& control_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const {
-            model.fields.clear(previous_state_adjoint.positions);
-            model.fields.clear(previous_state_adjoint.velocities);
-            model.fields.clear(control_adjoint.external_forces);
-            model.fields.clear(workspace.integrated_positions);
-            model.fields.clear(workspace.integrated_velocities);
-            model.fields.clear(workspace.forces);
+            simulation::clear(model.stream, previous_state_adjoint.positions);
+            simulation::clear(model.stream, previous_state_adjoint.velocities);
+            simulation::clear(model.stream, control_adjoint.external_forces);
+            simulation::clear(model.stream, workspace.integrated_positions);
+            simulation::clear(model.stream, workspace.integrated_velocities);
+            simulation::clear(model.stream, workspace.forces);
             constraint.vjp(model, cache.integrated_positions, cache.integrated_velocities, next_state.positions, next_state.velocities, cache.constraint, next_state_adjoint.positions, next_state_adjoint.velocities, workspace.integrated_positions, workspace.integrated_velocities, workspace.constraint);
             integrator.vjp(model, parameters.masses, cache.forces, cache.integrator, workspace.integrated_positions, workspace.integrated_velocities, previous_state_adjoint.positions, previous_state_adjoint.velocities, workspace.forces, parameter_adjoint.masses, workspace.integrator);
             force.vjp(model, state.positions, state.velocities, control.external_forces, parameters.masses, parameters.force, cache.forces, cache.force, workspace.forces, previous_state_adjoint.positions, previous_state_adjoint.velocities, control_adjoint.external_forces, parameter_adjoint.masses, parameter_adjoint.force, workspace.force);
@@ -266,4 +266,4 @@ export namespace physica::deformables::cloth::explicit_dynamics {
         Integrator integrator;
         Constraint constraint;
     };
-} // namespace physica::deformables::cloth::explicit_dynamics
+} // namespace physica::deformables::cloth::solvers::explicit_dynamics

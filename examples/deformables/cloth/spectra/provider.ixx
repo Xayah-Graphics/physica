@@ -34,7 +34,7 @@ export namespace physica::examples::cloth {
         void setup(spectra::sdk::cuda::Setup& setup);
         void reset(std::uint64_t seed);
         void step(double seconds);
-        void publish(spectra::sdk::cuda::Output& output);
+        void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
         std::unique_ptr<Simulation, SimulationDeleter> simulation;
@@ -60,7 +60,7 @@ export namespace physica::examples::cloth {
         simulation->step();
     }
 
-    void Provider::publish(spectra::sdk::cuda::Output& output) {
+    void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
         spectra::sdk::cuda::Frame frame        = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Mesh surface = frame.mesh<"surface">();
         spectra_cuda::write_surface(simulation->stream, Simulation::rows, Simulation::columns, simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), surface.positions.data(), surface.normals.data());

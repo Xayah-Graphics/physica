@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <physica/cuda_stream.h>
-#include <physica/math.h>
+#include <math/math.h>
 
 namespace physica::reconstruction::pinfs::kernels {
     void sample_physics(::cuda::stream_ref stream, const Vector3<float>* voxel_positions, std::uint32_t voxel_count, float* points, float* derivatives, Vector3<float>* positions, std::uint32_t sample_count, float time, std::uint32_t seed, std::uint32_t step);

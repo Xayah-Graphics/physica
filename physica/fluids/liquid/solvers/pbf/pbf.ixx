@@ -2,14 +2,14 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.liquid.pbf;
+export module physica.fluids.liquid.solvers.pbf;
 
 import std;
 export import physica.fluids.liquid.meshfree;
 import physica.fluids.liquid.operators.density;
 import physica.fluids.liquid.operators.neighborhood;
 
-export namespace physica::fluids::liquid::pbf {
+export namespace physica::fluids::liquid::solvers::pbf {
     struct Solver final {
         struct Configuration final {
             std::uint32_t pressure_iterations{5u};
@@ -18,31 +18,31 @@ export namespace physica::fluids::liquid::pbf {
         };
 
         struct State final {
-            VectorField<float> positions;
-            VectorField<float> velocities;
+            simulation::VectorField<float> positions;
+            simulation::VectorField<float> velocities;
             std::uint64_t step_index{};
         };
 
         struct StateTangent final {
-            VectorField<float> positions;
-            VectorField<float> velocities;
+            simulation::VectorField<float> positions;
+            simulation::VectorField<float> velocities;
         };
 
         struct StateAdjoint final {
-            VectorField<double> positions;
-            VectorField<double> velocities;
+            simulation::VectorField<double> positions;
+            simulation::VectorField<double> velocities;
         };
 
         struct Control final {
-            VectorField<float> external_accelerations;
+            simulation::VectorField<float> external_accelerations;
         };
 
         struct ControlTangent final {
-            VectorField<float> external_accelerations;
+            simulation::VectorField<float> external_accelerations;
         };
 
         struct ControlAdjoint final {
-            VectorField<double> external_accelerations;
+            simulation::VectorField<double> external_accelerations;
         };
 
         struct Parameters final {
@@ -85,30 +85,30 @@ export namespace physica::fluids::liquid::pbf {
         };
 
         struct IterationWorkspace final {
-            ScalarField<float> densities;
-            VectorField<float> gradient_sums;
-            ScalarField<float> denominators;
-            ScalarField<float> lambdas;
-            VectorField<float> corrections;
+            simulation::ScalarField<float> densities;
+            simulation::VectorField<float> gradient_sums;
+            simulation::ScalarField<float> denominators;
+            simulation::ScalarField<float> lambdas;
+            simulation::VectorField<float> corrections;
             ::cuda::device_buffer<std::uint32_t> collision_masks;
         };
 
         struct StepCache final {
             struct IterationCheckpoint final {
                 std::uint32_t iteration;
-                VectorField<float> positions;
+                simulation::VectorField<float> positions;
             };
 
             operators::Neighborhood neighborhood;
-            VectorField<float> predicted_positions;
-            VectorField<float> corrected_positions;
+            simulation::VectorField<float> predicted_positions;
+            simulation::VectorField<float> corrected_positions;
             std::vector<IterationCheckpoint> checkpoints;
-            VectorField<float> reconstructed_velocities;
-            VectorField<float> vorticities;
-            ScalarField<float> vorticity_magnitudes;
-            VectorField<float> vorticity_normals;
-            ScalarField<float> vorticity_normalizers;
-            VectorField<float> confined_velocities;
+            simulation::VectorField<float> reconstructed_velocities;
+            simulation::VectorField<float> vorticities;
+            simulation::ScalarField<float> vorticity_magnitudes;
+            simulation::VectorField<float> vorticity_normals;
+            simulation::ScalarField<float> vorticity_normalizers;
+            simulation::VectorField<float> confined_velocities;
         };
 
         struct Workspace final {
@@ -117,34 +117,34 @@ export namespace physica::fluids::liquid::pbf {
         };
 
         struct TangentWorkspace final {
-            VectorField<float> positions;
+            simulation::VectorField<float> positions;
             IterationWorkspace iteration;
-            VectorField<float> current_positions;
-            VectorField<float> next_positions;
-            ScalarField<float> densities;
-            VectorField<float> gradient_sums;
-            ScalarField<float> denominators;
-            ScalarField<float> lambdas;
-            VectorField<float> corrections;
-            VectorField<float> reconstructed_velocities;
-            VectorField<float> vorticities;
-            ScalarField<float> vorticity_magnitudes;
-            VectorField<float> vorticity_normals;
-            VectorField<float> confined_velocities;
+            simulation::VectorField<float> current_positions;
+            simulation::VectorField<float> next_positions;
+            simulation::ScalarField<float> densities;
+            simulation::VectorField<float> gradient_sums;
+            simulation::ScalarField<float> denominators;
+            simulation::ScalarField<float> lambdas;
+            simulation::VectorField<float> corrections;
+            simulation::VectorField<float> reconstructed_velocities;
+            simulation::VectorField<float> vorticities;
+            simulation::ScalarField<float> vorticity_magnitudes;
+            simulation::VectorField<float> vorticity_normals;
+            simulation::VectorField<float> confined_velocities;
         };
 
         struct AdjointWorkspace final {
-            std::vector<VectorField<float>> position_history;
+            std::vector<simulation::VectorField<float>> position_history;
             std::vector<IterationWorkspace> iteration_history;
-            VectorField<double> current_positions;
-            VectorField<double> next_positions;
-            VectorField<double> corrections;
-            ScalarField<double> lambdas;
-            ScalarField<double> densities;
-            VectorField<double> reconstructed_velocities;
-            VectorField<double> vorticities;
-            VectorField<double> vorticity_normals;
-            VectorField<double> confined_velocities;
+            simulation::VectorField<double> current_positions;
+            simulation::VectorField<double> next_positions;
+            simulation::VectorField<double> corrections;
+            simulation::ScalarField<double> lambdas;
+            simulation::ScalarField<double> densities;
+            simulation::VectorField<double> reconstructed_velocities;
+            simulation::VectorField<double> vorticities;
+            simulation::VectorField<double> vorticity_normals;
+            simulation::VectorField<double> confined_velocities;
         };
 
         explicit Solver(Configuration configuration);
@@ -177,4 +177,4 @@ export namespace physica::fluids::liquid::pbf {
 
         [[nodiscard]] IterationWorkspace allocate_iteration_workspace(const meshfree::Model& model) const;
     };
-} // namespace physica::fluids::liquid::pbf
+} // namespace physica::fluids::liquid::solvers::pbf

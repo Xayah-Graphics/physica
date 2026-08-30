@@ -1,4 +1,4 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "objective-kernels.h"
 #include <cuda/launch>
 #include <physica/cuda.h>
@@ -64,7 +64,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (threadIdx.x == 0u) result[0] = weight * sums[0];
         }
 
-        __global__ void squared_velocity_kernel(const device::Discretization grid, const field::VectorView<const float> field, const double weight, double* result) {
+        __global__ void squared_velocity_kernel(const device::Discretization grid, const simulation::VectorView<const float> field, const double weight, double* result) {
             __shared__ double sums[fluids::grid::device::block_size];
             double sum = 0.0;
             for (int axis = 0; axis < grid.dimensions; ++axis)
@@ -78,7 +78,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (threadIdx.x == 0u) result[0] = weight * sums[0];
         }
 
-        __global__ void directional_kernel(const device::Discretization grid, const double density_weight, const double velocity_weight, const float* density_residual, const float* density_tangent, const field::VectorView<const float> velocity_residual, const field::VectorView<const float> velocity_tangent, double* result) {
+        __global__ void directional_kernel(const device::Discretization grid, const double density_weight, const double velocity_weight, const float* density_residual, const float* density_tangent, const simulation::VectorView<const float> velocity_residual, const simulation::VectorView<const float> velocity_tangent, double* result) {
             __shared__ double sums[fluids::grid::device::block_size];
             double sum = 0.0;
             for (std::uint64_t index = threadIdx.x; index < fluids::grid::device::cell_count(grid.grid); index += blockDim.x) sum += density_weight * density_residual[index] * density_tangent[index];
@@ -93,7 +93,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (threadIdx.x == 0u) result[0] = 2.0 * sums[0];
         }
 
-        __global__ void control_effort_kernel(const device::Discretization grid, const field::VectorView<const float> control, const double weight, double* result) {
+        __global__ void control_effort_kernel(const device::Discretization grid, const simulation::VectorView<const float> control, const double weight, double* result) {
             __shared__ double sums[fluids::grid::device::block_size];
             double sum = 0.0;
             for (std::uint64_t index = threadIdx.x; index < fluids::grid::device::cell_count(grid.grid); index += blockDim.x) {
@@ -109,7 +109,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (threadIdx.x == 0u) result[0] = weight * grid.time_step * grid.time_step * sums[0];
         }
 
-        __global__ void control_effort_jvp_kernel(const device::Discretization grid, const field::VectorView<const float> control, const field::VectorView<const float> tangent, const double weight, double* result) {
+        __global__ void control_effort_jvp_kernel(const device::Discretization grid, const simulation::VectorView<const float> control, const simulation::VectorView<const float> tangent, const double weight, double* result) {
             __shared__ double sums[fluids::grid::device::block_size];
             double sum = 0.0;
             for (std::uint64_t index = threadIdx.x; index < fluids::grid::device::cell_count(grid.grid); index += blockDim.x) {
@@ -125,7 +125,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (threadIdx.x == 0u) result[0] = 2.0 * weight * grid.time_step * grid.time_step * sums[0];
         }
 
-        __global__ void control_effort_vjp_kernel(const device::Discretization grid, const field::VectorView<const float> control, const double scale, const field::VectorView<double> control_adjoint) {
+        __global__ void control_effort_vjp_kernel(const device::Discretization grid, const simulation::VectorView<const float> control, const double scale, const simulation::VectorView<double> control_adjoint) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid)) return;
             control_adjoint.x[index] += scale * control.x[index];
@@ -150,42 +150,42 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void residual_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const field::ScalarView<const float> state, const field::ScalarView<const float> target, const field::ScalarView<float> residual) {
+    void residual_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const simulation::ScalarView<const float> state, const simulation::ScalarView<const float> target, const simulation::ScalarView<float> residual) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), residual_kernel, state.values, target.values, fluids::grid::device::cell_count(grid.grid), residual.values);
     }
 
-    void residual_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const field::VectorView<const float> state, const field::VectorView<const float> target, const field::VectorView<float> residual) {
+    void residual_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const simulation::VectorView<const float> state, const simulation::VectorView<const float> target, const simulation::VectorView<float> residual) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), residual_kernel, fluids::grid::device::component(state, axis), fluids::grid::device::component(target, axis), fluids::grid::device::face_count(grid.grid, axis), fluids::grid::device::component(residual, axis));
     }
 
-    void blur_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const field::ScalarView<const float> source, const field::ScalarView<float> first, const field::ScalarView<float> second, const field::ScalarView<float> output) {
+    void blur_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const simulation::ScalarView<const float> source, const simulation::ScalarView<float> first, const simulation::ScalarView<float> second, const simulation::ScalarView<float> output) {
         blur_field(stream, grid.grid.nx, grid.grid.ny, grid.grid.nz, radius, weights, source.values, first.values, second.values, output.values);
     }
 
-    void blur_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const field::VectorView<const float> source, const field::VectorView<float> first, const field::VectorView<float> second, const field::VectorView<float> output) {
+    void blur_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const simulation::VectorView<const float> source, const simulation::VectorView<float> first, const simulation::VectorView<float> second, const simulation::VectorView<float> output) {
         for (int axis = 0; axis < grid.dimensions; ++axis) blur_field(stream, fluids::grid::device::extent(grid.grid, axis, 0), fluids::grid::device::extent(grid.grid, axis, 1), fluids::grid::device::extent(grid.grid, axis, 2), radius, weights, fluids::grid::device::component(source, axis), fluids::grid::device::component(first, axis), fluids::grid::device::component(second, axis), fluids::grid::device::component(output, axis));
     }
 
-    void squared_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const field::ScalarView<const float> field, double* output) {
+    void squared_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const simulation::ScalarView<const float> field, double* output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), squared_scalar_kernel, field.values, fluids::grid::device::cell_count(grid.grid), weight, output);
     }
 
-    void squared_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const field::VectorView<const float> field, double* output) {
+    void squared_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const simulation::VectorView<const float> field, double* output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), squared_velocity_kernel, grid, field, weight, output);
     }
 
-    void directional_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const double density_weight, const double velocity_weight, const field::ScalarView<const float> density_residual, const field::VectorView<const float> velocity_residual, const field::ScalarView<const float> density_tangent, const field::VectorView<const float> velocity_tangent, const field::ScalarView<float> scalar_first, const field::ScalarView<float> scalar_second, const field::ScalarView<float> scalar_output, const field::VectorView<float> velocity_first, const field::VectorView<float> velocity_second, const field::VectorView<float> velocity_output, double* result) {
+    void directional_loss(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const double density_weight, const double velocity_weight, const simulation::ScalarView<const float> density_residual, const simulation::VectorView<const float> velocity_residual, const simulation::ScalarView<const float> density_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::ScalarView<float> scalar_first, const simulation::ScalarView<float> scalar_second, const simulation::ScalarView<float> scalar_output, const simulation::VectorView<float> velocity_first, const simulation::VectorView<float> velocity_second, const simulation::VectorView<float> velocity_output, double* result) {
         blur_forward(stream, grid, radius, weights, density_tangent, scalar_first, scalar_second, scalar_output);
         blur_forward(stream, grid, radius, weights, velocity_tangent, velocity_first, velocity_second, velocity_output);
-        ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), directional_kernel, grid, density_weight, velocity_weight, density_residual.values, scalar_output.values, velocity_residual, field::VectorView<const float>{velocity_output.x, velocity_output.y, velocity_output.z}, result);
+        ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), directional_kernel, grid, density_weight, velocity_weight, density_residual.values, scalar_output.values, velocity_residual, simulation::VectorView<const float>{velocity_output.x, velocity_output.y, velocity_output.z}, result);
     }
 
-    void inject_keyframe_adjoint(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const double density_weight, const double velocity_weight, const field::ScalarView<const float> blurred_density_residual, const field::VectorView<const float> blurred_velocity_residual, const field::ScalarView<float> scalar_first, const field::ScalarView<float> scalar_second, const field::VectorView<float> velocity_first, const field::VectorView<float> velocity_second, const field::ScalarView<double> density_adjoint, const field::VectorView<double> velocity_adjoint) {
+    void inject_keyframe_adjoint(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t radius, const float* weights, const double density_weight, const double velocity_weight, const simulation::ScalarView<const float> blurred_density_residual, const simulation::VectorView<const float> blurred_velocity_residual, const simulation::ScalarView<float> scalar_first, const simulation::ScalarView<float> scalar_second, const simulation::VectorView<float> velocity_first, const simulation::VectorView<float> velocity_second, const simulation::ScalarView<double> density_adjoint, const simulation::VectorView<double> velocity_adjoint) {
         inject_field(stream, grid.grid.nx, grid.grid.ny, grid.grid.nz, radius, weights, 2.0 * density_weight, blurred_density_residual.values, scalar_first.values, scalar_second.values, density_adjoint.values);
         for (int axis = 0; axis < grid.dimensions; ++axis) inject_field(stream, fluids::grid::device::extent(grid.grid, axis, 0), fluids::grid::device::extent(grid.grid, axis, 1), fluids::grid::device::extent(grid.grid, axis, 2), radius, weights, 2.0 * velocity_weight, fluids::grid::device::component(blurred_velocity_residual, axis), fluids::grid::device::component(velocity_first, axis), fluids::grid::device::component(velocity_second, axis), fluids::grid::device::component(velocity_adjoint, axis));
     }
 
-    void control_effort(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const field::VectorView<const float> control, double* result) {
+    void control_effort(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const simulation::VectorView<const float> control, double* result) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), control_effort_kernel, grid, control, weight, result);
     }
 
@@ -193,11 +193,11 @@ namespace physica::fluids::gas::operators::kernels {
         ::cuda::launch(stream, ::cuda::distribute<1u>(1u), accumulate_kernel, contribution, objective);
     }
 
-    void control_effort_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const field::VectorView<const float> control, const field::VectorView<const float> control_tangent, double* result) {
+    void control_effort_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const simulation::VectorView<const float> control, const simulation::VectorView<const float> control_tangent, double* result) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), control_effort_jvp_kernel, grid, control, control_tangent, weight, result);
     }
 
-    void control_effort_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const field::VectorView<const float> control, const field::VectorView<double> control_adjoint) {
+    void control_effort_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const double weight, const simulation::VectorView<const float> control, const simulation::VectorView<double> control_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), control_effort_vjp_kernel, grid, control, 2.0 * weight * grid.time_step * grid.time_step, control_adjoint);
     }
 } // namespace physica::fluids::gas::operators::kernels

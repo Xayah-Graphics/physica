@@ -1,6 +1,6 @@
 module;
 
-#include <physica/field/device.cuh>
+#include <simulation/field/device.cuh>
 #include "semi-implicit-euler-kernels.h"
 #include <physica/cuda.h>
 
@@ -27,15 +27,15 @@ namespace physica::deformables::cloth::operators {
         return {};
     }
 
-    void SemiImplicitEuler::forward(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const ScalarField<float>& masses, const VectorField<float>& forces, VectorField<float>& integrated_positions, VectorField<float>& integrated_velocities, Cache&, Workspace&) const {
-        kernels::semi_implicit_euler_forward(model.fields.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, field::view(positions), field::view(velocities), field::view(forces), masses.values.data(), field::view(integrated_positions), field::view(integrated_velocities));
+    void SemiImplicitEuler::forward(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::ScalarField<float>& masses, const simulation::VectorField<float>& forces, simulation::VectorField<float>& integrated_positions, simulation::VectorField<float>& integrated_velocities, Cache&, Workspace&) const {
+        kernels::semi_implicit_euler_forward(model.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, simulation::view(positions), simulation::view(velocities), simulation::view(forces), masses.values.data(), simulation::view(integrated_positions), simulation::view(integrated_velocities));
     }
 
-    void SemiImplicitEuler::jvp(const Model& model, const ScalarField<float>& masses, const VectorField<float>& forces, const Cache&, const VectorField<float>& position_tangent, const VectorField<float>& velocity_tangent, const ScalarField<float>& mass_tangent, const VectorField<float>& force_tangent, VectorField<float>& integrated_position_tangent, VectorField<float>& integrated_velocity_tangent, TangentWorkspace&) const {
-        kernels::semi_implicit_euler_jvp(model.fields.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, field::view(forces), masses.values.data(), field::view(position_tangent), field::view(velocity_tangent), field::view(force_tangent), mass_tangent.values.data(), field::view(integrated_position_tangent), field::view(integrated_velocity_tangent));
+    void SemiImplicitEuler::jvp(const Model& model, const simulation::ScalarField<float>& masses, const simulation::VectorField<float>& forces, const Cache&, const simulation::VectorField<float>& position_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::ScalarField<float>& mass_tangent, const simulation::VectorField<float>& force_tangent, simulation::VectorField<float>& integrated_position_tangent, simulation::VectorField<float>& integrated_velocity_tangent, TangentWorkspace&) const {
+        kernels::semi_implicit_euler_jvp(model.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, simulation::view(forces), masses.values.data(), simulation::view(position_tangent), simulation::view(velocity_tangent), simulation::view(force_tangent), mass_tangent.values.data(), simulation::view(integrated_position_tangent), simulation::view(integrated_velocity_tangent));
     }
 
-    void SemiImplicitEuler::vjp(const Model& model, const ScalarField<float>& masses, const VectorField<float>& forces, const Cache&, const VectorField<double>& integrated_position_adjoint, const VectorField<double>& integrated_velocity_adjoint, VectorField<double>& position_adjoint, VectorField<double>& velocity_adjoint, VectorField<double>& force_adjoint, ScalarField<double>& mass_adjoint, AdjointWorkspace&) const {
-        kernels::semi_implicit_euler_vjp(model.fields.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, field::view(forces), masses.values.data(), field::view(integrated_position_adjoint), field::view(integrated_velocity_adjoint), field::view(position_adjoint), field::view(velocity_adjoint), field::view(force_adjoint), mass_adjoint.values.data());
+    void SemiImplicitEuler::vjp(const Model& model, const simulation::ScalarField<float>& masses, const simulation::VectorField<float>& forces, const Cache&, const simulation::VectorField<double>& integrated_position_adjoint, const simulation::VectorField<double>& integrated_velocity_adjoint, simulation::VectorField<double>& position_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& force_adjoint, simulation::ScalarField<double>& mass_adjoint, AdjointWorkspace&) const {
+        kernels::semi_implicit_euler_vjp(model.stream, static_cast<std::uint32_t>(model.particle_count), configuration.time_step, simulation::view(forces), masses.values.data(), simulation::view(integrated_position_adjoint), simulation::view(integrated_velocity_adjoint), simulation::view(position_adjoint), simulation::view(velocity_adjoint), simulation::view(force_adjoint), mass_adjoint.values.data());
     }
 } // namespace physica::deformables::cloth::operators

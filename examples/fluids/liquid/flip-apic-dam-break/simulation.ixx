@@ -5,7 +5,7 @@ module;
 export module physica.example.fluids.liquid.flip_apic_dam_break;
 
 import std;
-import physica.fluids.liquid.pic;
+import physica.fluids.liquid.solvers.pic;
 
 export namespace physica::examples::flip_apic_dam_break {
     struct Simulation final {
@@ -18,24 +18,24 @@ export namespace physica::examples::flip_apic_dam_break {
         inline static constexpr std::uint32_t initial_particle_count = initial_cells[0] * initial_cells[1] * initial_cells[2] * particles_per_cell;
 
         ::cuda::stream stream;
-        const fluids::liquid::pic::ModelConfiguration configuration;
-        fluids::liquid::pic::Model model;
+        const fluids::liquid::solvers::pic::ModelConfiguration configuration;
+        fluids::liquid::solvers::pic::Model model;
 
     private:
-        fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer> flip_solver;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer> apic_solver;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer> flip_solver;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer> apic_solver;
 
     public:
-        fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::State flip_state;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::StepCache flip_cache;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::State apic_state;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::StepCache apic_cache;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::State flip_state;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::StepCache flip_cache;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::State apic_state;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::StepCache apic_cache;
         std::uint64_t step_index{};
         std::uint64_t flip_substep_count{};
         std::uint64_t apic_substep_count{};
         double physical_time{};
-        fluids::liquid::pic::ParticleStep::Diagnostics flip_particle_diagnostics;
-        fluids::liquid::pic::ParticleStep::Diagnostics apic_particle_diagnostics;
+        fluids::liquid::solvers::pic::ParticleStep::Diagnostics flip_particle_diagnostics;
+        fluids::liquid::solvers::pic::ParticleStep::Diagnostics apic_particle_diagnostics;
 
         Simulation();
 
@@ -48,16 +48,16 @@ export namespace physica::examples::flip_apic_dam_break {
         void step(double seconds);
 
     private:
-        fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::State flip_next_state;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::Workspace flip_workspace;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::State apic_next_state;
-        fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::Workspace apic_workspace;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::State flip_next_state;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::Workspace flip_workspace;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::State apic_next_state;
+        fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::Workspace apic_workspace;
         double flip_time{};
         double apic_time{};
 
-        [[nodiscard]] static fluids::liquid::pic::ModelConfiguration create_configuration();
-        [[nodiscard]] static fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::Configuration create_flip_configuration();
-        [[nodiscard]] static fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::Configuration create_apic_configuration();
+        [[nodiscard]] static fluids::liquid::solvers::pic::ModelConfiguration create_configuration();
+        [[nodiscard]] static fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::Configuration create_flip_configuration();
+        [[nodiscard]] static fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::Configuration create_apic_configuration();
 
         template <class SolverType>
         void advance(SolverType& solver, typename SolverType::State& current_state, typename SolverType::State& next_state, typename SolverType::StepCache& cache, typename SolverType::Workspace& workspace, double target_time, double& algorithm_time, std::uint64_t& substep_count) {
@@ -102,9 +102,9 @@ export namespace physica::examples::flip_apic_dam_break {
         ::cuda::copy_bytes(stream, positions[0], ::cuda::std::span{apic_state.positions.x.data(), initial_particle_count});
         ::cuda::copy_bytes(stream, positions[1], ::cuda::std::span{apic_state.positions.y.data(), initial_particle_count});
         ::cuda::copy_bytes(stream, positions[2], ::cuda::std::span{apic_state.positions.z.data(), initial_particle_count});
-        model.grid.fields.clear(flip_state.velocities);
-        model.grid.fields.clear(apic_state.velocities);
-        model.grid.fields.clear(apic_state.transfer.affine);
+        simulation::clear(model.grid.stream, flip_state.velocities);
+        simulation::clear(model.grid.stream, apic_state.velocities);
+        simulation::clear(model.grid.stream, apic_state.transfer.affine);
         flip_state.particle_count = initial_particle_count;
         apic_state.particle_count = initial_particle_count;
         flip_solver.copy_state(model, flip_state, flip_next_state);
@@ -130,7 +130,7 @@ export namespace physica::examples::flip_apic_dam_break {
         ++step_index;
     }
 
-    fluids::liquid::pic::ModelConfiguration Simulation::create_configuration() {
+    fluids::liquid::solvers::pic::ModelConfiguration Simulation::create_configuration() {
         return {
             .grid = {
                 .resolution = resolution,
@@ -144,7 +144,7 @@ export namespace physica::examples::flip_apic_dam_break {
         };
     }
 
-    fluids::liquid::pic::Solver<fluids::liquid::pic::FlipTransfer>::Configuration Simulation::create_flip_configuration() {
+    fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::FlipTransfer>::Configuration Simulation::create_flip_configuration() {
         return {
             .transfer = {.ratio = 0.95F},
             .grid_step = {
@@ -159,7 +159,7 @@ export namespace physica::examples::flip_apic_dam_break {
         };
     }
 
-    fluids::liquid::pic::Solver<fluids::liquid::pic::ApicTransfer>::Configuration Simulation::create_apic_configuration() {
+    fluids::liquid::solvers::pic::Solver<fluids::liquid::solvers::pic::ApicTransfer>::Configuration Simulation::create_apic_configuration() {
         return {
             .transfer = {.affine_ratio = 1.0F},
             .grid_step = {

@@ -1,15 +1,15 @@
 module;
 
-#include <physica/fluids/gas/interop.h>
+#include <fluids/gas/interop.h>
 #include "control-kernels.h"
 #include <physica/cuda.h>
 
-module physica.fluids.gas.keyframe_smoke.control;
+module physica.fluids.gas.solvers.keyframe_smoke.control;
 
 import std;
 
-namespace physica::fluids::gas::keyframe_smoke {
-    ControlSystem::ControlSystem(const Domain& domain, ControlConfiguration next_configuration) : configuration(std::move(next_configuration)), parameter_values(configuration.winds.size() * 6u + configuration.vortices.size() * 4u), lower_bounds(parameter_values.size()), upper_bounds(parameter_values.size()), device_winds(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), configuration.winds.size() * sizeof(kernels::WindData), ::cuda::no_init), device_vortices(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), configuration.vortices.size() * sizeof(kernels::VortexData), ::cuda::no_init) {
+namespace physica::fluids::gas::solvers::keyframe_smoke {
+    ControlSystem::ControlSystem(const Domain& domain, ControlConfiguration next_configuration) : configuration(std::move(next_configuration)), parameter_values(configuration.winds.size() * 6u + configuration.vortices.size() * 4u), lower_bounds(parameter_values.size()), upper_bounds(parameter_values.size()), device_winds(domain.grid.stream, ::cuda::device_default_memory_pool(domain.grid.stream.device()), configuration.winds.size() * sizeof(kernels::WindData), ::cuda::no_init), device_vortices(domain.grid.stream, ::cuda::device_default_memory_pool(domain.grid.stream.device()), configuration.vortices.size() * sizeof(kernels::VortexData), ::cuda::no_init) {
         std::vector<kernels::WindData> winds;
         std::vector<kernels::VortexData> vortices;
         winds.reserve(configuration.winds.size());
@@ -43,20 +43,20 @@ namespace physica::fluids::gas::keyframe_smoke {
             upper_bounds[parameter_offset]     = vortex.strength.upper;
             ++parameter_offset;
         }
-        ::cuda::copy_bytes(domain.grid.fields.stream, std::as_bytes(std::span{winds}), device_winds);
-        ::cuda::copy_bytes(domain.grid.fields.stream, std::as_bytes(std::span{vortices}), device_vortices);
+        ::cuda::copy_bytes(domain.grid.stream, std::as_bytes(std::span{winds}), device_winds);
+        ::cuda::copy_bytes(domain.grid.stream, std::as_bytes(std::span{vortices}), device_vortices);
     }
 
     void ControlSystem::forward(const Domain& domain, const std::uint32_t step, const ::cuda::std::span<const double> parameters, DenseControl& output) const {
-        kernels::control_forward(domain.grid.fields.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), field::view(output.force));
+        kernels::control_forward(domain.grid.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), simulation::view(output.force));
     }
 
     void ControlSystem::jvp(const Domain& domain, const std::uint32_t step, const ::cuda::std::span<const double> parameters, const ::cuda::std::span<const double> direction, DenseControlTangent& output_tangent) const {
-        kernels::control_jvp(domain.grid.fields.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), direction.data(), field::view(output_tangent.force));
+        kernels::control_jvp(domain.grid.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), direction.data(), simulation::view(output_tangent.force));
     }
 
     void ControlSystem::vjp(const Domain& domain, const std::uint32_t step, const ::cuda::std::span<const double> parameters, const DenseControlAdjoint& output_adjoint, const ::cuda::std::span<double> gradient) const {
-        kernels::control_vjp(domain.grid.fields.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), field::view(output_adjoint.force), gradient.data());
+        kernels::control_vjp(domain.grid.stream, device::discretization(domain.configuration), step, reinterpret_cast<const kernels::WindData*>(device_winds.data()), static_cast<std::uint32_t>(configuration.winds.size()), reinterpret_cast<const kernels::VortexData*>(device_vortices.data()), static_cast<std::uint32_t>(configuration.vortices.size()), parameters.data(), simulation::view(output_adjoint.force), gradient.data());
     }
 
     std::vector<std::uint8_t> ControlSystem::active_parameters(const std::uint32_t begin_step, const std::uint32_t end_step) const {
@@ -74,4 +74,4 @@ namespace physica::fluids::gas::keyframe_smoke {
         }
         return result;
     }
-} // namespace physica::fluids::gas::keyframe_smoke
+} // namespace physica::fluids::gas::solvers::keyframe_smoke

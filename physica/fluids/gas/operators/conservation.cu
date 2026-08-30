@@ -1,4 +1,4 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "conservation-kernels.h"
 #include <cuda/launch>
 
@@ -51,21 +51,21 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void mass_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const field::ScalarView<const float> input, const field::ScalarView<const float> advected, double* input_mass, double* advected_mass, const field::ScalarView<float> output) {
+    void mass_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const simulation::ScalarView<const float> input, const simulation::ScalarView<const float> advected, double* input_mass, double* advected_mass, const simulation::ScalarView<float> output) {
         const std::uint64_t count = fluids::grid::device::cell_count(grid.grid);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), reduce_sum_kernel, input.values, count, input_mass);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), reduce_sum_kernel, advected.values, count, advected_mass);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(count), normalize_mass_kernel, retention, advected.values, input_mass, advected_mass, count, output.values);
     }
 
-    void mass_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const field::ScalarView<const float>, const field::ScalarView<const float> advected, const field::ScalarView<const float> input_tangent, const field::ScalarView<const float> advected_tangent, const double* input_mass, const double* advected_mass, double* input_mass_tangent, double* advected_mass_tangent, const field::ScalarView<float> output_tangent) {
+    void mass_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const simulation::ScalarView<const float>, const simulation::ScalarView<const float> advected, const simulation::ScalarView<const float> input_tangent, const simulation::ScalarView<const float> advected_tangent, const double* input_mass, const double* advected_mass, double* input_mass_tangent, double* advected_mass_tangent, const simulation::ScalarView<float> output_tangent) {
         const std::uint64_t count = fluids::grid::device::cell_count(grid.grid);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), reduce_sum_kernel, input_tangent.values, count, input_mass_tangent);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), reduce_sum_kernel, advected_tangent.values, count, advected_mass_tangent);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(count), normalize_mass_jvp_kernel, retention, advected.values, advected_tangent.values, input_mass, advected_mass, input_mass_tangent, advected_mass_tangent, count, output_tangent.values);
     }
 
-    void mass_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const field::ScalarView<const float> advected, const double* input_mass, const double* advected_mass, const field::ScalarView<const double> output_adjoint, double* density_dot, const field::ScalarView<double> input_adjoint, const field::ScalarView<double> advected_adjoint) {
+    void mass_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const float retention, const simulation::ScalarView<const float> advected, const double* input_mass, const double* advected_mass, const simulation::ScalarView<const double> output_adjoint, double* density_dot, const simulation::ScalarView<double> input_adjoint, const simulation::ScalarView<double> advected_adjoint) {
         const std::uint64_t count = fluids::grid::device::cell_count(grid.grid);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::block_size), reduce_dot_kernel, output_adjoint.values, advected.values, count, density_dot);
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(count), normalize_mass_reverse_kernel, retention, output_adjoint.values, input_mass, advected_mass, density_dot, count, input_adjoint.values, advected_adjoint.values);

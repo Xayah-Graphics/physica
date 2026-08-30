@@ -5,7 +5,7 @@ module;
 export module physica.example.fluids.liquid.pbf_dam_break;
 
 import std;
-import physica.fluids.liquid.pbf;
+import physica.fluids.liquid.solvers.pbf;
 
 export namespace physica::examples::pbf_dam_break {
     struct Simulation final {
@@ -21,11 +21,11 @@ export namespace physica::examples::pbf_dam_break {
 
     private:
         fluids::liquid::meshfree::Model model;
-        fluids::liquid::pbf::Solver solver;
+        fluids::liquid::solvers::pbf::Solver solver;
 
     public:
-        fluids::liquid::pbf::Solver::State current_state;
-        fluids::liquid::pbf::Solver::StepCache step_cache;
+        fluids::liquid::solvers::pbf::Solver::State current_state;
+        fluids::liquid::solvers::pbf::Solver::StepCache step_cache;
         std::uint64_t step_index{};
         double physical_time{};
 
@@ -40,10 +40,10 @@ export namespace physica::examples::pbf_dam_break {
         void step();
 
     private:
-        fluids::liquid::pbf::Solver::State next_state;
-        fluids::liquid::pbf::Solver::Control control;
-        fluids::liquid::pbf::Solver::Parameters parameters;
-        fluids::liquid::pbf::Solver::Workspace workspace;
+        fluids::liquid::solvers::pbf::Solver::State next_state;
+        fluids::liquid::solvers::pbf::Solver::Control control;
+        fluids::liquid::solvers::pbf::Solver::Parameters parameters;
+        fluids::liquid::solvers::pbf::Solver::Workspace workspace;
 
         [[nodiscard]] static fluids::liquid::meshfree::Configuration create_configuration();
     };

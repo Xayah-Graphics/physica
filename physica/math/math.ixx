@@ -9,5 +9,5 @@ module;
 export module physica.math;
 
 export extern "C++" {
-#include <physica/math.h>
+#include <math/math.h>
 }

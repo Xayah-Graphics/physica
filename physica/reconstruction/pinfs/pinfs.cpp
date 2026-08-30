@@ -3,8 +3,6 @@ module;
 #include <cuda/std/random>
 #include <physica/cuda.h>
 
-#include <nlohmann/json.hpp>
-
 module physica.reconstruction.pinfs;
 
 import std;
@@ -16,6 +14,7 @@ import physica.reconstruction.pinfs.sampling;
 import physica.reconstruction.pinfs.rendering;
 import physica.reconstruction.pinfs.physics;
 import physica.reconstruction.pinfs.perceptual;
+import physica.serialization.safetensors;
 
 namespace physica::reconstruction::pinfs {
     namespace {
@@ -233,84 +232,56 @@ namespace physica::reconstruction::pinfs {
         const NetworkState velocity                      = velocity_field.download();
         const std::optional<StaticFieldState> stationary = static_field ? std::optional{static_field->download()} : std::nullopt;
         const std::array<std::uint32_t, 2> training{state.seed, state.step};
-        struct SerializedTensor final {
-            std::string name;
-            std::string_view dtype;
-            std::uint64_t count;
-            std::uint64_t bytes;
-            const void* data;
-        };
-        std::vector<SerializedTensor> tensors;
+        std::vector<serialization::safetensors::TensorView> tensors;
         const auto append_network = [&](const std::string_view prefix, const NetworkState& network) {
-            tensors.push_back({std::format("{}.parameters", prefix), "F32", network.parameters.size(), network.parameters.size() * sizeof(float), network.parameters.data()});
-            tensors.push_back({std::format("{}.first_moments", prefix), "F32", network.first_moments.size(), network.first_moments.size() * sizeof(float), network.first_moments.data()});
-            tensors.push_back({std::format("{}.second_moments", prefix), "F32", network.second_moments.size(), network.second_moments.size() * sizeof(float), network.second_moments.data()});
-            tensors.push_back({std::format("{}.layer_steps", prefix), "U32", network.layer_steps.size(), network.layer_steps.size() * sizeof(std::uint32_t), network.layer_steps.data()});
+            tensors.push_back({.name = std::format("{}.parameters", prefix), .dtype = "F32", .shape = {network.parameters.size()}, .data = network.parameters.data(), .byte_count = network.parameters.size() * sizeof(float)});
+            tensors.push_back({.name = std::format("{}.optimizer.first_moments", prefix), .dtype = "F32", .shape = {network.first_moments.size()}, .data = network.first_moments.data(), .byte_count = network.first_moments.size() * sizeof(float)});
+            tensors.push_back({.name = std::format("{}.optimizer.second_moments", prefix), .dtype = "F32", .shape = {network.second_moments.size()}, .data = network.second_moments.data(), .byte_count = network.second_moments.size() * sizeof(float)});
+            tensors.push_back({.name = std::format("{}.optimizer.layer_steps", prefix), .dtype = "U32", .shape = {network.layer_steps.size()}, .data = network.layer_steps.data(), .byte_count = network.layer_steps.size() * sizeof(std::uint32_t)});
         };
-        append_network("coarse", coarse);
-        append_network("dynamic", dynamic);
-        append_network("velocity", velocity);
+        append_network("field.coarse", coarse);
+        append_network("field.dynamic", dynamic);
+        append_network("field.velocity", velocity);
         if (stationary) {
-            append_network("static.sdf", stationary->sdf);
-            append_network("static.color", stationary->color);
-            tensors.push_back({"static.deviation", "F32", 1u, sizeof(float), &stationary->deviation});
-            tensors.push_back({"static.deviation_first_moment", "F32", 1u, sizeof(float), &stationary->deviation_first_moment});
-            tensors.push_back({"static.deviation_second_moment", "F32", 1u, sizeof(float), &stationary->deviation_second_moment});
-            tensors.push_back({"static.deviation_step", "U32", 1u, sizeof(std::uint32_t), &stationary->deviation_step});
+            append_network("field.static.sdf", stationary->sdf);
+            append_network("field.static.color", stationary->color);
+            tensors.push_back({.name = "field.static.deviation", .dtype = "F32", .shape = {1u}, .data = &stationary->deviation, .byte_count = sizeof(float)});
+            tensors.push_back({.name = "field.static.deviation.optimizer.first_moment", .dtype = "F32", .shape = {1u}, .data = &stationary->deviation_first_moment, .byte_count = sizeof(float)});
+            tensors.push_back({.name = "field.static.deviation.optimizer.second_moment", .dtype = "F32", .shape = {1u}, .data = &stationary->deviation_second_moment, .byte_count = sizeof(float)});
+            tensors.push_back({.name = "field.static.deviation.optimizer.step", .dtype = "U32", .shape = {1u}, .data = &stationary->deviation_step, .byte_count = sizeof(std::uint32_t)});
         }
-        tensors.push_back({"training", "U32", training.size(), training.size() * sizeof(std::uint32_t), training.data()});
-        nlohmann::json header;
-        std::uint64_t offset{};
-        for (const SerializedTensor& tensor : tensors) {
-            header[tensor.name] = {{"dtype", tensor.dtype}, {"shape", nlohmann::json::array({tensor.count})}, {"data_offsets", nlohmann::json::array({offset, offset + tensor.bytes})}};
-            offset += tensor.bytes;
-        }
-        std::string text = header.dump();
-        text.append((8uz - text.size() % 8uz) % 8uz, ' ');
-        const std::uint64_t header_size = text.size();
-        std::ofstream output{path, std::ios::binary | std::ios::trunc};
-        output.write(reinterpret_cast<const char*>(&header_size), sizeof(header_size));
-        output.write(text.data(), static_cast<std::streamsize>(text.size()));
-        for (const SerializedTensor& tensor : tensors) output.write(static_cast<const char*>(tensor.data), static_cast<std::streamsize>(tensor.bytes));
+        tensors.push_back({.name = "training.state", .dtype = "U32", .shape = {training.size()}, .data = training.data(), .byte_count = training.size() * sizeof(std::uint32_t)});
+        serialization::safetensors::write(path, "pinfs", tensors);
     }
 
     void PINFS::load(const std::filesystem::path& path) {
-        std::ifstream input{path, std::ios::binary};
-        std::uint64_t header_size{};
-        input.read(reinterpret_cast<char*>(&header_size), sizeof(header_size));
-        std::string text(header_size, '\0');
-        input.read(text.data(), static_cast<std::streamsize>(text.size()));
-        const nlohmann::json header     = nlohmann::json::parse(text);
-        const std::uint64_t data_offset = sizeof(header_size) + header_size;
-        const auto read                 = [&](const std::string_view name, auto& destination) {
-            const nlohmann::json& tensor = header.at(name);
-            const std::uint64_t begin    = tensor.at("data_offsets").at(0).get<std::uint64_t>();
-            const std::uint64_t end      = tensor.at("data_offsets").at(1).get<std::uint64_t>();
-            destination.resize((end - begin) / sizeof(typename std::remove_reference_t<decltype(destination)>::value_type));
-            input.seekg(static_cast<std::streamoff>(data_offset + begin));
-            input.read(reinterpret_cast<char*>(destination.data()), static_cast<std::streamsize>(end - begin));
+        const serialization::safetensors::File file = serialization::safetensors::read(path);
+        const auto read                       = [&](const std::string_view name, auto& destination) {
+            const serialization::safetensors::Tensor& tensor = *std::ranges::find(file.tensors, name, &serialization::safetensors::Tensor::name);
+            destination.resize(tensor.data.size() / sizeof(typename std::remove_reference_t<decltype(destination)>::value_type));
+            std::memcpy(destination.data(), tensor.data.data(), tensor.data.size());
         };
         const auto read_network = [&](const std::string_view prefix) {
             NetworkState result;
             read(std::format("{}.parameters", prefix), result.parameters);
-            read(std::format("{}.first_moments", prefix), result.first_moments);
-            read(std::format("{}.second_moments", prefix), result.second_moments);
-            read(std::format("{}.layer_steps", prefix), result.layer_steps);
+            read(std::format("{}.optimizer.first_moments", prefix), result.first_moments);
+            read(std::format("{}.optimizer.second_moments", prefix), result.second_moments);
+            read(std::format("{}.optimizer.layer_steps", prefix), result.layer_steps);
             return result;
         };
-        coarse_field.upload(read_network("coarse"));
-        dynamic_field.upload(read_network("dynamic"));
-        velocity_field.upload(read_network("velocity"));
+        coarse_field.upload(read_network("field.coarse"));
+        dynamic_field.upload(read_network("field.dynamic"));
+        velocity_field.upload(read_network("field.velocity"));
         if (static_field) {
-            StaticFieldState stationary{.sdf = read_network("static.sdf"), .color = read_network("static.color")};
+            StaticFieldState stationary{.sdf = read_network("field.static.sdf"), .color = read_network("field.static.color")};
             std::vector<float> deviation;
             std::vector<float> deviation_first_moment;
             std::vector<float> deviation_second_moment;
             std::vector<std::uint32_t> deviation_step;
-            read("static.deviation", deviation);
-            read("static.deviation_first_moment", deviation_first_moment);
-            read("static.deviation_second_moment", deviation_second_moment);
-            read("static.deviation_step", deviation_step);
+            read("field.static.deviation", deviation);
+            read("field.static.deviation.optimizer.first_moment", deviation_first_moment);
+            read("field.static.deviation.optimizer.second_moment", deviation_second_moment);
+            read("field.static.deviation.optimizer.step", deviation_step);
             stationary.deviation               = deviation[0];
             stationary.deviation_first_moment  = deviation_first_moment[0];
             stationary.deviation_second_moment = deviation_second_moment[0];
@@ -318,7 +289,7 @@ namespace physica::reconstruction::pinfs {
             static_field->upload(stationary);
         }
         std::vector<std::uint32_t> training;
-        read("training", training);
+        read("training.state", training);
         state = {.seed = training[0], .step = training[1]};
         coarse_field.set_fading_step(state.step, configuration.layer_fading_steps);
         dynamic_field.set_fading_step(state.step, configuration.layer_fading_steps);

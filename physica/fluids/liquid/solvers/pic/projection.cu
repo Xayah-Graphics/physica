@@ -4,7 +4,7 @@
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
 
-namespace physica::fluids::liquid::pic::kernels::projection {
+namespace physica::fluids::liquid::solvers::pic::kernels::projection {
     namespace {
         constexpr std::uint32_t air   = 0u;
         constexpr std::uint32_t fluid = 1u;
@@ -29,7 +29,7 @@ namespace physica::fluids::liquid::pic::kernels::projection {
             return inverse_h2 / interface_fraction(center_phi, neighbor_phi);
         }
 
-        __global__ void build_system_kernel(const grid::device::Grid grid, const float time_step, const float density, const std::uint32_t* cell_types, const float* level_set, const field::VectorView<const float> velocity, float* rhs, float* diagonal, float* pressure, float* residual, float* preconditioned_residual, float* direction, float* products) {
+        __global__ void build_system_kernel(const grid::device::Grid grid, const float time_step, const float density, const std::uint32_t* cell_types, const float* level_set, const simulation::VectorView<const float> velocity, float* rhs, float* diagonal, float* pressure, float* residual, float* preconditioned_residual, float* direction, float* products) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= grid::device::cell_count(grid)) return;
             pressure[index] = 0.0F;
@@ -191,7 +191,7 @@ namespace physica::fluids::liquid::pic::kernels::projection {
         return bytes;
     }
 
-    void project(const ::cuda::stream_ref stream, const grid::device::Grid grid, const float time_step, const float density, const std::uint32_t maximum_iterations, const float tolerance, const std::uint32_t* cell_types, const float* level_set, const field::VectorView<const float> input_velocity, const field::VectorView<float> output_velocity, float* rhs, float* pressure, float* diagonal, float* residual, float* preconditioned_residual, float* direction, float* matrix_direction, float* products, float* scalars, std::uint32_t* state, void* reduction_scratch, std::size_t reduction_scratch_bytes) {
+    void project(const ::cuda::stream_ref stream, const grid::device::Grid grid, const float time_step, const float density, const std::uint32_t maximum_iterations, const float tolerance, const std::uint32_t* cell_types, const float* level_set, const simulation::VectorView<const float> input_velocity, const simulation::VectorView<float> output_velocity, float* rhs, float* pressure, float* diagonal, float* residual, float* preconditioned_residual, float* direction, float* matrix_direction, float* products, float* scalars, std::uint32_t* state, void* reduction_scratch, std::size_t reduction_scratch_bytes) {
         const std::size_t count = grid::device::cell_count(grid);
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(count), build_system_kernel, grid, time_step, density, cell_types, level_set, input_velocity, rhs, diagonal, pressure, residual, preconditioned_residual, direction, products);
         cub::DeviceReduce::Sum(reduction_scratch, reduction_scratch_bytes, products, scalars, count, stream.get());
@@ -207,5 +207,5 @@ namespace physica::fluids::liquid::pic::kernels::projection {
         }
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), project_velocity_kernel, grid, time_step, density, axis, cell_types, level_set, grid::device::component(input_velocity, axis), pressure, grid::device::component(output_velocity, axis));
     }
-} // namespace physica::fluids::liquid::pic::kernels::projection
+} // namespace physica::fluids::liquid::solvers::pic::kernels::projection
 

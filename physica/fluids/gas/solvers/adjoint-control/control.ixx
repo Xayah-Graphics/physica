@@ -2,13 +2,13 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.adjoint_control.control;
+export module physica.fluids.gas.solvers.adjoint_control.control;
 
 import std;
 import physica.fluids.gas.domain;
-import physica.fluids.gas.adjoint_control;
+import physica.fluids.gas.solvers.adjoint_control;
 
-export namespace physica::fluids::gas::adjoint_control {
+export namespace physica::fluids::gas::solvers::adjoint_control {
     struct ControlConfiguration final {
         std::array<std::uint32_t, 3> lattice{12u, 12u, 12u};
         std::uint32_t step_count{20u};
@@ -31,4 +31,4 @@ export namespace physica::fluids::gas::adjoint_control {
         void vjp(const Domain& domain, std::uint32_t step, const DenseControlAdjoint& output_adjoint, ::cuda::std::span<double> gradient) const;
         [[nodiscard]] std::vector<std::uint8_t> active_parameters(std::uint32_t begin_step, std::uint32_t end_step) const;
     };
-} // namespace physica::fluids::gas::adjoint_control
+} // namespace physica::fluids::gas::solvers::adjoint_control

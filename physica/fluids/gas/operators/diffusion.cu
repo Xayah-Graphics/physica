@@ -1,4 +1,4 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "diffusion-kernels.h"
 #include <cuda/algorithm>
 #include <cuda/launch>
@@ -67,14 +67,14 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void identity_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const field::VectorView<const double> output_adjoint, const field::VectorView<double> source_adjoint) {
+    void identity_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> source_adjoint) {
         for (int axis = 0; axis < 3; ++axis) {
             const std::uint64_t count = fluids::grid::device::face_count(grid.grid, axis);
             ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(count), accumulate_double_kernel, fluids::grid::device::component(output_adjoint, axis), fluids::grid::device::component(source_adjoint, axis), count);
         }
     }
 
-    void diffusion_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const float viscosity, const std::uint32_t* collider_ids, const device::VelocityBoundary boundary, const field::VectorView<const float> source, const field::VectorView<float> first, const field::VectorView<float> second, const field::VectorView<float> output) {
+    void diffusion_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const float viscosity, const std::uint32_t* collider_ids, const device::VelocityBoundary boundary, const simulation::VectorView<const float> source, const simulation::VectorView<float> first, const simulation::VectorView<float> second, const simulation::VectorView<float> output) {
         const float alpha = viscosity * grid.time_step / (grid.grid.cell_size * grid.grid.cell_size);
         for (int axis = 0; axis < 3; ++axis) {
             const std::uint64_t count = fluids::grid::device::face_count(grid.grid, axis);
@@ -89,7 +89,7 @@ namespace physica::fluids::gas::operators::kernels {
         }
     }
 
-    void diffusion_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const float viscosity, const std::uint32_t* collider_ids, const device::VelocityBoundary boundary, const field::VectorView<const double> output_adjoint, const field::VectorView<double> first, const field::VectorView<double> second, const field::VectorView<double> source_adjoint) {
+    void diffusion_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const float viscosity, const std::uint32_t* collider_ids, const device::VelocityBoundary boundary, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> first, const simulation::VectorView<double> second, const simulation::VectorView<double> source_adjoint) {
         const float alpha = viscosity * grid.time_step / (grid.grid.cell_size * grid.grid.cell_size);
         for (int axis = 0; axis < 3; ++axis) {
             const std::uint64_t count = fluids::grid::device::face_count(grid.grid, axis);

@@ -4,7 +4,7 @@
 #include <cuda/std/cmath>
 #include <cuda_runtime.h>
 
-namespace physica::fluids::liquid::sph::kernels::dfsph {
+namespace physica::fluids::liquid::solvers::sph::kernels::dfsph {
 
     namespace {
 
@@ -62,4 +62,4 @@ namespace physica::fluids::liquid::sph::kernels::dfsph {
         projection_update_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, reference_gradient_norm, particles, densities, target_densities, previous_pressures, predicted_densities, projection_relaxation, pressure_adjoint, particle_adjoint, density_adjoint, target_density_adjoint, previous_pressure_adjoint, predicted_density_adjoint, projection_relaxation_adjoint);
     }
 
-} // namespace physica::fluids::liquid::sph::kernels::dfsph
+} // namespace physica::fluids::liquid::solvers::sph::kernels::dfsph

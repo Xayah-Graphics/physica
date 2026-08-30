@@ -9,10 +9,10 @@ import std;
 import physica.fluids.gas.domain;
 import physica.fluids.gas.operators.force;
 import physica.fluids.gas.operators.objective;
-import physica.fluids.gas.keyframe_smoke;
-import physica.fluids.gas.keyframe_smoke.control;
-import physica.fluids.gas.keyframe_smoke.evaluation;
-import physica.fluids.gas.keyframe_smoke.optimization;
+import physica.fluids.gas.solvers.keyframe_smoke;
+import physica.fluids.gas.solvers.keyframe_smoke.control;
+import physica.fluids.gas.solvers.keyframe_smoke.evaluation;
+import physica.fluids.gas.solvers.keyframe_smoke.optimization;
 import physica.optimization.lbfgsb;
 
 namespace physica::examples::keyframe_smoke {
@@ -99,9 +99,9 @@ namespace physica::examples::keyframe_smoke {
                                                         .conservation = {.dissipation = dissipation_rate},
                                                         .projection   = {.pressure = {.iterations = 120u}},
                                                     }};
-        fluids::gas::keyframe_smoke::State current        = solver.allocate_state(domain);
-        fluids::gas::keyframe_smoke::State next           = solver.allocate_state(domain);
-        fluids::gas::keyframe_smoke::DenseControl control = solver.allocate_control(domain);
+        fluids::gas::solvers::keyframe_smoke::State current        = solver.allocate_state(domain);
+        fluids::gas::solvers::keyframe_smoke::State next           = solver.allocate_state(domain);
+        fluids::gas::solvers::keyframe_smoke::DenseControl control = solver.allocate_control(domain);
         decltype(solver)::StepCache cache                 = solver.allocate_step_cache(domain);
         decltype(solver)::Workspace workspace             = solver.allocate_workspace(domain);
         ::cuda::copy_bytes(stream, combined, current.density.values);
@@ -183,28 +183,28 @@ namespace physica::examples::keyframe_smoke {
             if (control.lower_bounds[parameter] == control.upper_bounds[parameter]) active_parameters[parameter] = 0u;
 
         const std::array continuation{
-            fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 2.0F, .optimizer = {.memory = 12u, .maximum_iterations = 48u, .maximum_evaluations = 480u, .maximum_line_search_evaluations = 24u, .projected_gradient_tolerance = 2.0e-5, .relative_objective_tolerance = 1.0e-9}},
-            fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 1.0F, .optimizer = {.memory = 12u, .maximum_iterations = 56u, .maximum_evaluations = 560u, .maximum_line_search_evaluations = 24u, .projected_gradient_tolerance = 1.0e-5, .relative_objective_tolerance = 5.0e-10}},
-            fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.5F, .optimizer = {.memory = 16u, .maximum_iterations = 72u, .maximum_evaluations = 720u, .maximum_line_search_evaluations = 28u, .projected_gradient_tolerance = 5.0e-6, .relative_objective_tolerance = 2.0e-10}},
-            fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.0F, .optimizer = {.memory = 16u, .maximum_iterations = 64u, .maximum_evaluations = 640u, .maximum_line_search_evaluations = 32u, .projected_gradient_tolerance = 2.0e-6, .relative_objective_tolerance = 0.0}},
-            fluids::gas::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.0F, .optimizer = {.memory = 16u, .maximum_iterations = 96u, .maximum_evaluations = 960u, .maximum_line_search_evaluations = 36u, .projected_gradient_tolerance = 1.0e-6, .relative_objective_tolerance = 0.0}},
+            fluids::gas::solvers::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 2.0F, .optimizer = {.memory = 12u, .maximum_iterations = 48u, .maximum_evaluations = 480u, .maximum_line_search_evaluations = 24u, .projected_gradient_tolerance = 2.0e-5, .relative_objective_tolerance = 1.0e-9}},
+            fluids::gas::solvers::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 1.0F, .optimizer = {.memory = 12u, .maximum_iterations = 56u, .maximum_evaluations = 560u, .maximum_line_search_evaluations = 24u, .projected_gradient_tolerance = 1.0e-5, .relative_objective_tolerance = 5.0e-10}},
+            fluids::gas::solvers::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.5F, .optimizer = {.memory = 16u, .maximum_iterations = 72u, .maximum_evaluations = 720u, .maximum_line_search_evaluations = 28u, .projected_gradient_tolerance = 5.0e-6, .relative_objective_tolerance = 2.0e-10}},
+            fluids::gas::solvers::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.0F, .optimizer = {.memory = 16u, .maximum_iterations = 64u, .maximum_evaluations = 640u, .maximum_line_search_evaluations = 32u, .projected_gradient_tolerance = 2.0e-6, .relative_objective_tolerance = 0.0}},
+            fluids::gas::solvers::keyframe_smoke::ContinuationLevel{.blur_sigma_cells = 0.0F, .optimizer = {.memory = 16u, .maximum_iterations = 96u, .maximum_evaluations = 960u, .maximum_line_search_evaluations = 36u, .projected_gradient_tolerance = 1.0e-6, .relative_objective_tolerance = 0.0}},
         };
 
         std::uint64_t record_index = 0u;
-        fluids::gas::keyframe_smoke::EvaluationSummary final_summary{};
+        fluids::gas::solvers::keyframe_smoke::EvaluationSummary final_summary{};
         double final_gradient_norm{};
         double final_projected_gradient_norm{};
         std::vector<float> final_density;
         for (std::uint32_t level = 0u; level < continuation.size(); ++level) {
-            fluids::gas::keyframe_smoke::OptimizationRunner runner{
+            fluids::gas::solvers::keyframe_smoke::OptimizationRunner runner{
                 .domain             = domain,
                 .evaluator          = evaluator,
                 .objective_function = objective,
                 .control            = control,
                 .continuation       = {continuation[level]},
             };
-            fluids::gas::keyframe_smoke::OptimizationResult result = runner.run(parameters, active_parameters, {.continuation_level = level});
-            for (const fluids::gas::keyframe_smoke::OptimizationEvaluation& evaluation : result.evaluations) {
+            fluids::gas::solvers::keyframe_smoke::OptimizationResult result = runner.run(parameters, active_parameters, {.continuation_level = level});
+            for (const fluids::gas::solvers::keyframe_smoke::OptimizationEvaluation& evaluation : result.evaluations) {
                 const std::filesystem::path parameter_path = std::filesystem::path{"parameters"} / std::format("evaluation-{:06}.bin", record_index);
                 write_parameters(output_directory / parameter_path, evaluation.parameters);
                 evaluations << record_index << ',' << evaluation.coordinates.continuation_level << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.gradient_norm << ',' << evaluation.projected_gradient_norm << ',' << parameter_path.generic_string() << '\n';
@@ -273,11 +273,11 @@ namespace physica::examples::keyframe_smoke {
         return result;
     }
 
-    fluids::gas::keyframe_smoke::ControlConfiguration Experiment::create_control_configuration(const char target_letter) {
-        fluids::gas::keyframe_smoke::ControlConfiguration result;
-        const auto fixed = [](const double value) { return fluids::gas::keyframe_smoke::BoundedValue{.initial = value, .lower = value, .upper = value}; };
-        const fluids::gas::keyframe_smoke::BoundedValue free_force{.initial = 0.0, .lower = -4.0, .upper = 4.0};
-        const fluids::gas::keyframe_smoke::BoundedValue free_vortex{.initial = 0.0, .lower = -40.0, .upper = 40.0};
+    fluids::gas::solvers::keyframe_smoke::ControlConfiguration Experiment::create_control_configuration(const char target_letter) {
+        fluids::gas::solvers::keyframe_smoke::ControlConfiguration result;
+        const auto fixed = [](const double value) { return fluids::gas::solvers::keyframe_smoke::BoundedValue{.initial = value, .lower = value, .upper = value}; };
+        const fluids::gas::solvers::keyframe_smoke::BoundedValue free_force{.initial = 0.0, .lower = -4.0, .upper = 4.0};
+        const fluids::gas::solvers::keyframe_smoke::BoundedValue free_vortex{.initial = 0.0, .lower = -40.0, .upper = 40.0};
         for (std::uint32_t begin_step = 0u; begin_step < step_count; begin_step += control_window_steps) {
             for (std::uint32_t y = 0u; y < 5u; ++y) {
                 for (std::uint32_t x = 0u; x < 5u; ++x) {
@@ -329,8 +329,8 @@ namespace physica::examples::keyframe_smoke {
         return result;
     }
 
-    std::vector<fluids::gas::keyframe_smoke::Keyframe> Experiment::create_keyframes() {
-        std::vector<fluids::gas::keyframe_smoke::Keyframe> result;
+    std::vector<fluids::gas::solvers::keyframe_smoke::Keyframe> Experiment::create_keyframes() {
+        std::vector<fluids::gas::solvers::keyframe_smoke::Keyframe> result;
         result.push_back({
             .step            = step_count / 3u,
             .target          = create_state(create_transport_density(1.0F / 3.0F)),
@@ -359,8 +359,8 @@ namespace physica::examples::keyframe_smoke {
         return result;
     }
 
-    fluids::gas::keyframe_smoke::State Experiment::create_state(const std::span<const float> density) {
-        fluids::gas::keyframe_smoke::State result = solver.allocate_state(domain);
+    fluids::gas::solvers::keyframe_smoke::State Experiment::create_state(const std::span<const float> density) {
+        fluids::gas::solvers::keyframe_smoke::State result = solver.allocate_state(domain);
         ::cuda::copy_bytes(stream, density, result.density.values);
         domain.grid.clear(result.velocity);
         return result;
@@ -493,7 +493,7 @@ namespace physica::examples::keyframe_smoke {
         return result;
     }
 
-    std::vector<float> Experiment::download_density(const fluids::gas::keyframe_smoke::State& state) const {
+    std::vector<float> Experiment::download_density(const fluids::gas::solvers::keyframe_smoke::State& state) const {
         std::vector<float> result(domain.grid.cell_count);
         ::cuda::copy_bytes(stream, state.density.values, ::cuda::std::span{result.data(), result.size()});
         stream.sync();

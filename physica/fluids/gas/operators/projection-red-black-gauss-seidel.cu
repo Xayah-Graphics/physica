@@ -1,4 +1,4 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "projection-kernels.h"
 #include <cuda/launch>
 
@@ -87,7 +87,7 @@ namespace physica::fluids::gas::operators::kernels {
         }
 
         template <std::uint32_t dimensions>
-        void launch_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const field::ScalarView<const float> rhs, const field::ScalarView<float> pressure) {
+        void launch_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const simulation::ScalarView<const float> rhs, const simulation::ScalarView<float> pressure) {
             for (std::uint32_t iteration = 0u; iteration < iterations; ++iteration) {
                 ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), rbgs_kernel<dimensions>, grid, 0, pressure_anchor, collider_ids, boundary, rhs.values, pressure.values);
                 ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), rbgs_kernel<dimensions>, grid, 1, pressure_anchor, collider_ids, boundary, rhs.values, pressure.values);
@@ -95,7 +95,7 @@ namespace physica::fluids::gas::operators::kernels {
         }
 
         template <std::uint32_t dimensions>
-        void launch_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const field::ScalarView<double> pressure_adjoint, const field::ScalarView<double> rhs_adjoint) {
+        void launch_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const simulation::ScalarView<double> pressure_adjoint, const simulation::ScalarView<double> rhs_adjoint) {
             for (std::uint32_t iteration = 0u; iteration < iterations; ++iteration) {
                 ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), rbgs_reverse_kernel<dimensions>, grid, 1, pressure_anchor, collider_ids, boundary, pressure_adjoint.values, rhs_adjoint.values);
                 ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), rbgs_reverse_kernel<dimensions>, grid, 0, pressure_anchor, collider_ids, boundary, pressure_adjoint.values, rhs_adjoint.values);
@@ -103,14 +103,14 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void red_black_gauss_seidel_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const field::ScalarView<const float> rhs, const field::ScalarView<float> pressure) {
+    void red_black_gauss_seidel_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const simulation::ScalarView<const float> rhs, const simulation::ScalarView<float> pressure) {
         switch (grid.dimensions) {
         case 2u: launch_forward<2u>(stream, grid, iterations, pressure_anchor, collider_ids, boundary, rhs, pressure); break;
         case 3u: launch_forward<3u>(stream, grid, iterations, pressure_anchor, collider_ids, boundary, rhs, pressure); break;
         }
     }
 
-    void red_black_gauss_seidel_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const field::ScalarView<double> pressure_adjoint, const field::ScalarView<double> rhs_adjoint) {
+    void red_black_gauss_seidel_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t iterations, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const device::ScalarBoundary boundary, const simulation::ScalarView<double> pressure_adjoint, const simulation::ScalarView<double> rhs_adjoint) {
         switch (grid.dimensions) {
         case 2u: launch_vjp<2u>(stream, grid, iterations, pressure_anchor, collider_ids, boundary, pressure_adjoint, rhs_adjoint); break;
         case 3u: launch_vjp<3u>(stream, grid, iterations, pressure_anchor, collider_ids, boundary, pressure_adjoint, rhs_adjoint); break;

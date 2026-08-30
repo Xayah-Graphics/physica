@@ -2,15 +2,15 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.liquid.sph;
+export module physica.fluids.liquid.solvers.sph;
 
 import std;
 export import physica.fluids.liquid.meshfree;
 import physica.fluids.liquid.operators.density;
 import physica.fluids.liquid.operators.neighborhood;
-export import :dynamics;
+export import physica.fluids.liquid.solvers.sph.dynamics;
 
-export namespace physica::fluids::liquid::sph {
+export namespace physica::fluids::liquid::solvers::sph {
     template <SPHDynamicsAlgorithm Dynamics>
     struct Solver final {
         struct Configuration final {
@@ -49,7 +49,7 @@ export namespace physica::fluids::liquid::sph {
 
         struct StepCache final {
             operators::Neighborhood neighborhood;
-            ScalarField<float> densities;
+            simulation::ScalarField<float> densities;
             typename Dynamics::Cache dynamics;
         };
 
@@ -59,12 +59,12 @@ export namespace physica::fluids::liquid::sph {
         };
 
         struct TangentWorkspace final {
-            ScalarField<float> densities;
+            simulation::ScalarField<float> densities;
             typename Dynamics::TangentWorkspace dynamics;
         };
 
         struct AdjointWorkspace final {
-            ScalarField<double> densities;
+            simulation::ScalarField<double> densities;
             typename Dynamics::AdjointWorkspace dynamics;
         };
 
@@ -79,19 +79,19 @@ export namespace physica::fluids::liquid::sph {
             State state{
                 .particles =
                     {
-                        .positions  = model.fields.allocate_vector_field<float>(model.configuration.particle_count),
-                        .velocities = model.fields.allocate_vector_field<float>(model.configuration.particle_count),
+                        .positions  = simulation::VectorField<float>(model.stream, model.configuration.particle_count),
+                        .velocities = simulation::VectorField<float>(model.stream, model.configuration.particle_count),
                     },
                 .dynamics = dynamics.allocate_state(model),
             };
-            model.fields.clear(state.particles.positions);
-            model.fields.clear(state.particles.velocities);
+            simulation::clear(model.stream, state.particles.positions);
+            simulation::clear(model.stream, state.particles.velocities);
             return state;
         }
 
         [[nodiscard]] Control allocate_control(const meshfree::Model& model) const {
-            Control control{.external_accelerations = model.fields.allocate_vector_field<float>(model.configuration.particle_count)};
-            model.fields.clear(control.external_accelerations);
+            Control control{.external_accelerations = simulation::VectorField<float>(model.stream, model.configuration.particle_count)};
+            simulation::clear(model.stream, control.external_accelerations);
             return control;
         }
 
@@ -100,17 +100,17 @@ export namespace physica::fluids::liquid::sph {
             return {
                 .particles =
                     {
-                        .masses           = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .rest_densities   = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .viscosities      = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .surface_tensions = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
+                        .masses           = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
                     },
                 .dynamics = dynamics.allocate_parameters(model),
             };
         }
 
         [[nodiscard]] StepCache allocate_step_cache(const meshfree::Model& model) const {
-            return {.neighborhood = neighborhood.allocate_cache(model), .densities = model.fields.allocate_scalar_field<float>(model.configuration.particle_count), .dynamics = dynamics.allocate_cache(model)};
+            return {.neighborhood = neighborhood.allocate_cache(model), .densities = simulation::ScalarField<float>(model.stream, model.configuration.particle_count), .dynamics = dynamics.allocate_cache(model)};
         }
 
         [[nodiscard]] Workspace allocate_workspace(const meshfree::Model& model) const {
@@ -121,19 +121,19 @@ export namespace physica::fluids::liquid::sph {
             StateTangent tangent{
                 .particles =
                     {
-                        .positions  = model.fields.allocate_vector_field<float>(model.configuration.particle_count),
-                        .velocities = model.fields.allocate_vector_field<float>(model.configuration.particle_count),
+                        .positions  = simulation::VectorField<float>(model.stream, model.configuration.particle_count),
+                        .velocities = simulation::VectorField<float>(model.stream, model.configuration.particle_count),
                     },
                 .dynamics = dynamics.allocate_state_tangent(model),
             };
-            model.fields.clear(tangent.particles.positions);
-            model.fields.clear(tangent.particles.velocities);
+            simulation::clear(model.stream, tangent.particles.positions);
+            simulation::clear(model.stream, tangent.particles.velocities);
             return tangent;
         }
 
         [[nodiscard]] ControlTangent allocate_control_tangent(const meshfree::Model& model) const {
-            ControlTangent tangent{.external_accelerations = model.fields.allocate_vector_field<float>(model.configuration.particle_count)};
-            model.fields.clear(tangent.external_accelerations);
+            ControlTangent tangent{.external_accelerations = simulation::VectorField<float>(model.stream, model.configuration.particle_count)};
+            simulation::clear(model.stream, tangent.external_accelerations);
             return tangent;
         }
 
@@ -142,41 +142,41 @@ export namespace physica::fluids::liquid::sph {
             ParameterTangent tangent{
                 .particles =
                     {
-                        .masses           = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .rest_densities   = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .viscosities      = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .surface_tensions = ::cuda::device_buffer<float>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
+                        .masses           = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<float>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
                     },
                 .dynamics = dynamics.allocate_parameter_tangent(model),
             };
-            ::cuda::fill_bytes(model.fields.stream, tangent.particles.masses, 0u);
-            ::cuda::fill_bytes(model.fields.stream, tangent.particles.rest_densities, 0u);
-            ::cuda::fill_bytes(model.fields.stream, tangent.particles.viscosities, 0u);
-            ::cuda::fill_bytes(model.fields.stream, tangent.particles.surface_tensions, 0u);
+            ::cuda::fill_bytes(model.stream, tangent.particles.masses, 0u);
+            ::cuda::fill_bytes(model.stream, tangent.particles.rest_densities, 0u);
+            ::cuda::fill_bytes(model.stream, tangent.particles.viscosities, 0u);
+            ::cuda::fill_bytes(model.stream, tangent.particles.surface_tensions, 0u);
             return tangent;
         }
 
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const meshfree::Model& model) const {
-            return {.densities = model.fields.allocate_scalar_field<float>(model.configuration.particle_count), .dynamics = dynamics.allocate_tangent_workspace(model)};
+            return {.densities = simulation::ScalarField<float>(model.stream, model.configuration.particle_count), .dynamics = dynamics.allocate_tangent_workspace(model)};
         }
 
         [[nodiscard]] StateAdjoint allocate_state_adjoint(const meshfree::Model& model) const {
             StateAdjoint adjoint{
                 .particles =
                     {
-                        .positions  = model.fields.allocate_vector_field<double>(model.configuration.particle_count),
-                        .velocities = model.fields.allocate_vector_field<double>(model.configuration.particle_count),
+                        .positions  = simulation::VectorField<double>(model.stream, model.configuration.particle_count),
+                        .velocities = simulation::VectorField<double>(model.stream, model.configuration.particle_count),
                     },
                 .dynamics = dynamics.allocate_state_adjoint(model),
             };
-            model.fields.clear(adjoint.particles.positions);
-            model.fields.clear(adjoint.particles.velocities);
+            simulation::clear(model.stream, adjoint.particles.positions);
+            simulation::clear(model.stream, adjoint.particles.velocities);
             return adjoint;
         }
 
         [[nodiscard]] ControlAdjoint allocate_control_adjoint(const meshfree::Model& model) const {
-            ControlAdjoint adjoint{.external_accelerations = model.fields.allocate_vector_field<double>(model.configuration.particle_count)};
-            model.fields.clear(adjoint.external_accelerations);
+            ControlAdjoint adjoint{.external_accelerations = simulation::VectorField<double>(model.stream, model.configuration.particle_count)};
+            simulation::clear(model.stream, adjoint.external_accelerations);
             return adjoint;
         }
 
@@ -185,46 +185,46 @@ export namespace physica::fluids::liquid::sph {
             ParameterAdjoint adjoint{
                 .particles =
                     {
-                        .masses           = ::cuda::device_buffer<double>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .rest_densities   = ::cuda::device_buffer<double>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .viscosities      = ::cuda::device_buffer<double>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
-                        .surface_tensions = ::cuda::device_buffer<double>{model.fields.stream, ::cuda::device_default_memory_pool(model.fields.stream.device()), count, ::cuda::no_init},
+                        .masses           = ::cuda::device_buffer<double>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .rest_densities   = ::cuda::device_buffer<double>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .viscosities      = ::cuda::device_buffer<double>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
+                        .surface_tensions = ::cuda::device_buffer<double>{model.stream, ::cuda::device_default_memory_pool(model.stream.device()), count, ::cuda::no_init},
                     },
                 .dynamics = dynamics.allocate_parameter_adjoint(model),
             };
-            ::cuda::fill_bytes(model.fields.stream, adjoint.particles.masses, 0u);
-            ::cuda::fill_bytes(model.fields.stream, adjoint.particles.rest_densities, 0u);
-            ::cuda::fill_bytes(model.fields.stream, adjoint.particles.viscosities, 0u);
-            ::cuda::fill_bytes(model.fields.stream, adjoint.particles.surface_tensions, 0u);
+            ::cuda::fill_bytes(model.stream, adjoint.particles.masses, 0u);
+            ::cuda::fill_bytes(model.stream, adjoint.particles.rest_densities, 0u);
+            ::cuda::fill_bytes(model.stream, adjoint.particles.viscosities, 0u);
+            ::cuda::fill_bytes(model.stream, adjoint.particles.surface_tensions, 0u);
             return adjoint;
         }
 
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const meshfree::Model& model) const {
-            return {.densities = model.fields.allocate_scalar_field<double>(model.configuration.particle_count), .dynamics = dynamics.allocate_adjoint_workspace(model)};
+            return {.densities = simulation::ScalarField<double>(model.stream, model.configuration.particle_count), .dynamics = dynamics.allocate_adjoint_workspace(model)};
         }
 
         void copy_state(const meshfree::Model& model, const State& source, State& destination) const {
-            model.fields.copy(source.particles.positions, destination.particles.positions);
-            model.fields.copy(source.particles.velocities, destination.particles.velocities);
+            simulation::copy(model.stream, source.particles.positions, destination.particles.positions);
+            simulation::copy(model.stream, source.particles.velocities, destination.particles.velocities);
             destination.particles.step_index = source.particles.step_index;
             dynamics.copy_state(model, source.dynamics, destination.dynamics);
         }
 
         void copy_state_tangent(const meshfree::Model& model, const StateTangent& source, StateTangent& destination) const {
-            model.fields.copy(source.particles.positions, destination.particles.positions);
-            model.fields.copy(source.particles.velocities, destination.particles.velocities);
+            simulation::copy(model.stream, source.particles.positions, destination.particles.positions);
+            simulation::copy(model.stream, source.particles.velocities, destination.particles.velocities);
             dynamics.copy_state_tangent(model, source.dynamics, destination.dynamics);
         }
 
         void copy_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const {
-            model.fields.copy(source.particles.positions, destination.particles.positions);
-            model.fields.copy(source.particles.velocities, destination.particles.velocities);
+            simulation::copy(model.stream, source.particles.positions, destination.particles.positions);
+            simulation::copy(model.stream, source.particles.velocities, destination.particles.velocities);
             dynamics.copy_state_adjoint(model, source.dynamics, destination.dynamics);
         }
 
         void accumulate_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const {
-            model.fields.accumulate(source.particles.positions, destination.particles.positions);
-            model.fields.accumulate(source.particles.velocities, destination.particles.velocities);
+            simulation::accumulate(model.stream, source.particles.positions, destination.particles.positions);
+            simulation::accumulate(model.stream, source.particles.velocities, destination.particles.velocities);
             dynamics.accumulate_state_adjoint(model, source.dynamics, destination.dynamics);
         }
 
@@ -240,7 +240,7 @@ export namespace physica::fluids::liquid::sph {
         }
 
         void vjp(const meshfree::Model& model, const State& state, const Parameters& parameters, const StepCache& cache, const StateAdjoint& next_state_adjoint, StateAdjoint& previous_state_adjoint, ControlAdjoint& control_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const {
-            model.fields.clear(workspace.densities);
+            simulation::clear(model.stream, workspace.densities);
             dynamics.vjp(model, state.particles, state.dynamics, parameters.particles, parameters.dynamics, cache.neighborhood, cache.densities, cache.dynamics, next_state_adjoint.particles, next_state_adjoint.dynamics, previous_state_adjoint.particles, previous_state_adjoint.dynamics, control_adjoint, parameter_adjoint.particles, parameter_adjoint.dynamics, workspace.densities, workspace.dynamics);
             density.vjp(model, state.particles.positions, state.particles.positions, parameters.particles, cache.neighborhood, workspace.densities, previous_state_adjoint.particles.positions, parameter_adjoint.particles);
         }
@@ -250,4 +250,4 @@ export namespace physica::fluids::liquid::sph {
         [[no_unique_address]] operators::CubicSplineDensity density;
         Dynamics dynamics;
     };
-} // namespace physica::fluids::liquid::sph
+} // namespace physica::fluids::liquid::solvers::sph

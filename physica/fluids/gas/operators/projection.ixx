@@ -8,10 +8,10 @@ import std;
 import physica.fluids.gas.domain;
 
 namespace physica::fluids::gas::operators::projection {
-    void pressure_rhs_forward(const Domain& domain, std::uint32_t pressure_anchor, const VectorField<float>& velocity, ScalarField<float>& rhs);
-    void pressure_rhs_vjp(const Domain& domain, std::uint32_t pressure_anchor, const ScalarField<double>& rhs_adjoint, VectorField<double>& velocity_adjoint);
-    void project_velocity_forward(const Domain& domain, const VectorField<float>& velocity, const ScalarField<float>& pressure, VectorField<float>& output);
-    void project_velocity_vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& velocity_adjoint, ScalarField<double>& pressure_adjoint);
+    void pressure_rhs_forward(const Domain& domain, std::uint32_t pressure_anchor, const simulation::VectorField<float>& velocity, simulation::ScalarField<float>& rhs);
+    void pressure_rhs_vjp(const Domain& domain, std::uint32_t pressure_anchor, const simulation::ScalarField<double>& rhs_adjoint, simulation::VectorField<double>& velocity_adjoint);
+    void project_velocity_forward(const Domain& domain, const simulation::VectorField<float>& velocity, const simulation::ScalarField<float>& pressure, simulation::VectorField<float>& output);
+    void project_velocity_vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::ScalarField<double>& pressure_adjoint);
 } // namespace physica::fluids::gas::operators::projection
 
 export namespace physica::fluids::gas::operators {
@@ -32,15 +32,15 @@ export namespace physica::fluids::gas::operators {
 
         [[nodiscard]] Workspace allocate_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
-        void forward(const Domain& domain, const ScalarBoundary& boundary, std::uint32_t pressure_anchor, const ScalarField<float>& rhs, ScalarField<float>& pressure, Workspace& workspace) const;
-        void vjp(const Domain& domain, const ScalarBoundary& boundary, std::uint32_t pressure_anchor, ScalarField<double>& pressure_adjoint, ScalarField<double>& rhs_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const ScalarBoundary& boundary, std::uint32_t pressure_anchor, const simulation::ScalarField<float>& rhs, simulation::ScalarField<float>& pressure, Workspace& workspace) const;
+        void vjp(const Domain& domain, const ScalarBoundary& boundary, std::uint32_t pressure_anchor, simulation::ScalarField<double>& pressure_adjoint, simulation::ScalarField<double>& rhs_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
     };
 
     template <class Algorithm>
-    concept PressureAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, const ScalarBoundary& boundary, typename Algorithm::Workspace& workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const ScalarField<float>& rhs, ScalarField<float>& pressure, ScalarField<double>& pressure_adjoint, ScalarField<double>& rhs_adjoint) {
+    concept PressureAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, const ScalarBoundary& boundary, typename Algorithm::Workspace& workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::ScalarField<float>& rhs, simulation::ScalarField<float>& pressure, simulation::ScalarField<double>& pressure_adjoint, simulation::ScalarField<double>& rhs_adjoint) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;
         algorithm.forward(domain, boundary, std::uint32_t{}, rhs, pressure, workspace);
@@ -56,20 +56,20 @@ export namespace physica::fluids::gas::operators {
         };
 
         struct Workspace final {
-            ScalarField<float> rhs;
-            ScalarField<float> pressure;
+            simulation::ScalarField<float> rhs;
+            simulation::ScalarField<float> pressure;
             typename Pressure::Workspace pressure_solver;
         };
 
         struct TangentWorkspace final {
-            ScalarField<float> rhs;
-            ScalarField<float> pressure;
+            simulation::ScalarField<float> rhs;
+            simulation::ScalarField<float> pressure;
             typename Pressure::Workspace pressure_solver;
         };
 
         struct AdjointWorkspace final {
-            ScalarField<double> rhs;
-            ScalarField<double> pressure;
+            simulation::ScalarField<double> rhs;
+            simulation::ScalarField<double> pressure;
             typename Pressure::AdjointWorkspace pressure_solver;
         };
 
@@ -87,21 +87,21 @@ export namespace physica::fluids::gas::operators {
             return {.rhs = domain.grid.allocate_cell_field<double>(), .pressure = domain.grid.allocate_cell_field<double>(), .pressure_solver = pressure.allocate_adjoint_workspace(domain)};
         }
 
-        void forward(const Domain& domain, const VectorField<float>& velocity, VectorField<float>& output, Workspace& workspace) const {
+        void forward(const Domain& domain, const simulation::VectorField<float>& velocity, simulation::VectorField<float>& output, Workspace& workspace) const {
             domain.grid.clear(workspace.pressure);
             projection::pressure_rhs_forward(domain, pressure_anchor, velocity, workspace.rhs);
             pressure.forward(domain, boundary, pressure_anchor, workspace.rhs, workspace.pressure, workspace.pressure_solver);
             projection::project_velocity_forward(domain, velocity, workspace.pressure, output);
         }
 
-        void jvp(const Domain& domain, const VectorField<float>& velocity_tangent, VectorField<float>& output_tangent, TangentWorkspace& workspace) const {
+        void jvp(const Domain& domain, const simulation::VectorField<float>& velocity_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace& workspace) const {
             domain.grid.clear(workspace.pressure);
             projection::pressure_rhs_forward(domain, pressure_anchor, velocity_tangent, workspace.rhs);
             pressure.forward(domain, homogeneous(boundary), pressure_anchor, workspace.rhs, workspace.pressure, workspace.pressure_solver);
             projection::project_velocity_forward(domain, velocity_tangent, workspace.pressure, output_tangent);
         }
 
-        void vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const {
+        void vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const {
             domain.grid.clear(workspace.pressure);
             domain.grid.clear(workspace.rhs);
             projection::project_velocity_vjp(domain, output_adjoint, velocity_adjoint, workspace.pressure);
@@ -116,7 +116,7 @@ export namespace physica::fluids::gas::operators {
     };
 
     template <class Algorithm>
-    concept ProjectionAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const VectorField<float>& velocity, VectorField<float>& velocity_output, const VectorField<double>& velocity_adjoint, VectorField<double>& velocity_adjoint_output) {
+    concept ProjectionAlgorithm = std::constructible_from<Algorithm, const Domain&, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::VectorField<float>& velocity, simulation::VectorField<float>& velocity_output, const simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& velocity_adjoint_output) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

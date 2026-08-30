@@ -7,7 +7,7 @@ export module physica.example.deformables.cloth;
 
 import std;
 import physica.deformables.cloth.model;
-import physica.deformables.cloth.explicit_dynamics;
+import physica.deformables.cloth.solvers.explicit_dynamics;
 import physica.deformables.cloth.operators.fixed_position;
 import physica.deformables.cloth.operators.mass_spring;
 import physica.deformables.cloth.operators.semi_implicit_euler;
@@ -38,10 +38,10 @@ export namespace physica::examples::cloth {
 
     private:
         deformables::cloth::Model model;
-        deformables::cloth::explicit_dynamics::Solver<deformables::cloth::operators::MassSpringForce, deformables::cloth::operators::SemiImplicitEuler, deformables::cloth::operators::FixedPositionConstraint> solver;
+        deformables::cloth::solvers::explicit_dynamics::Solver<deformables::cloth::operators::MassSpringForce, deformables::cloth::operators::SemiImplicitEuler, deformables::cloth::operators::FixedPositionConstraint> solver;
 
     public:
-        deformables::cloth::explicit_dynamics::State current_state;
+        deformables::cloth::solvers::explicit_dynamics::State current_state;
         std::uint64_t step_index = 0u;
         double physical_time     = 0.0;
 
@@ -56,8 +56,8 @@ export namespace physica::examples::cloth {
         void step();
 
     private:
-        deformables::cloth::explicit_dynamics::State next_state;
-        deformables::cloth::explicit_dynamics::Control control;
+        deformables::cloth::solvers::explicit_dynamics::State next_state;
+        deformables::cloth::solvers::explicit_dynamics::Control control;
         decltype(solver)::Parameters parameters;
         decltype(solver)::StepCache step_cache;
         decltype(solver)::Workspace workspace;
@@ -82,11 +82,11 @@ export namespace physica::examples::cloth {
     }
 
     void Simulation::reset() {
-        model.fields.upload(model.configuration.rest_positions, current_state.positions);
-        model.fields.clear(current_state.velocities);
-        model.fields.upload(model.configuration.rest_positions, next_state.positions);
-        model.fields.clear(next_state.velocities);
-        model.fields.clear(control.external_forces);
+        simulation::upload(model.stream, model.configuration.rest_positions, current_state.positions);
+        simulation::clear(model.stream, current_state.velocities);
+        simulation::upload(model.stream, model.configuration.rest_positions, next_state.positions);
+        simulation::clear(model.stream, next_state.velocities);
+        simulation::clear(model.stream, control.external_forces);
         step_index    = 0u;
         physical_time = 0.0;
     }

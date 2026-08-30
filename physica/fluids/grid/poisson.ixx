@@ -9,8 +9,8 @@ export import physica.fluids.grid;
 
 export namespace physica::fluids::grid {
     struct PoissonSystem final {
-        ScalarField<float> diagonal;
-        ScalarField<float> rhs;
-        ScalarField<float> pressure;
+        simulation::ScalarField<float> diagonal;
+        simulation::ScalarField<float> rhs;
+        simulation::ScalarField<float> pressure;
     };
 } // namespace physica::fluids::grid

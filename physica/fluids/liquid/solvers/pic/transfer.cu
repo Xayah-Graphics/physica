@@ -1,14 +1,14 @@
-#include <physica/fluids/grid/device.cuh>
+#include <fluids/grid/device.cuh>
 #include "transfer-kernels.h"
 #include <cuda/launch>
 
-namespace physica::fluids::liquid::pic::kernels::transfer {
+namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
     namespace {
-        __global__ void flip_particle_to_grid_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<float> momentum, const field::VectorView<float> mass) {
+        __global__ void flip_particle_to_grid_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<float> momentum, const simulation::VectorView<float> mass) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
-            const Vector3<float> velocity = field::load(velocities, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
+            const Vector3<float> velocity = simulation::load(velocities, particle);
             for (int axis = 0; axis < 3; ++axis) {
                 int base_x, base_y, base_z;
                 float weights_x[3], weights_y[3], weights_z[3];
@@ -28,28 +28,28 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
             }
         }
 
-        __global__ void flip_grid_to_particle_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float flip_ratio, const field::VectorView<const float> positions, const field::VectorView<const float> input_velocities, const field::VectorView<const float> old_grid_velocity, const field::VectorView<const float> new_grid_velocity, const field::VectorView<float> output_velocities) {
+        __global__ void flip_grid_to_particle_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float flip_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> input_velocities, const simulation::VectorView<const float> old_grid_velocity, const simulation::VectorView<const float> new_grid_velocity, const simulation::VectorView<float> output_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
-            const Vector3<float> input    = field::load(input_velocities, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
+            const Vector3<float> input    = simulation::load(input_velocities, particle);
             const Vector3<float> old_grid = grid::device::sample_velocity(grid, position, old_grid_velocity);
             const Vector3<float> new_grid = grid::device::sample_velocity(grid, position, new_grid_velocity);
             const Vector3<float> flip     = (input + (new_grid - old_grid));
-            field::store(output_velocities, particle, flip * flip_ratio + new_grid * (1.0F - flip_ratio));
+            simulation::store(output_velocities, particle, flip * flip_ratio + new_grid * (1.0F - flip_ratio));
         }
     } // namespace
 
-    void flip_particle_to_grid(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<float> momentum, const field::VectorView<float> mass) {
+    void flip_particle_to_grid(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<float> momentum, const simulation::VectorView<float> mass) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), flip_particle_to_grid_kernel, grid, particle_count, positions, velocities, momentum, mass);
     }
 
-    void flip_grid_to_particle(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float flip_ratio, const field::VectorView<const float> positions, const field::VectorView<const float> input_velocities, const field::VectorView<const float> old_grid_velocity, const field::VectorView<const float> new_grid_velocity, const field::VectorView<float> output_velocities) {
+    void flip_grid_to_particle(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float flip_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> input_velocities, const simulation::VectorView<const float> old_grid_velocity, const simulation::VectorView<const float> new_grid_velocity, const simulation::VectorView<float> output_velocities) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), flip_grid_to_particle_kernel, grid, particle_count, flip_ratio, positions, input_velocities, old_grid_velocity, new_grid_velocity, output_velocities);
     }
-} // namespace physica::fluids::liquid::pic::kernels::transfer
+} // namespace physica::fluids::liquid::solvers::pic::kernels::transfer
 
-namespace physica::fluids::liquid::pic::kernels::transfer {
+namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
     namespace {
         struct SymmetricMatrix final {
             float m00;
@@ -59,6 +59,12 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
             float m12;
             float m22;
         };
+
+        __device__ float affine_component(const simulation::Matrix3View<const float> affine, const std::uint32_t index, const int axis, const Vector3<float> displacement) {
+            if (axis == 0) return affine.c00[index] * displacement.x + affine.c01[index] * displacement.y + affine.c02[index] * displacement.z;
+            if (axis == 1) return affine.c10[index] * displacement.x + affine.c11[index] * displacement.y + affine.c12[index] * displacement.z;
+            return affine.c20[index] * displacement.x + affine.c21[index] * displacement.y + affine.c22[index] * displacement.z;
+        }
 
         __device__ void affine_row(const grid::device::Grid grid, const Vector3<float> position, const int axis, const float* values, const float ratio, float& c0, float& c1, float& c2) {
             int base_x, base_y, base_z;
@@ -103,17 +109,17 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
             c2 = ratio * (moment.x * inverse02 + moment.y * inverse12 + moment.z * inverse22);
         }
 
-        __device__ void reconstruct_affine(const grid::device::Grid grid, const Vector3<float> position, const field::VectorView<const float> velocity, const float ratio, const std::uint32_t particle, const field::Matrix3View<float> affine) {
+        __device__ void reconstruct_affine(const grid::device::Grid grid, const Vector3<float> position, const simulation::VectorView<const float> velocity, const float ratio, const std::uint32_t particle, const simulation::Matrix3View<float> affine) {
             affine_row(grid, position, 0, velocity.x, ratio, affine.c00[particle], affine.c01[particle], affine.c02[particle]);
             affine_row(grid, position, 1, velocity.y, ratio, affine.c10[particle], affine.c11[particle], affine.c12[particle]);
             affine_row(grid, position, 2, velocity.z, ratio, affine.c20[particle], affine.c21[particle], affine.c22[particle]);
         }
 
-        __global__ void apic_particle_to_grid_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::Matrix3View<const float> affine, const field::VectorView<float> momentum, const field::VectorView<float> mass) {
+        __global__ void apic_particle_to_grid_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::Matrix3View<const float> affine, const simulation::VectorView<float> momentum, const simulation::VectorView<float> mass) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
-            const Vector3<float> velocity = field::load(velocities, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
+            const Vector3<float> velocity = simulation::load(velocities, particle);
             for (int axis = 0; axis < 3; ++axis) {
                 int base_x, base_y, base_z;
                 float weights_x[3], weights_y[3], weights_z[3];
@@ -127,7 +133,7 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
                             if (!grid::device::valid_face(grid, axis, x, y, z)) continue;
                             const float weight = weights_x[ox] * weights_y[oy] * weights_z[oz];
                             const Vector3<float> displacement = (grid::device::face_position(grid, axis, x, y, z) - position);
-                            const float face_velocity = velocity[axis] + field::affine_component(affine, particle, axis, displacement);
+                            const float face_velocity = velocity[axis] + affine_component(affine, particle, axis, displacement);
                             const std::size_t face = grid::device::face_index(grid, axis, x, y, z);
                             atomicAdd(grid::device::component(mass, axis) + face, weight);
                             atomicAdd(grid::device::component(momentum, axis) + face, weight * face_velocity);
@@ -135,15 +141,15 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
             }
         }
 
-        __global__ void apic_grid_to_particle_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float affine_ratio, const field::VectorView<const float> positions, const field::VectorView<const float> grid_velocity, const field::VectorView<float> output_velocities, const field::Matrix3View<float> output_affine) {
+        __global__ void apic_grid_to_particle_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float affine_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> output_velocities, const simulation::Matrix3View<float> output_affine) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
-            field::store(output_velocities, particle, grid::device::sample_velocity(grid, position, grid_velocity));
+            const Vector3<float> position = simulation::load(positions, particle);
+            simulation::store(output_velocities, particle, grid::device::sample_velocity(grid, position, grid_velocity));
             reconstruct_affine(grid, position, grid_velocity, affine_ratio, particle, output_affine);
         }
 
-        __global__ void compact_affine_kernel(const std::uint32_t particle_count, const field::Matrix3View<const float> source, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const field::Matrix3View<float> output) {
+        __global__ void compact_affine_kernel(const std::uint32_t particle_count, const simulation::Matrix3View<const float> source, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const simulation::Matrix3View<float> output) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count || keep_flags[particle] == 0u) return;
             const std::uint32_t destination = destinations[particle];
@@ -158,25 +164,25 @@ namespace physica::fluids::liquid::pic::kernels::transfer {
             output.c22[destination] = source.c22[particle];
         }
 
-        __global__ void seed_affine_kernel(const grid::device::Grid grid, const std::uint32_t survivor_count, const std::uint32_t seed_count, const float affine_ratio, const field::VectorView<const float> positions, const field::VectorView<const float> grid_velocity, const field::Matrix3View<float> output) {
+        __global__ void seed_affine_kernel(const grid::device::Grid grid, const std::uint32_t survivor_count, const std::uint32_t seed_count, const float affine_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> grid_velocity, const simulation::Matrix3View<float> output) {
             const std::uint32_t seed = blockIdx.x * blockDim.x + threadIdx.x;
             if (seed >= seed_count) return;
             const std::uint32_t particle = survivor_count + seed;
-            reconstruct_affine(grid, field::load(positions, particle), grid_velocity, affine_ratio, particle, output);
+            reconstruct_affine(grid, simulation::load(positions, particle), grid_velocity, affine_ratio, particle, output);
         }
     } // namespace
 
-    void apic_particle_to_grid(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::Matrix3View<const float> affine, const field::VectorView<float> momentum, const field::VectorView<float> mass) {
+    void apic_particle_to_grid(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::Matrix3View<const float> affine, const simulation::VectorView<float> momentum, const simulation::VectorView<float> mass) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), apic_particle_to_grid_kernel, grid, particle_count, positions, velocities, affine, momentum, mass);
     }
 
-    void apic_grid_to_particle(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float affine_ratio, const field::VectorView<const float> positions, const field::VectorView<const float> grid_velocity, const field::VectorView<float> output_velocities, const field::Matrix3View<float> output_affine) {
+    void apic_grid_to_particle(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float affine_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> output_velocities, const simulation::Matrix3View<float> output_affine) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), apic_grid_to_particle_kernel, grid, particle_count, affine_ratio, positions, grid_velocity, output_velocities, output_affine);
     }
 
-    void apic_compact_and_seed(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t source_particle_count, const std::uint32_t survivor_count, const std::uint32_t seed_count, const float affine_ratio, const field::VectorView<const float> compacted_positions, const field::VectorView<const float> grid_velocity, const field::Matrix3View<const float> source_affine, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const field::Matrix3View<float> output_affine) {
+    void apic_compact_and_seed(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t source_particle_count, const std::uint32_t survivor_count, const std::uint32_t seed_count, const float affine_ratio, const simulation::VectorView<const float> compacted_positions, const simulation::VectorView<const float> grid_velocity, const simulation::Matrix3View<const float> source_affine, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const simulation::Matrix3View<float> output_affine) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(source_particle_count), compact_affine_kernel, source_particle_count, source_affine, keep_flags, destinations, output_affine);
         if (seed_count > 0u) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(seed_count), seed_affine_kernel, grid, survivor_count, seed_count, affine_ratio, compacted_positions, grid_velocity, output_affine);
     }
-} // namespace physica::fluids::liquid::pic::kernels::transfer
+} // namespace physica::fluids::liquid::solvers::pic::kernels::transfer
 

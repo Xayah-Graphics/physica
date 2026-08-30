@@ -2,40 +2,40 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.liquid.sph:dynamics;
+export module physica.fluids.liquid.solvers.sph.dynamics;
 
 import std;
 import physica.fluids.liquid.meshfree;
 import physica.fluids.liquid.operators.density;
 import physica.fluids.liquid.operators.neighborhood;
 
-export namespace physica::fluids::liquid::sph {
+export namespace physica::fluids::liquid::solvers::sph {
     struct ParticleState final {
-        VectorField<float> positions;
-        VectorField<float> velocities;
+        simulation::VectorField<float> positions;
+        simulation::VectorField<float> velocities;
         std::uint64_t step_index{};
     };
 
     struct ParticleStateTangent final {
-        VectorField<float> positions;
-        VectorField<float> velocities;
+        simulation::VectorField<float> positions;
+        simulation::VectorField<float> velocities;
     };
 
     struct ParticleStateAdjoint final {
-        VectorField<double> positions;
-        VectorField<double> velocities;
+        simulation::VectorField<double> positions;
+        simulation::VectorField<double> velocities;
     };
 
     struct Control final {
-        VectorField<float> external_accelerations;
+        simulation::VectorField<float> external_accelerations;
     };
 
     struct ControlTangent final {
-        VectorField<float> external_accelerations;
+        simulation::VectorField<float> external_accelerations;
     };
 
     struct ControlAdjoint final {
-        VectorField<double> external_accelerations;
+        simulation::VectorField<double> external_accelerations;
     };
 
     struct ParticleParameters final {
@@ -61,27 +61,27 @@ export namespace physica::fluids::liquid::sph {
 
     struct PressureIterationCache final {
         std::uint32_t iteration;
-        ScalarField<float> pressures;
-        ScalarField<float> predicted_densities;
-        VectorField<float> pressure_accelerations;
-        VectorField<float> predicted_positions;
-        VectorField<float> predicted_velocities;
+        simulation::ScalarField<float> pressures;
+        simulation::ScalarField<float> predicted_densities;
+        simulation::VectorField<float> pressure_accelerations;
+        simulation::VectorField<float> predicted_positions;
+        simulation::VectorField<float> predicted_velocities;
     };
 
     struct PressureIterationTangent final {
-        ScalarField<float> pressures;
-        ScalarField<float> predicted_densities;
-        VectorField<float> pressure_accelerations;
-        VectorField<float> predicted_positions;
-        VectorField<float> predicted_velocities;
+        simulation::ScalarField<float> pressures;
+        simulation::ScalarField<float> predicted_densities;
+        simulation::VectorField<float> pressure_accelerations;
+        simulation::VectorField<float> predicted_positions;
+        simulation::VectorField<float> predicted_velocities;
     };
 
     struct PressureIterationAdjoint final {
-        ScalarField<double> pressures;
-        ScalarField<double> predicted_densities;
-        VectorField<double> pressure_accelerations;
-        VectorField<double> predicted_positions;
-        VectorField<double> predicted_velocities;
+        simulation::ScalarField<double> pressures;
+        simulation::ScalarField<double> predicted_densities;
+        simulation::VectorField<double> pressure_accelerations;
+        simulation::VectorField<double> predicted_positions;
+        simulation::VectorField<double> predicted_velocities;
     };
 
     struct WeaklyCompressible final {
@@ -111,27 +111,27 @@ export namespace physica::fluids::liquid::sph {
         };
 
         struct Cache final {
-            ScalarField<float> pressures;
-            VectorField<float> pressure_accelerations;
-            VectorField<float> viscosity_accelerations;
-            VectorField<float> surface_accelerations;
-            VectorField<float> external_accelerations;
-            VectorField<float> total_accelerations;
+            simulation::ScalarField<float> pressures;
+            simulation::VectorField<float> pressure_accelerations;
+            simulation::VectorField<float> viscosity_accelerations;
+            simulation::VectorField<float> surface_accelerations;
+            simulation::VectorField<float> external_accelerations;
+            simulation::VectorField<float> total_accelerations;
         };
 
         struct Workspace final {};
 
         struct TangentWorkspace final {
-            ScalarField<float> pressures;
-            VectorField<float> pressure_accelerations;
-            VectorField<float> viscosity_accelerations;
-            VectorField<float> surface_accelerations;
-            VectorField<float> total_accelerations;
+            simulation::ScalarField<float> pressures;
+            simulation::VectorField<float> pressure_accelerations;
+            simulation::VectorField<float> viscosity_accelerations;
+            simulation::VectorField<float> surface_accelerations;
+            simulation::VectorField<float> total_accelerations;
         };
 
         struct AdjointWorkspace final {
-            ScalarField<double> pressures;
-            VectorField<double> total_accelerations;
+            simulation::ScalarField<double> pressures;
+            simulation::VectorField<double> total_accelerations;
         };
 
         WeaklyCompressible(const meshfree::Model& model, Configuration configuration);
@@ -150,9 +150,9 @@ export namespace physica::fluids::liquid::sph {
         void copy_state_tangent(const meshfree::Model& model, const StateTangent& source, StateTangent& destination) const;
         void copy_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
         void accumulate_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
-        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
-        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
-        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
+        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const simulation::ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
+        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, simulation::ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -177,7 +177,7 @@ export namespace physica::fluids::liquid::sph {
             ::cuda::device_buffer<double> pressure_relaxation;
         };
         struct Cache final {
-            VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
             std::vector<PressureIterationCache> checkpoints;
         };
         struct Workspace final {
@@ -186,13 +186,13 @@ export namespace physica::fluids::liquid::sph {
         struct TangentWorkspace final {
             PressureIterationCache primal;
             PressureIterationTangent tangent;
-            VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
         };
         struct AdjointWorkspace final {
             std::vector<PressureIterationCache> recomputed_iterations;
             PressureIterationAdjoint adjoint;
             PressureIterationAdjoint previous_adjoint;
-            VectorField<double> non_pressure_accelerations;
+            simulation::VectorField<double> non_pressure_accelerations;
         };
 
         PredictiveCorrective(const meshfree::Model& model, Configuration configuration);
@@ -210,9 +210,9 @@ export namespace physica::fluids::liquid::sph {
         void copy_state_tangent(const meshfree::Model& model, const StateTangent& source, StateTangent& destination) const;
         void copy_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
         void accumulate_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
-        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
-        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
-        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
+        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const simulation::ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
+        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, simulation::ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -239,7 +239,7 @@ export namespace physica::fluids::liquid::sph {
             ::cuda::device_buffer<double> jacobi_relaxation;
         };
         struct Cache final {
-            VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
             std::vector<PressureIterationCache> checkpoints;
         };
         struct Workspace final {
@@ -248,13 +248,13 @@ export namespace physica::fluids::liquid::sph {
         struct TangentWorkspace final {
             PressureIterationCache primal;
             PressureIterationTangent tangent;
-            VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
         };
         struct AdjointWorkspace final {
             std::vector<PressureIterationCache> recomputed_iterations;
             PressureIterationAdjoint adjoint;
             PressureIterationAdjoint previous_adjoint;
-            VectorField<double> non_pressure_accelerations;
+            simulation::VectorField<double> non_pressure_accelerations;
         };
 
         ImplicitIncompressible(const meshfree::Model& model, Configuration configuration);
@@ -272,9 +272,9 @@ export namespace physica::fluids::liquid::sph {
         void copy_state_tangent(const meshfree::Model& model, const StateTangent& source, StateTangent& destination) const;
         void copy_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
         void accumulate_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
-        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
-        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
-        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
+        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const simulation::ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
+        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, simulation::ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -291,16 +291,16 @@ export namespace physica::fluids::liquid::sph {
             Vector3<float> gravity{.x = 0.0F, .y = -9.81F, .z = 0.0F};
         };
         struct State final {
-            ScalarField<float> warm_divergence_pressure;
-            ScalarField<float> warm_density_pressure;
+            simulation::ScalarField<float> warm_divergence_pressure;
+            simulation::ScalarField<float> warm_density_pressure;
         };
         struct StateTangent final {
-            ScalarField<float> warm_divergence_pressure;
-            ScalarField<float> warm_density_pressure;
+            simulation::ScalarField<float> warm_divergence_pressure;
+            simulation::ScalarField<float> warm_density_pressure;
         };
         struct StateAdjoint final {
-            ScalarField<double> warm_divergence_pressure;
-            ScalarField<double> warm_density_pressure;
+            simulation::ScalarField<double> warm_divergence_pressure;
+            simulation::ScalarField<double> warm_density_pressure;
         };
         struct Parameters final {
             ::cuda::device_buffer<float> divergence_relaxation;
@@ -315,33 +315,33 @@ export namespace physica::fluids::liquid::sph {
             ::cuda::device_buffer<double> density_relaxation;
         };
         struct Cache final {
-            VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
             std::vector<PressureIterationCache> divergence_checkpoints;
-            VectorField<float> divergence_pressure_accelerations;
+            simulation::VectorField<float> divergence_pressure_accelerations;
             std::vector<PressureIterationCache> density_checkpoints;
-            VectorField<float> total_pressure_accelerations;
+            simulation::VectorField<float> total_pressure_accelerations;
         };
         struct Workspace final {
             PressureIterationCache primal;
-            VectorField<float> total_pressure_accelerations;
+            simulation::VectorField<float> total_pressure_accelerations;
         };
         struct TangentWorkspace final {
             PressureIterationCache primal;
             PressureIterationTangent tangent;
-            VectorField<float> non_pressure_accelerations;
-            VectorField<float> divergence_pressure_accelerations;
-            VectorField<float> primal_total_pressure_accelerations;
-            VectorField<float> tangent_total_pressure_accelerations;
+            simulation::VectorField<float> non_pressure_accelerations;
+            simulation::VectorField<float> divergence_pressure_accelerations;
+            simulation::VectorField<float> primal_total_pressure_accelerations;
+            simulation::VectorField<float> tangent_total_pressure_accelerations;
         };
         struct AdjointWorkspace final {
             std::vector<PressureIterationCache> recomputed_iterations;
             PressureIterationAdjoint adjoint;
             PressureIterationAdjoint previous_adjoint;
-            VectorField<float> total_pressure_accelerations;
-            ScalarField<double> target_densities;
-            VectorField<double> non_pressure_accelerations;
-            VectorField<double> divergence_pressure_accelerations;
-            VectorField<double> total_pressure_accelerations_adjoint;
+            simulation::VectorField<float> total_pressure_accelerations;
+            simulation::ScalarField<double> target_densities;
+            simulation::VectorField<double> non_pressure_accelerations;
+            simulation::VectorField<double> divergence_pressure_accelerations;
+            simulation::VectorField<double> total_pressure_accelerations_adjoint;
         };
 
         DivergenceFree(const meshfree::Model& model, Configuration configuration);
@@ -359,9 +359,9 @@ export namespace physica::fluids::liquid::sph {
         void copy_state_tangent(const meshfree::Model& model, const StateTangent& source, StateTangent& destination) const;
         void copy_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
         void accumulate_state_adjoint(const meshfree::Model& model, const StateAdjoint& source, StateAdjoint& destination) const;
-        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
-        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
-        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const meshfree::Model& model, const ParticleState& state, const State& method_state, const Control& control, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, ParticleState& next_state, State& next_method_state, Cache& cache, Workspace& workspace) const;
+        void jvp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateTangent& state_tangent, const StateTangent& method_state_tangent, const ControlTangent& control_tangent, const ParticleParameterTangent& particle_tangent, const ParameterTangent& parameter_tangent, const simulation::ScalarField<float>& density_tangent, ParticleStateTangent& next_state_tangent, StateTangent& next_method_state_tangent, TangentWorkspace& workspace) const;
+        void vjp(const meshfree::Model& model, const ParticleState& state, const State& method_state, const ParticleParameters& particles, const Parameters& parameters, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const Cache& cache, const ParticleStateAdjoint& next_state_adjoint, const StateAdjoint& next_method_state_adjoint, ParticleStateAdjoint& previous_state_adjoint, StateAdjoint& previous_method_state_adjoint, ControlAdjoint& control_adjoint, ParticleParameterAdjoint& particle_adjoint, ParameterAdjoint& parameter_adjoint, simulation::ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -371,7 +371,7 @@ export namespace physica::fluids::liquid::sph {
 
     template <class Algorithm>
     concept SPHDynamicsAlgorithm = std::constructible_from<Algorithm, const meshfree::Model&, typename Algorithm::Configuration>
-                                && requires(const Algorithm& algorithm, const meshfree::Model& model, const ParticleState& state, const ParticleStateTangent& state_tangent, const ParticleStateAdjoint& next_state_adjoint, ParticleState& next_state, ParticleStateTangent& next_state_tangent, ParticleStateAdjoint& previous_state_adjoint, const Control& control, const ControlTangent& control_tangent, ControlAdjoint& control_adjoint, const ParticleParameters& particles, const ParticleParameterTangent& particle_tangent, ParticleParameterAdjoint& particle_adjoint, const operators::Neighborhood& neighborhood, const ScalarField<float>& densities, const ScalarField<float>& density_tangent, ScalarField<double>& density_adjoint, const typename Algorithm::State& method_state, typename Algorithm::State& next_method_state, const typename Algorithm::StateTangent& method_state_tangent, typename Algorithm::StateTangent& next_method_state_tangent, const typename Algorithm::StateAdjoint& next_method_state_adjoint,
+                                && requires(const Algorithm& algorithm, const meshfree::Model& model, const ParticleState& state, const ParticleStateTangent& state_tangent, const ParticleStateAdjoint& next_state_adjoint, ParticleState& next_state, ParticleStateTangent& next_state_tangent, ParticleStateAdjoint& previous_state_adjoint, const Control& control, const ControlTangent& control_tangent, ControlAdjoint& control_adjoint, const ParticleParameters& particles, const ParticleParameterTangent& particle_tangent, ParticleParameterAdjoint& particle_adjoint, const operators::Neighborhood& neighborhood, const simulation::ScalarField<float>& densities, const simulation::ScalarField<float>& density_tangent, simulation::ScalarField<double>& density_adjoint, const typename Algorithm::State& method_state, typename Algorithm::State& next_method_state, const typename Algorithm::StateTangent& method_state_tangent, typename Algorithm::StateTangent& next_method_state_tangent, const typename Algorithm::StateAdjoint& next_method_state_adjoint,
                                     typename Algorithm::StateAdjoint& previous_method_state_adjoint, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace) {
                                        { algorithm.allocate_state(model) } -> std::same_as<typename Algorithm::State>;
                                        { algorithm.allocate_state_tangent(model) } -> std::same_as<typename Algorithm::StateTangent>;
@@ -391,4 +391,4 @@ export namespace physica::fluids::liquid::sph {
                                        algorithm.jvp(model, state, method_state, particles, parameters, neighborhood, densities, constant_cache, state_tangent, method_state_tangent, control_tangent, particle_tangent, parameter_tangent, density_tangent, next_state_tangent, next_method_state_tangent, tangent_workspace);
                                        algorithm.vjp(model, state, method_state, particles, parameters, neighborhood, densities, constant_cache, next_state_adjoint, next_method_state_adjoint, previous_state_adjoint, previous_method_state_adjoint, control_adjoint, particle_adjoint, parameter_adjoint, density_adjoint, adjoint_workspace);
                                    };
-} // namespace physica::fluids::liquid::sph
+} // namespace physica::fluids::liquid::solvers::sph

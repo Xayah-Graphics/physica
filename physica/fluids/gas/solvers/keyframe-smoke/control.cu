@@ -2,9 +2,9 @@
 #include <cuda/launch>
 #include <cuda/std/cmath>
 
-namespace physica::fluids::gas::keyframe_smoke::kernels {
+namespace physica::fluids::gas::solvers::keyframe_smoke::kernels {
     namespace {
-        __global__ void control_forward_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const field::VectorView<float> output) {
+        __global__ void control_forward_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const simulation::VectorView<float> output) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid)) return;
             int x, y, z;
@@ -38,7 +38,7 @@ namespace physica::fluids::gas::keyframe_smoke::kernels {
             output.z[index] = force.z;
         }
 
-        __global__ void control_jvp_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const double* direction, const field::VectorView<float> output) {
+        __global__ void control_jvp_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const double* direction, const simulation::VectorView<float> output) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid)) return;
             int x, y, z;
@@ -80,7 +80,7 @@ namespace physica::fluids::gas::keyframe_smoke::kernels {
             output.z[index] = force_tangent.z;
         }
 
-        __global__ void wind_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const double* parameters, const field::VectorView<const double> output_adjoint, double* gradient) {
+        __global__ void wind_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const WindData* winds, const double* parameters, const simulation::VectorView<const double> output_adjoint, double* gradient) {
             const WindData wind = winds[blockIdx.x];
             if (step < wind.begin_step || step >= wind.end_step) return;
             __shared__ double reductions[6][fluids::grid::device::block_size];
@@ -113,7 +113,7 @@ namespace physica::fluids::gas::keyframe_smoke::kernels {
                 for (int parameter = 0; parameter < 6; ++parameter) gradient[offset + parameter] += reductions[parameter][0];
         }
 
-        __global__ void vortex_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const VortexData* vortices, const double* parameters, const field::VectorView<const double> output_adjoint, double* gradient) {
+        __global__ void vortex_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const VortexData* vortices, const double* parameters, const simulation::VectorView<const double> output_adjoint, double* gradient) {
             const VortexData vortex = vortices[blockIdx.x];
             if (step < vortex.begin_step || step >= vortex.end_step) return;
             __shared__ double reductions[4][fluids::grid::device::block_size];
@@ -148,16 +148,16 @@ namespace physica::fluids::gas::keyframe_smoke::kernels {
         }
     } // namespace
 
-    void control_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const field::VectorView<float> output) {
+    void control_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const simulation::VectorView<float> output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), control_forward_kernel, grid, step, winds, wind_count, vortices, vortex_count, parameters, output);
     }
 
-    void control_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const double* direction, const field::VectorView<float> output_tangent) {
+    void control_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const double* direction, const simulation::VectorView<float> output_tangent) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), control_jvp_kernel, grid, step, winds, wind_count, vortices, vortex_count, parameters, direction, output_tangent);
     }
 
-    void control_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const field::VectorView<const double> output_adjoint, double* gradient) {
+    void control_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const WindData* winds, const std::uint32_t wind_count, const VortexData* vortices, const std::uint32_t vortex_count, const double* parameters, const simulation::VectorView<const double> output_adjoint, double* gradient) {
         if (wind_count != 0u) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(wind_count * fluids::grid::device::block_size), wind_vjp_kernel, grid, step, winds, parameters, output_adjoint, gradient);
         if (vortex_count != 0u) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(vortex_count * fluids::grid::device::block_size), vortex_vjp_kernel, grid, step, vortices, parameters, output_adjoint, gradient);
     }
-} // namespace physica::fluids::gas::keyframe_smoke::kernels
+} // namespace physica::fluids::gas::solvers::keyframe_smoke::kernels

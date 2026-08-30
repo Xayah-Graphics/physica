@@ -28,7 +28,7 @@ export namespace physica::examples::instant_ngp {
         void setup(spectra::sdk::cuda::Setup& setup);
         void reset(std::uint64_t seed);
         void step(double seconds);
-        void publish(spectra::sdk::cuda::Output& output);
+        void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
         inline static constexpr float scene_scale = 0.33F;
@@ -84,7 +84,7 @@ export namespace physica::examples::instant_ngp {
         psnr     = -10.0F * std::log10(training.loss);
     }
 
-    void Provider::publish(spectra::sdk::cuda::Output& output) {
+    void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
         const reconstruction::instant_ngp::InstantNGPDeviceState state = instant_ngp->device_state();
         spectra::sdk::cuda::Frame frame                                = output.begin(state.stream);
         const spectra::sdk::cuda::HashGridRadianceField field          = frame.hash_grid_radiance_field<"field">();

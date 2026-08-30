@@ -1,4 +1,4 @@
-#include <physica/fluids/liquid/device.cuh>
+#include <fluids/liquid/device.cuh>
 #include "density-kernels.h"
 #include <cuda/launch>
 
@@ -19,7 +19,7 @@ namespace physica::fluids::liquid::operators::kernels::density {
         }
 
         template <bool Poly6>
-        __global__ void density_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
+        __global__ void density_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position = load(positions, particle);
@@ -44,7 +44,7 @@ namespace physica::fluids::liquid::operators::kernels::density {
         }
 
         template <bool Poly6>
-        __global__ void density_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
+        __global__ void density_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position = load(positions, particle);
@@ -72,7 +72,7 @@ namespace physica::fluids::liquid::operators::kernels::density {
         }
 
         template <bool Poly6>
-        __global__ void density_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const field::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+        __global__ void density_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const simulation::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position       = load(positions, particle);
@@ -108,27 +108,27 @@ namespace physica::fluids::liquid::operators::kernels::density {
         }
     } // namespace
 
-    void cubic_density_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
+    void cubic_density_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_forward_kernel<false>, particle_count, support_radius, topology_positions, positions, parameters, neighborhood, boundary, densities);
     }
 
-    void cubic_density_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
+    void cubic_density_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_jvp_kernel<false>, particle_count, support_radius, topology_positions, positions, position_tangent, parameters, parameter_tangent, neighborhood, boundary, density_tangent);
     }
 
-    void cubic_density_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const field::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+    void cubic_density_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const simulation::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_vjp_kernel<false>, particle_count, support_radius, topology_positions, positions, parameters, neighborhood, boundary, density_adjoint, position_adjoint, parameter_adjoint);
     }
 
-    void poly6_density_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
+    void poly6_density_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* densities) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_forward_kernel<true>, particle_count, support_radius, topology_positions, positions, parameters, neighborhood, boundary, densities);
     }
 
-    void poly6_density_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
+    void poly6_density_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, float* density_tangent) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_jvp_kernel<true>, particle_count, support_radius, topology_positions, positions, position_tangent, parameters, parameter_tangent, neighborhood, boundary, density_tangent);
     }
 
-    void poly6_density_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const field::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+    void poly6_density_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const simulation::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), density_vjp_kernel<true>, particle_count, support_radius, topology_positions, positions, parameters, neighborhood, boundary, density_adjoint, position_adjoint, parameter_adjoint);
     }
 } // namespace physica::fluids::liquid::operators::kernels::density

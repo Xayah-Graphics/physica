@@ -3,13 +3,13 @@
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
 
-namespace physica::fluids::gas::adjoint_control::kernels {
+namespace physica::fluids::gas::solvers::adjoint_control::kernels {
     namespace {
         __device__ float gaussian(const float x, const float y, const float z, const float sigma) {
             return ::cuda::std::exp(-0.5F * (x * x + y * y + z * z) / (sigma * sigma));
         }
 
-        __global__ void apply_control_kernel(const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* parameters, const field::VectorView<float> output) {
+        __global__ void apply_control_kernel(const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* parameters, const simulation::VectorView<float> output) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid)) return;
             if (step >= step_count) {
@@ -52,7 +52,7 @@ namespace physica::fluids::gas::adjoint_control::kernels {
             output.z[index] = static_cast<float>(force_z);
         }
 
-        __global__ void control_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const field::VectorView<const double> output_adjoint, double* gradient) {
+        __global__ void control_vjp_kernel(const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const simulation::VectorView<const double> output_adjoint, double* gradient) {
             const std::uint64_t center  = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             const std::uint64_t centers = static_cast<std::uint64_t>(lattice.x) * lattice.y * lattice.z;
             if (center >= centers || step >= step_count) return;
@@ -90,16 +90,16 @@ namespace physica::fluids::gas::adjoint_control::kernels {
         }
     } // namespace
 
-    void control_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* parameters, const field::VectorView<float> output) {
+    void control_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* parameters, const simulation::VectorView<float> output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), apply_control_kernel, grid, step, lattice, sigma, step_count, parameters, output);
     }
 
-    void control_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* direction, const field::VectorView<float> output) {
+    void control_jvp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const double* direction, const simulation::VectorView<float> output) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), apply_control_kernel, grid, step, lattice, sigma, step_count, direction, output);
     }
 
-    void control_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const field::VectorView<const double> output_adjoint, double* gradient) {
+    void control_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t step, const ControlLatticeData lattice, const float sigma, const std::uint32_t step_count, const simulation::VectorView<const double> output_adjoint, double* gradient) {
         const std::uint64_t centers = static_cast<std::uint64_t>(lattice.x) * lattice.y * lattice.z;
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(centers), control_vjp_kernel, grid, step, lattice, sigma, step_count, output_adjoint, gradient);
     }
-} // namespace physica::fluids::gas::adjoint_control::kernels
+} // namespace physica::fluids::gas::solvers::adjoint_control::kernels

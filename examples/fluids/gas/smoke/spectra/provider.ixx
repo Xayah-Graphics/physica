@@ -33,7 +33,7 @@ export namespace physica::examples::smoke {
         void setup(spectra::sdk::cuda::Setup& setup);
         void reset(std::uint64_t seed);
         void step(double seconds);
-        void publish(spectra::sdk::cuda::Output& output);
+        void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
         std::unique_ptr<Simulation, SimulationDeleter> simulation;
@@ -59,7 +59,7 @@ export namespace physica::examples::smoke {
         simulation->step();
     }
 
-    void Provider::publish(spectra::sdk::cuda::Output& output) {
+    void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
         spectra::sdk::cuda::Frame frame         = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Volume volume = frame.volume<"smoke">();
         const std::span<float> density          = volume.field<"density", float>();

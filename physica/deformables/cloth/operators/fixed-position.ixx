@@ -30,12 +30,12 @@ export namespace physica::deformables::cloth::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Model& model) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Model& model) const;
 
-        void forward(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, VectorField<float>& constrained_positions, VectorField<float>& constrained_velocities, Cache& cache, Workspace& workspace) const;
-        void jvp(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const VectorField<float>& constrained_positions, const VectorField<float>& constrained_velocities, const Cache& cache, const VectorField<float>& position_tangent, const VectorField<float>& velocity_tangent, VectorField<float>& constrained_position_tangent, VectorField<float>& constrained_velocity_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Model& model, const VectorField<float>& positions, const VectorField<float>& velocities, const VectorField<float>& constrained_positions, const VectorField<float>& constrained_velocities, const Cache& cache, const VectorField<double>& constrained_position_adjoint, const VectorField<double>& constrained_velocity_adjoint, VectorField<double>& position_adjoint, VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, simulation::VectorField<float>& constrained_positions, simulation::VectorField<float>& constrained_velocities, Cache& cache, Workspace& workspace) const;
+        void jvp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& constrained_positions, const simulation::VectorField<float>& constrained_velocities, const Cache& cache, const simulation::VectorField<float>& position_tangent, const simulation::VectorField<float>& velocity_tangent, simulation::VectorField<float>& constrained_position_tangent, simulation::VectorField<float>& constrained_velocity_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& constrained_positions, const simulation::VectorField<float>& constrained_velocities, const Cache& cache, const simulation::VectorField<double>& constrained_position_adjoint, const simulation::VectorField<double>& constrained_velocity_adjoint, simulation::VectorField<double>& position_adjoint, simulation::VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
 
     private:
-        ScalarField<std::uint32_t> anchor_mask;
-        VectorField<float> anchor_positions;
+        simulation::ScalarField<std::uint32_t> anchor_mask;
+        simulation::VectorField<float> anchor_positions;
     };
 } // namespace physica::deformables::cloth::operators

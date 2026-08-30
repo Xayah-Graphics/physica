@@ -34,7 +34,7 @@ export namespace physica::examples::pbf_dam_break {
         void setup(spectra::sdk::cuda::Setup& setup);
         void reset(std::uint64_t seed);
         void step(double seconds);
-        void publish(spectra::sdk::cuda::Output& output);
+        void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
         std::unique_ptr<Simulation, SimulationDeleter> simulation;
@@ -60,7 +60,7 @@ export namespace physica::examples::pbf_dam_break {
         simulation->step();
     }
 
-    void Provider::publish(spectra::sdk::cuda::Output& output) {
+    void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
         spectra::sdk::cuda::Frame frame                  = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Particles particles    = frame.particles<"particles">(Simulation::particle_count);
         const std::span<spectra::sdk::Float3> positions  = particles.positions;

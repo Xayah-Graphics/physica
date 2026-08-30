@@ -2,12 +2,12 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.liquid.pic:model;
+export module physica.fluids.liquid.solvers.pic.model;
 
 import std;
 export import physica.fluids.grid;
 
-export namespace physica::fluids::liquid::pic {
+export namespace physica::fluids::liquid::solvers::pic {
     struct ModelConfiguration final {
         grid::Configuration grid;
         std::uint32_t maximum_particle_count;
@@ -29,4 +29,4 @@ export namespace physica::fluids::liquid::pic {
         Model(Model&&)                 = delete;
         Model& operator=(Model&&)      = delete;
     };
-} // namespace physica::fluids::liquid::pic
+} // namespace physica::fluids::liquid::solvers::pic

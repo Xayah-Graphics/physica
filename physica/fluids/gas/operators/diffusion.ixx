@@ -20,9 +20,9 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const VectorField<float>& source, VectorField<float>& output, Workspace& workspace) const;
-        void jvp(const Domain& domain, const VectorField<float>& source_tangent, VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::VectorField<float>& source, simulation::VectorField<float>& output, Workspace& workspace) const;
+        void jvp(const Domain& domain, const simulation::VectorField<float>& source_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const;
     };
 
     struct ImplicitVelocityDiffusion final {
@@ -32,18 +32,18 @@ export namespace physica::fluids::gas::operators {
         };
 
         struct Workspace final {
-            VectorField<float> first;
-            VectorField<float> second;
+            simulation::VectorField<float> first;
+            simulation::VectorField<float> second;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> first;
-            VectorField<float> second;
+            simulation::VectorField<float> first;
+            simulation::VectorField<float> second;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> first;
-            VectorField<double> second;
+            simulation::VectorField<double> first;
+            simulation::VectorField<double> second;
         };
 
         explicit ImplicitVelocityDiffusion(Configuration configuration);
@@ -52,16 +52,16 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const VectorField<float>& source, VectorField<float>& output, Workspace& workspace) const;
-        void jvp(const Domain& domain, const VectorField<float>& source_tangent, VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::VectorField<float>& source, simulation::VectorField<float>& output, Workspace& workspace) const;
+        void jvp(const Domain& domain, const simulation::VectorField<float>& source_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
     };
 
     template <class Algorithm>
-    concept DiffusionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const VectorField<float>& velocity, VectorField<float>& velocity_output, const VectorField<double>& velocity_adjoint, VectorField<double>& velocity_adjoint_output) {
+    concept DiffusionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::VectorField<float>& velocity, simulation::VectorField<float>& velocity_output, const simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& velocity_adjoint_output) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

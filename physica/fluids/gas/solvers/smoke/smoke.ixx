@@ -2,7 +2,7 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.smoke;
+export module physica.fluids.gas.solvers.smoke;
 
 import std;
 import physica.fluids.gas.domain;
@@ -11,45 +11,45 @@ import physica.fluids.gas.operators.advection;
 import physica.fluids.gas.operators.diffusion;
 import physica.fluids.gas.operators.projection;
 
-export namespace physica::fluids::gas::smoke {
+export namespace physica::fluids::gas::solvers::smoke {
     struct State final {
-        ScalarField<float> density;
-        ScalarField<float> temperature;
-        VectorField<float> velocity;
+        simulation::ScalarField<float> density;
+        simulation::ScalarField<float> temperature;
+        simulation::VectorField<float> velocity;
     };
 
     struct Control final {
-        ScalarField<float> density_source;
-        ScalarField<float> temperature_source;
-        VectorField<float> external_acceleration;
+        simulation::ScalarField<float> density_source;
+        simulation::ScalarField<float> temperature_source;
+        simulation::VectorField<float> external_acceleration;
     };
 
     struct StateTangent final {
-        ScalarField<float> density;
-        ScalarField<float> temperature;
-        VectorField<float> velocity;
+        simulation::ScalarField<float> density;
+        simulation::ScalarField<float> temperature;
+        simulation::VectorField<float> velocity;
     };
 
     struct ControlTangent final {
-        ScalarField<float> density_source;
-        ScalarField<float> temperature_source;
-        VectorField<float> external_acceleration;
+        simulation::ScalarField<float> density_source;
+        simulation::ScalarField<float> temperature_source;
+        simulation::VectorField<float> external_acceleration;
     };
 
     struct StateAdjoint final {
-        ScalarField<double> density;
-        ScalarField<double> temperature;
-        VectorField<double> velocity;
+        simulation::ScalarField<double> density;
+        simulation::ScalarField<double> temperature;
+        simulation::VectorField<double> velocity;
     };
 
     struct ControlAdjoint final {
-        ScalarField<double> density_source;
-        ScalarField<double> temperature_source;
-        VectorField<double> external_acceleration;
+        simulation::ScalarField<double> density_source;
+        simulation::ScalarField<double> temperature_source;
+        simulation::VectorField<double> external_acceleration;
     };
 
     template <class Algorithm>
-    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const ScalarField<float>& scalar, const VectorField<float>& velocity, const VectorField<float>& centered, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, ScalarField<double>& scalar_adjoint, VectorField<double>& velocity_adjoint, VectorField<double>& centered_adjoint) {
+    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::ScalarField<float>& scalar, const simulation::VectorField<float>& velocity, const simulation::VectorField<float>& centered, const typename Algorithm::Parameters& parameters, const typename Algorithm::ParameterTangent& parameter_tangent, typename Algorithm::ParameterAdjoint& parameter_adjoint, simulation::ScalarField<double>& scalar_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& centered_adjoint) {
         { algorithm.allocate_parameters(domain) } -> std::same_as<typename Algorithm::Parameters>;
         { algorithm.allocate_parameter_tangent(domain) } -> std::same_as<typename Algorithm::ParameterTangent>;
         { algorithm.allocate_parameter_adjoint(domain) } -> std::same_as<typename Algorithm::ParameterAdjoint>;
@@ -75,45 +75,45 @@ export namespace physica::fluids::gas::smoke {
         };
 
         struct StepCache final {
-            ScalarField<float> sourced_density;
-            ScalarField<float> sourced_temperature;
+            simulation::ScalarField<float> sourced_density;
+            simulation::ScalarField<float> sourced_temperature;
             typename Force::Cache force;
-            VectorField<float> forced_velocity;
+            simulation::VectorField<float> forced_velocity;
         };
 
         struct Workspace final {
             typename Advection::Workspace advection;
-            VectorField<float> advected_velocity;
+            simulation::VectorField<float> advected_velocity;
             typename Diffusion::Workspace diffusion;
-            VectorField<float> diffused_velocity;
+            simulation::VectorField<float> diffused_velocity;
             typename Projection::Workspace projection;
         };
 
         struct TangentWorkspace final {
-            ScalarField<float> sourced_density;
-            ScalarField<float> sourced_temperature;
+            simulation::ScalarField<float> sourced_density;
+            simulation::ScalarField<float> sourced_temperature;
             typename Force::TangentWorkspace force;
-            VectorField<float> forced_velocity;
+            simulation::VectorField<float> forced_velocity;
             typename Advection::TangentWorkspace advection;
-            VectorField<float> advected_velocity;
+            simulation::VectorField<float> advected_velocity;
             typename Diffusion::TangentWorkspace diffusion;
-            VectorField<float> diffused_velocity;
-            VectorField<float> constrained_velocity;
+            simulation::VectorField<float> diffused_velocity;
+            simulation::VectorField<float> constrained_velocity;
             typename Projection::TangentWorkspace projection;
         };
 
         struct AdjointWorkspace final {
-            ScalarField<double> sourced_density;
-            ScalarField<double> sourced_temperature;
-            VectorField<double> projected_velocity;
+            simulation::ScalarField<double> sourced_density;
+            simulation::ScalarField<double> sourced_temperature;
+            simulation::VectorField<double> projected_velocity;
             typename Projection::AdjointWorkspace projection;
-            VectorField<double> constrained_velocity;
-            VectorField<double> diffused_velocity;
+            simulation::VectorField<double> constrained_velocity;
+            simulation::VectorField<double> diffused_velocity;
             typename Diffusion::AdjointWorkspace diffusion;
-            VectorField<double> advected_velocity;
+            simulation::VectorField<double> advected_velocity;
             typename Advection::AdjointWorkspace advection;
-            VectorField<double> forced_velocity;
-            VectorField<double> force_adjoint;
+            simulation::VectorField<double> forced_velocity;
+            simulation::VectorField<double> force_adjoint;
             typename Force::AdjointWorkspace force;
         };
 
@@ -296,7 +296,7 @@ export namespace physica::fluids::gas::smoke {
         Projection projection;
         const ScalarBoundary density_boundary;
         const ScalarBoundary temperature_boundary;
-        ScalarField<float> collider_density;
-        ScalarField<float> collider_temperature;
+        simulation::ScalarField<float> collider_density;
+        simulation::ScalarField<float> collider_temperature;
     };
-} // namespace physica::fluids::gas::smoke
+} // namespace physica::fluids::gas::solvers::smoke

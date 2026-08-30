@@ -3,7 +3,7 @@
 #include <cuda/std/bit>
 #include <cuda/std/cmath>
 
-namespace physica::fluids::liquid::pic::kernels::grid_step {
+namespace physica::fluids::liquid::solvers::pic::kernels::grid_step {
     namespace {
         constexpr std::uint32_t air   = 0u;
         constexpr std::uint32_t fluid = 1u;
@@ -34,10 +34,10 @@ namespace physica::fluids::liquid::pic::kernels::grid_step {
             level_set[index]       = 3.0F * grid.cell_size;
         }
 
-        __global__ void particle_level_set_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float level_set_radius, const field::VectorView<const float> positions, std::uint32_t* particle_counts, float* level_set) {
+        __global__ void particle_level_set_kernel(const grid::device::Grid grid, const std::uint32_t particle_count, const float level_set_radius, const simulation::VectorView<const float> positions, std::uint32_t* particle_counts, float* level_set) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = field::load(positions, particle);
+            const Vector3<float> position = simulation::load(positions, particle);
             int cell_x, cell_y, cell_z;
             grid::device::interior_cell(grid, position, cell_x, cell_y, cell_z);
             atomicAdd(particle_counts + grid::device::cell_index(grid, cell_x, cell_y, cell_z), 1u);
@@ -135,7 +135,7 @@ namespace physica::fluids::liquid::pic::kernels::grid_step {
             valid[index] = constrained_face(grid, no_slip, axis, x, y, z, cell_types) || fluid_face(grid, axis, x, y, z, cell_types) ? 1u : 0u;
         }
 
-        __global__ void divergence_kernel(const grid::device::Grid grid, const std::uint32_t* cell_types, const field::VectorView<const float> velocity, float* divergence, float* metrics) {
+        __global__ void divergence_kernel(const grid::device::Grid grid, const std::uint32_t* cell_types, const simulation::VectorView<const float> velocity, float* divergence, float* metrics) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= grid::device::cell_count(grid)) return;
             if (cell_types[index] != fluid) {
@@ -157,30 +157,30 @@ namespace physica::fluids::liquid::pic::kernels::grid_step {
 
     } // namespace
 
-    void classify(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float level_set_radius, const field::VectorView<const float> positions, std::uint32_t* particle_counts, std::uint32_t* cell_types, float* level_set) {
+    void classify(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const float level_set_radius, const simulation::VectorView<const float> positions, std::uint32_t* particle_counts, std::uint32_t* cell_types, float* level_set) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::cell_count(grid)), initialize_cells_kernel, grid, particle_counts, cell_types, level_set);
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), particle_level_set_kernel, grid, particle_count, level_set_radius, positions, particle_counts, level_set);
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::cell_count(grid)), finalize_cells_kernel, grid, particle_counts, cell_types, level_set);
     }
 
-    void normalize(const ::cuda::stream_ref stream, const grid::device::Grid grid, const field::VectorView<const float> mass, const field::VectorView<float> momentum, const field::VectorView<std::uint32_t> valid) {
+    void normalize(const ::cuda::stream_ref stream, const grid::device::Grid grid, const simulation::VectorView<const float> mass, const simulation::VectorView<float> momentum, const simulation::VectorView<std::uint32_t> valid) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), normalize_kernel, grid, axis, grid::device::component(mass, axis), grid::device::component(momentum, axis), grid::device::component(valid, axis));
     }
 
-    void extrapolate_layer(const ::cuda::stream_ref stream, const grid::device::Grid grid, const field::VectorView<const float> input, const field::VectorView<const std::uint32_t> input_valid, const field::VectorView<float> output, const field::VectorView<std::uint32_t> output_valid) {
+    void extrapolate_layer(const ::cuda::stream_ref stream, const grid::device::Grid grid, const simulation::VectorView<const float> input, const simulation::VectorView<const std::uint32_t> input_valid, const simulation::VectorView<float> output, const simulation::VectorView<std::uint32_t> output_valid) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), extrapolate_kernel, grid, axis, grid::device::component(input, axis), grid::device::component(input_valid, axis), grid::device::component(output, axis), grid::device::component(output_valid, axis));
     }
 
-    void add_force_and_constrain(const ::cuda::stream_ref stream, const grid::device::Grid grid, const bool no_slip, const float time_step, const Vector3<float> acceleration, const std::uint32_t* cell_types, const field::VectorView<float> velocity) {
+    void add_force_and_constrain(const ::cuda::stream_ref stream, const grid::device::Grid grid, const bool no_slip, const float time_step, const Vector3<float> acceleration, const std::uint32_t* cell_types, const simulation::VectorView<float> velocity) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), force_and_constrain_kernel, grid, no_slip, time_step, acceleration, axis, cell_types, grid::device::component(velocity, axis));
     }
 
-    void mark_fluid_faces(const ::cuda::stream_ref stream, const grid::device::Grid grid, const bool no_slip, const std::uint32_t* cell_types, const field::VectorView<std::uint32_t> valid) {
+    void mark_fluid_faces(const ::cuda::stream_ref stream, const grid::device::Grid grid, const bool no_slip, const std::uint32_t* cell_types, const simulation::VectorView<std::uint32_t> valid) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), mark_fluid_faces_kernel, grid, no_slip, axis, cell_types, grid::device::component(valid, axis));
     }
 
-    void compute_divergence(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t* cell_types, const field::VectorView<const float> velocity, float* divergence, float* metrics) {
+    void compute_divergence(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t* cell_types, const simulation::VectorView<const float> velocity, float* divergence, float* metrics) {
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::cell_count(grid)), divergence_kernel, grid, cell_types, velocity, divergence, metrics);
     }
 
-} // namespace physica::fluids::liquid::pic::kernels::grid_step
+} // namespace physica::fluids::liquid::solvers::pic::kernels::grid_step

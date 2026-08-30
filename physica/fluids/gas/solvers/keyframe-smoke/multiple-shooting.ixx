@@ -2,18 +2,18 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.keyframe_smoke.multiple_shooting;
+export module physica.fluids.gas.solvers.keyframe_smoke.multiple_shooting;
 
 import std;
-import physica.fluids.gas.keyframe_smoke;
-import physica.fluids.gas.keyframe_smoke.control;
+import physica.fluids.gas.solvers.keyframe_smoke;
+import physica.fluids.gas.solvers.keyframe_smoke.control;
 import physica.fluids.gas.domain;
-import physica.fluids.gas.keyframe_smoke.evaluation;
+import physica.fluids.gas.solvers.keyframe_smoke.evaluation;
 import physica.fluids.gas.operators.objective;
-import physica.fluids.gas.keyframe_smoke.optimization;
+import physica.fluids.gas.solvers.keyframe_smoke.optimization;
 import physica.optimization.lbfgsb;
 
-export namespace physica::fluids::gas::keyframe_smoke {
+export namespace physica::fluids::gas::solvers::keyframe_smoke {
     struct ShootingSegment final {
         Problem problem;
         std::vector<std::uint8_t> active_parameters;
@@ -122,8 +122,8 @@ export namespace physica::fluids::gas::keyframe_smoke {
             propagated = true;
         }
         Evaluator evaluator(domain, solver, control, objective_function, problem);
-        ::cuda::device_buffer<double> final_parameters(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), result.parameters.size(), ::cuda::no_init);
-        ::cuda::copy_bytes(domain.grid.fields.stream, ::cuda::std::span<const double>{result.parameters.data(), result.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
+        ::cuda::device_buffer<double> final_parameters(domain.grid.stream, ::cuda::device_default_memory_pool(domain.grid.stream.device()), result.parameters.size(), ::cuda::no_init);
+        ::cuda::copy_bytes(domain.grid.stream, ::cuda::std::span<const double>{result.parameters.data(), result.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
         result.final_trace.emplace(evaluator.evaluate({final_parameters.data(), final_parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
@@ -304,4 +304,4 @@ export namespace physica::fluids::gas::keyframe_smoke {
             });
         return result;
     }
-} // namespace physica::fluids::gas::keyframe_smoke
+} // namespace physica::fluids::gas::solvers::keyframe_smoke

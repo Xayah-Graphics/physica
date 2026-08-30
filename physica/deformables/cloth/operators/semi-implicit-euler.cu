@@ -1,4 +1,4 @@
-#include <physica/field/device.cuh>
+#include <simulation/field/device.cuh>
 #include "semi-implicit-euler-kernels.h"
 #include <cuda/launch>
 
@@ -6,7 +6,7 @@ namespace physica::deformables::cloth::kernels {
     namespace {
         constexpr std::uint32_t block_size = 256u;
 
-        __global__ void forward_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> forces, const float* masses, const field::VectorView<float> integrated_positions, const field::VectorView<float> integrated_velocities) {
+        __global__ void forward_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<float> integrated_positions, const simulation::VectorView<float> integrated_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> velocity = load(velocities, particle) + (time_step / masses[particle]) * load(forces, particle);
@@ -14,7 +14,7 @@ namespace physica::deformables::cloth::kernels {
             store(integrated_positions, particle, load(positions, particle) + time_step * velocity);
         }
 
-        __global__ void jvp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> forces, const float* masses, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> force_tangent, const float* mass_tangent, const field::VectorView<float> integrated_position_tangent, const field::VectorView<float> integrated_velocity_tangent) {
+        __global__ void jvp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> force_tangent, const float* mass_tangent, const simulation::VectorView<float> integrated_position_tangent, const simulation::VectorView<float> integrated_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const float mass             = masses[particle];
@@ -23,7 +23,7 @@ namespace physica::deformables::cloth::kernels {
             store(integrated_position_tangent, particle, load(position_tangent, particle) + time_step * velocity);
         }
 
-        __global__ void vjp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> forces, const float* masses, const field::VectorView<const double> integrated_position_adjoint, const field::VectorView<const double> integrated_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> force_adjoint, double* mass_adjoint) {
+        __global__ void vjp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<const double> integrated_position_adjoint, const simulation::VectorView<const double> integrated_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> force_adjoint, double* mass_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<double> local_position_adjoint = load(integrated_position_adjoint, particle);
@@ -36,15 +36,15 @@ namespace physica::deformables::cloth::kernels {
         }
     } // namespace
 
-    void semi_implicit_euler_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> forces, const float* masses, const field::VectorView<float> integrated_positions, const field::VectorView<float> integrated_velocities) {
+    void semi_implicit_euler_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<float> integrated_positions, const simulation::VectorView<float> integrated_velocities) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), forward_kernel, particle_count, time_step, positions, velocities, forces, masses, integrated_positions, integrated_velocities);
     }
 
-    void semi_implicit_euler_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> forces, const float* masses, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> force_tangent, const float* mass_tangent, const field::VectorView<float> integrated_position_tangent, const field::VectorView<float> integrated_velocity_tangent) {
+    void semi_implicit_euler_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> force_tangent, const float* mass_tangent, const simulation::VectorView<float> integrated_position_tangent, const simulation::VectorView<float> integrated_velocity_tangent) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), jvp_kernel, particle_count, time_step, forces, masses, position_tangent, velocity_tangent, force_tangent, mass_tangent, integrated_position_tangent, integrated_velocity_tangent);
     }
 
-    void semi_implicit_euler_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> forces, const float* masses, const field::VectorView<const double> integrated_position_adjoint, const field::VectorView<const double> integrated_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> force_adjoint, double* mass_adjoint) {
+    void semi_implicit_euler_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> forces, const float* masses, const simulation::VectorView<const double> integrated_position_adjoint, const simulation::VectorView<const double> integrated_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> force_adjoint, double* mass_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), vjp_kernel, particle_count, time_step, forces, masses, integrated_position_adjoint, integrated_velocity_adjoint, position_adjoint, velocity_adjoint, force_adjoint, mass_adjoint);
     }
 } // namespace physica::deformables::cloth::kernels

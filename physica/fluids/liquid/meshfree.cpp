@@ -8,10 +8,10 @@ import std;
 
 namespace physica::fluids::liquid::meshfree {
     Model::Model(Configuration next_configuration, const ::cuda::stream_ref source_stream)
-        : configuration(std::move(next_configuration)), fields(source_stream), boundary{
-            .positions  = fields.allocate_vector_field<float>(configuration.boundary_particles.size()),
-            .velocities = fields.allocate_vector_field<float>(configuration.boundary_particles.size()),
-            .volumes    = fields.allocate_scalar_field<float>(configuration.boundary_particles.size()),
+        : configuration(std::move(next_configuration)), stream(source_stream), boundary{
+            .positions  = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
+            .velocities = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
+            .volumes    = simulation::ScalarField<float>{stream, configuration.boundary_particles.size()},
         } {
         std::vector<Vector3<float>> positions(configuration.boundary_particles.size());
         std::vector<Vector3<float>> velocities(configuration.boundary_particles.size());
@@ -21,9 +21,9 @@ namespace physica::fluids::liquid::meshfree {
             velocities[index] = configuration.boundary_particles[index].velocity;
             volumes[index]    = configuration.boundary_particles[index].volume;
         }
-        fields.upload(positions, boundary.positions);
-        fields.upload(velocities, boundary.velocities);
-        ::cuda::copy_bytes(fields.stream, volumes, boundary.volumes.values);
-        fields.stream.sync();
+        simulation::upload(stream, positions, boundary.positions);
+        simulation::upload(stream, velocities, boundary.velocities);
+        ::cuda::copy_bytes(stream, volumes, boundary.volumes.values);
+        stream.sync();
     }
 }

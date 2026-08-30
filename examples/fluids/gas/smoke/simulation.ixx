@@ -11,7 +11,7 @@ import physica.fluids.gas.operators.force;
 import physica.fluids.gas.operators.advection;
 import physica.fluids.gas.operators.diffusion;
 import physica.fluids.gas.operators.projection;
-import physica.fluids.gas.smoke;
+import physica.fluids.gas.solvers.smoke;
 
 export namespace physica::examples::smoke {
     struct Simulation final {
@@ -37,10 +37,10 @@ export namespace physica::examples::smoke {
         fluids::gas::Domain domain;
 
     private:
-        fluids::gas::smoke::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::IdentityVelocityDiffusion, fluids::gas::operators::ThermalBuoyancyVorticity, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
+        fluids::gas::solvers::smoke::Solver<fluids::gas::operators::SemiLagrangianRK2, fluids::gas::operators::IdentityVelocityDiffusion, fluids::gas::operators::ThermalBuoyancyVorticity, fluids::gas::operators::MacProjection<fluids::gas::operators::RedBlackGaussSeidel>> solver;
 
     public:
-        fluids::gas::smoke::State current_state;
+        fluids::gas::solvers::smoke::State current_state;
         std::uint64_t step_index = 0u;
         double physical_time     = 0.0;
 
@@ -55,8 +55,8 @@ export namespace physica::examples::smoke {
         void step();
 
     private:
-        fluids::gas::smoke::State next_state;
-        fluids::gas::smoke::Control control;
+        fluids::gas::solvers::smoke::State next_state;
+        fluids::gas::solvers::smoke::Control control;
         fluids::gas::operators::ThermalBuoyancyVorticity::Parameters parameters;
         decltype(solver)::StepCache step_cache;
         decltype(solver)::Workspace workspace;

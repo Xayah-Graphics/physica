@@ -5,7 +5,7 @@ module;
 export module physica.fluids.liquid.meshfree;
 
 import std;
-export import physica.field;
+export import physica.simulation.field;
 
 export namespace physica::fluids::liquid::meshfree {
     struct BoxBoundary final {
@@ -30,14 +30,14 @@ export namespace physica::fluids::liquid::meshfree {
     };
 
     struct BoundaryFields final {
-        VectorField<float> positions;
-        VectorField<float> velocities;
-        ScalarField<float> volumes;
+        simulation::VectorField<float> positions;
+        simulation::VectorField<float> velocities;
+        simulation::ScalarField<float> volumes;
     };
 
     struct Model final {
         const Configuration configuration;
-        FieldContext fields;
+        const ::cuda::stream_ref stream;
         BoundaryFields boundary;
 
         Model(Configuration configuration, ::cuda::stream_ref stream);

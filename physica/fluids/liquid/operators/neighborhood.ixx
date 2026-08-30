@@ -33,6 +33,6 @@ export namespace physica::fluids::liquid::operators {
 
         [[nodiscard]] Neighborhood allocate_cache(const meshfree::Model& model) const;
         [[nodiscard]] Workspace allocate_workspace(const meshfree::Model& model) const;
-        void build(const meshfree::Model& model, std::uint64_t step_index, const VectorField<float>& positions, Neighborhood& neighborhood, Workspace& workspace) const;
+        void build(const meshfree::Model& model, std::uint64_t step_index, const simulation::VectorField<float>& positions, Neighborhood& neighborhood, Workspace& workspace) const;
     };
 } // namespace physica::fluids::liquid::operators

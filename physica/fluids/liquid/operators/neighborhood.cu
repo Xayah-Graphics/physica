@@ -19,7 +19,7 @@ namespace physica::fluids::liquid::operators::kernels::neighborhood {
             return first;
         }
 
-        __global__ void key_kernel(const std::uint32_t count, const float support_radius, const device::CollisionBox collision_box, const float time, const bool moving_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, std::uint64_t* keys, std::uint32_t* indices) {
+        __global__ void key_kernel(const std::uint32_t count, const float support_radius, const device::CollisionBox collision_box, const float time, const bool moving_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, std::uint64_t* keys, std::uint32_t* indices) {
             const std::uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
             if (index >= count) return;
             float x = positions.x[index];
@@ -53,9 +53,9 @@ namespace physica::fluids::liquid::operators::kernels::neighborhood {
         return bytes;
     }
 
-    void build_neighborhood(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t boundary_count, const float support_radius, const float time_step, const std::uint64_t step_index, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> boundary_positions, const field::VectorView<const float> boundary_velocities, std::uint64_t* unsorted_keys, std::uint32_t* unsorted_particle_indices, std::uint64_t* unsorted_boundary_keys, std::uint32_t* unsorted_boundary_indices, void* sort_scratch, std::size_t sort_scratch_bytes, void* boundary_sort_scratch, std::size_t boundary_sort_scratch_bytes, std::uint64_t* sorted_keys, std::uint32_t* sorted_particle_indices, std::uint32_t* cell_offsets, std::uint64_t* sorted_boundary_keys, std::uint32_t* sorted_boundary_indices, std::uint32_t* boundary_cell_offsets) {
+    void build_neighborhood(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t boundary_count, const float support_radius, const float time_step, const std::uint64_t step_index, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> boundary_positions, const simulation::VectorView<const float> boundary_velocities, std::uint64_t* unsorted_keys, std::uint32_t* unsorted_particle_indices, std::uint64_t* unsorted_boundary_keys, std::uint32_t* unsorted_boundary_indices, void* sort_scratch, std::size_t sort_scratch_bytes, void* boundary_sort_scratch, std::size_t boundary_sort_scratch_bytes, std::uint64_t* sorted_keys, std::uint32_t* sorted_particle_indices, std::uint32_t* cell_offsets, std::uint64_t* sorted_boundary_keys, std::uint32_t* sorted_boundary_indices, std::uint32_t* boundary_cell_offsets) {
         const float time = static_cast<float>(step_index) * time_step;
-        ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), key_kernel, particle_count, support_radius, collision_box, time, false, positions, field::VectorView<const float>{}, unsorted_keys, unsorted_particle_indices);
+        ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), key_kernel, particle_count, support_radius, collision_box, time, false, positions, simulation::VectorView<const float>{}, unsorted_keys, unsorted_particle_indices);
         cub::DeviceRadixSort::SortPairs(sort_scratch, sort_scratch_bytes, unsorted_keys, sorted_keys, unsorted_particle_indices, sorted_particle_indices, particle_count, 0, 64, stream.get());
         const std::uint32_t cells_x    = static_cast<std::uint32_t>(::cuda::std::ceil((collision_box.bounds.maximum.x - collision_box.bounds.minimum.x) / support_radius));
         const std::uint32_t cells_y    = static_cast<std::uint32_t>(::cuda::std::ceil((collision_box.bounds.maximum.y - collision_box.bounds.minimum.y) / support_radius));

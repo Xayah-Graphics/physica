@@ -2,7 +2,7 @@
 #define PHYSICA_EXAMPLES_FLUIDS_GAS_SMOKE_SIMULATION_KERNELS_H
 
 #include <cstdint>
-#include <physica/math.h>
+#include <math/math.h>
 #include <physica/cuda_stream.h>
 
 namespace physica::examples::smoke::simulation_cuda {

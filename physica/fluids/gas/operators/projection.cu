@@ -1,10 +1,10 @@
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include "projection-kernels.h"
 #include <cuda/launch>
 
 namespace physica::fluids::gas::operators::kernels {
     namespace {
-        __global__ void pressure_rhs_kernel(const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity, float* rhs) {
+        __global__ void pressure_rhs_kernel(const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity, float* rhs) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid)) return;
             if (collider_ids[index] != 0u || index == pressure_anchor) {
@@ -57,7 +57,7 @@ namespace physica::fluids::gas::operators::kernels {
             atomicAdd(pressure_adjoint + fluids::grid::device::index3(sx, sy, sz, grid.grid.nx, grid.grid.ny), -scale);
         }
 
-        __global__ void pressure_rhs_reverse_kernel(const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const double* rhs_adjoint, const field::VectorView<double> velocity_adjoint) {
+        __global__ void pressure_rhs_reverse_kernel(const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const double* rhs_adjoint, const simulation::VectorView<double> velocity_adjoint) {
             const std::uint64_t index = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= fluids::grid::device::cell_count(grid.grid) || collider_ids[index] != 0u || index == pressure_anchor) return;
             int x, y, z;
@@ -74,19 +74,19 @@ namespace physica::fluids::gas::operators::kernels {
         }
     } // namespace
 
-    void pressure_rhs_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity, const field::ScalarView<float> rhs) {
+    void pressure_rhs_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity, const simulation::ScalarView<float> rhs) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), pressure_rhs_kernel, grid, pressure_anchor, collider_ids, velocity, rhs.values);
     }
 
-    void pressure_rhs_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const field::ScalarView<const double> rhs_adjoint, const field::VectorView<double> velocity_adjoint) {
+    void pressure_rhs_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t pressure_anchor, const std::uint32_t* collider_ids, const simulation::ScalarView<const double> rhs_adjoint, const simulation::VectorView<double> velocity_adjoint) {
         ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::cell_count(grid.grid)), pressure_rhs_reverse_kernel, grid, pressure_anchor, collider_ids, rhs_adjoint.values, velocity_adjoint);
     }
 
-    void project_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const float> velocity, const field::ScalarView<const float> pressure, const field::VectorView<float> output) {
+    void project_velocity_forward(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const float> velocity, const simulation::ScalarView<const float> pressure, const simulation::VectorView<float> output) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), project_velocity_kernel, grid, axis, collider_ids, fluids::grid::device::component(velocity, axis), pressure.values, fluids::grid::device::component(output, axis));
     }
 
-    void project_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const field::VectorView<const double> output_adjoint, const field::VectorView<double> velocity_adjoint, const field::ScalarView<double> pressure_adjoint) {
+    void project_velocity_vjp(const ::cuda::stream_ref stream, const device::Discretization grid, const std::uint32_t* collider_ids, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::ScalarView<double> pressure_adjoint) {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<fluids::grid::device::block_size>(fluids::grid::device::face_count(grid.grid, axis)), project_velocity_reverse_kernel, grid, axis, collider_ids, fluids::grid::device::component(output_adjoint, axis), fluids::grid::device::component(velocity_adjoint, axis), pressure_adjoint.values);
     }
 

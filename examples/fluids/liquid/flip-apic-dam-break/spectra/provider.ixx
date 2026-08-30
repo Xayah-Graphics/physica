@@ -74,7 +74,7 @@ export namespace physica::examples::flip_apic_dam_break {
         void setup(spectra::sdk::cuda::Setup& setup);
         void reset(std::uint64_t seed);
         void step(double seconds);
-        void publish(spectra::sdk::cuda::Output& output);
+        void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
         std::unique_ptr<Simulation, SimulationDeleter> simulation;
@@ -103,7 +103,7 @@ export namespace physica::examples::flip_apic_dam_break {
         simulation->step(seconds);
     }
 
-    void Provider::publish(spectra::sdk::cuda::Output& output) {
+    void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
         spectra::sdk::cuda::Frame frame = output.begin(simulation->stream.get());
         const spectra::sdk::cuda::Particles flip_particles = frame.particles<"flip-particles">(simulation->flip_state.particle_count);
         spectra_cuda::write_flip_particles(simulation->stream, simulation->flip_state.particle_count, 0.0F, simulation->flip_state.positions.x.data(), simulation->flip_state.positions.y.data(), simulation->flip_state.positions.z.data(), simulation->flip_state.velocities.x.data(), simulation->flip_state.velocities.y.data(), simulation->flip_state.velocities.z.data(), flip_particles.positions.data(), flip_particles.field<"velocity", spectra::sdk::Float3>().data(), flip_particles.field<"speed", float>().data());

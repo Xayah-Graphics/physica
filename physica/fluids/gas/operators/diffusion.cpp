@@ -1,6 +1,6 @@
 module;
 
-#include <physica/fluids/gas/interop.h>
+#include <fluids/gas/interop.h>
 #include "diffusion-kernels.h"
 #include <physica/cuda.h>
 
@@ -21,14 +21,14 @@ namespace physica::fluids::gas::operators {
         return {};
     }
 
-    void IdentityVelocityDiffusion::forward(const Domain& domain, const VectorField<float>& source, VectorField<float>& output, Workspace&) const {
+    void IdentityVelocityDiffusion::forward(const Domain& domain, const simulation::VectorField<float>& source, simulation::VectorField<float>& output, Workspace&) const {
         domain.grid.copy(source, output);
     }
-    void IdentityVelocityDiffusion::jvp(const Domain& domain, const VectorField<float>& source_tangent, VectorField<float>& output_tangent, TangentWorkspace&) const {
+    void IdentityVelocityDiffusion::jvp(const Domain& domain, const simulation::VectorField<float>& source_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace&) const {
         domain.grid.copy(source_tangent, output_tangent);
     }
-    void IdentityVelocityDiffusion::vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& source_adjoint, AdjointWorkspace&) const {
-        kernels::identity_velocity_vjp(domain.grid.fields.stream, device::discretization(domain.configuration), field::view(output_adjoint), field::view(source_adjoint));
+    void IdentityVelocityDiffusion::vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& source_adjoint, AdjointWorkspace&) const {
+        kernels::identity_velocity_vjp(domain.grid.stream, device::discretization(domain.configuration), simulation::view(output_adjoint), simulation::view(source_adjoint));
     }
 
     ImplicitVelocityDiffusion::ImplicitVelocityDiffusion(Configuration next_configuration) : configuration(std::move(next_configuration)) {}
@@ -45,15 +45,15 @@ namespace physica::fluids::gas::operators {
         return {.first = domain.grid.allocate_mac_field<double>(), .second = domain.grid.allocate_mac_field<double>()};
     }
 
-    void ImplicitVelocityDiffusion::forward(const Domain& domain, const VectorField<float>& source, VectorField<float>& output, Workspace& workspace) const {
-        kernels::diffusion_forward(domain.grid.fields.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(domain.configuration.velocity_boundary), field::view(source), field::view(workspace.first), field::view(workspace.second), field::view(output));
+    void ImplicitVelocityDiffusion::forward(const Domain& domain, const simulation::VectorField<float>& source, simulation::VectorField<float>& output, Workspace& workspace) const {
+        kernels::diffusion_forward(domain.grid.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(domain.configuration.velocity_boundary), simulation::view(source), simulation::view(workspace.first), simulation::view(workspace.second), simulation::view(output));
     }
 
-    void ImplicitVelocityDiffusion::jvp(const Domain& domain, const VectorField<float>& source_tangent, VectorField<float>& output_tangent, TangentWorkspace& workspace) const {
-        kernels::diffusion_forward(domain.grid.fields.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(homogeneous(domain.configuration.velocity_boundary)), field::view(source_tangent), field::view(workspace.first), field::view(workspace.second), field::view(output_tangent));
+    void ImplicitVelocityDiffusion::jvp(const Domain& domain, const simulation::VectorField<float>& source_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace& workspace) const {
+        kernels::diffusion_forward(domain.grid.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(homogeneous(domain.configuration.velocity_boundary)), simulation::view(source_tangent), simulation::view(workspace.first), simulation::view(workspace.second), simulation::view(output_tangent));
     }
 
-    void ImplicitVelocityDiffusion::vjp(const Domain& domain, const VectorField<double>& output_adjoint, VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const {
-        kernels::diffusion_vjp(domain.grid.fields.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(domain.configuration.velocity_boundary), field::view(output_adjoint), field::view(workspace.first), field::view(workspace.second), field::view(source_adjoint));
+    void ImplicitVelocityDiffusion::vjp(const Domain& domain, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& source_adjoint, AdjointWorkspace& workspace) const {
+        kernels::diffusion_vjp(domain.grid.stream, device::discretization(domain.configuration), configuration.iterations, configuration.viscosity, domain.collider_ids.values.data(), device::velocity_boundary(domain.configuration.velocity_boundary), simulation::view(output_adjoint), simulation::view(workspace.first), simulation::view(workspace.second), simulation::view(source_adjoint));
     }
 } // namespace physica::fluids::gas::operators

@@ -12,15 +12,15 @@ export namespace physica::fluids::gas::operators {
         struct Configuration final {};
 
         struct Workspace final {
-            VectorField<float> raw_velocity;
+            simulation::VectorField<float> raw_velocity;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> raw_velocity;
+            simulation::VectorField<float> raw_velocity;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> raw_velocity;
+            simulation::VectorField<double> raw_velocity;
         };
 
         explicit SemiLagrangianRK2(Configuration configuration);
@@ -29,16 +29,16 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void velocity_forward(const Domain& domain, const VectorField<float>& velocity, VectorField<float>& output, Workspace& workspace) const;
-        void velocity_jvp(const Domain& domain, const VectorField<float>& velocity, const VectorField<float>& velocity_tangent, VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
-        void velocity_vjp(const Domain& domain, const VectorField<float>& velocity, const VectorField<double>& output_adjoint, VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
-        void scalar_forward(const Domain& domain, const ScalarField<float>& source, const VectorField<float>& velocity, const ScalarBoundary& boundary, const ScalarField<float>& collider_value, ScalarField<float>& output) const;
-        void scalar_jvp(const Domain& domain, const ScalarField<float>& source, const ScalarField<float>& source_tangent, const VectorField<float>& velocity, const VectorField<float>& velocity_tangent, const ScalarBoundary& boundary, ScalarField<float>& output_tangent) const;
-        void scalar_vjp(const Domain& domain, const ScalarField<float>& source, const VectorField<float>& velocity, const ScalarBoundary& boundary, const ScalarField<double>& output_adjoint, ScalarField<double>& source_adjoint, VectorField<double>& velocity_adjoint) const;
+        void velocity_forward(const Domain& domain, const simulation::VectorField<float>& velocity, simulation::VectorField<float>& output, Workspace& workspace) const;
+        void velocity_jvp(const Domain& domain, const simulation::VectorField<float>& velocity, const simulation::VectorField<float>& velocity_tangent, simulation::VectorField<float>& output_tangent, TangentWorkspace& workspace) const;
+        void velocity_vjp(const Domain& domain, const simulation::VectorField<float>& velocity, const simulation::VectorField<double>& output_adjoint, simulation::VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
+        void scalar_forward(const Domain& domain, const simulation::ScalarField<float>& source, const simulation::VectorField<float>& velocity, const ScalarBoundary& boundary, const simulation::ScalarField<float>& collider_value, simulation::ScalarField<float>& output) const;
+        void scalar_jvp(const Domain& domain, const simulation::ScalarField<float>& source, const simulation::ScalarField<float>& source_tangent, const simulation::VectorField<float>& velocity, const simulation::VectorField<float>& velocity_tangent, const ScalarBoundary& boundary, simulation::ScalarField<float>& output_tangent) const;
+        void scalar_vjp(const Domain& domain, const simulation::ScalarField<float>& source, const simulation::VectorField<float>& velocity, const ScalarBoundary& boundary, const simulation::ScalarField<double>& output_adjoint, simulation::ScalarField<double>& source_adjoint, simulation::VectorField<double>& velocity_adjoint) const;
     };
 
     template <class Algorithm>
-    concept AdvectionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const ScalarField<float>& scalar, ScalarField<float>& scalar_output, const ScalarField<double>& scalar_adjoint, ScalarField<double>& scalar_adjoint_output, const VectorField<float>& velocity, VectorField<float>& velocity_output, const VectorField<double>& velocity_adjoint, VectorField<double>& velocity_adjoint_output, const ScalarBoundary& boundary) {
+    concept AdvectionAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Workspace& workspace, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::ScalarField<float>& scalar, simulation::ScalarField<float>& scalar_output, const simulation::ScalarField<double>& scalar_adjoint, simulation::ScalarField<double>& scalar_adjoint_output, const simulation::VectorField<float>& velocity, simulation::VectorField<float>& velocity_output, const simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& velocity_adjoint_output, const ScalarBoundary& boundary) {
         { algorithm.allocate_workspace(domain) } -> std::same_as<typename Algorithm::Workspace>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;

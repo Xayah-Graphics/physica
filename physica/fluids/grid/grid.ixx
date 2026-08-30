@@ -5,7 +5,7 @@ module;
 export module physica.fluids.grid;
 
 import std;
-export import physica.field;
+export import physica.simulation.field;
 
 export namespace physica::fluids::grid {
     struct Configuration final {
@@ -17,12 +17,12 @@ export namespace physica::fluids::grid {
 
     struct Grid final {
         const Configuration configuration;
-        FieldContext fields;
+        const ::cuda::stream_ref stream;
         const std::size_t cell_count;
         const std::array<std::size_t, 3u> face_counts;
 
         Grid(Configuration next_configuration, const ::cuda::stream_ref stream)
-            : configuration(std::move(next_configuration)), fields(stream), cell_count(static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * configuration.resolution[2]),
+            : configuration(std::move(next_configuration)), stream(stream), cell_count(static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * configuration.resolution[2]),
               face_counts{
                   static_cast<std::size_t>(configuration.resolution[0] + 1u) * configuration.resolution[1] * configuration.resolution[2],
                   static_cast<std::size_t>(configuration.resolution[0]) * (configuration.resolution[1] + 1u) * configuration.resolution[2],
@@ -35,33 +35,28 @@ export namespace physica::fluids::grid {
         Grid& operator=(Grid&&)      = delete;
 
         template <class Value>
-        [[nodiscard]] ScalarField<Value> allocate_cell_field() const {
-            return fields.allocate_scalar_field<Value>(cell_count);
+        [[nodiscard]] simulation::ScalarField<Value> allocate_cell_field() const {
+            return simulation::ScalarField<Value>{stream, cell_count};
         }
 
         template <class Value>
-        [[nodiscard]] VectorField<Value> allocate_cell_vector_field() const {
-            return fields.allocate_vector_field<Value>(cell_count);
+        [[nodiscard]] simulation::VectorField<Value> allocate_cell_vector_field() const {
+            return simulation::VectorField<Value>{stream, cell_count};
         }
 
         template <class Value>
-        [[nodiscard]] VectorField<Value> allocate_mac_field() const {
-            const ::cuda::stream_ref stream = fields.stream;
-            return {
-                .x = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), face_counts[0], ::cuda::no_init},
-                .y = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), face_counts[1], ::cuda::no_init},
-                .z = ::cuda::device_buffer<Value>{stream, ::cuda::device_default_memory_pool(stream.device()), face_counts[2], ::cuda::no_init},
-            };
+        [[nodiscard]] simulation::VectorField<Value> allocate_mac_field() const {
+            return simulation::VectorField<Value>{stream, face_counts};
         }
 
         template <class Field>
         void clear(Field& field) const {
-            fields.clear(field);
+            simulation::clear(stream, field);
         }
 
         template <class Field>
         void copy(const Field& source, Field& destination) const {
-            fields.copy(source, destination);
+            simulation::copy(stream, source, destination);
         }
     };
 } // namespace physica::fluids::grid

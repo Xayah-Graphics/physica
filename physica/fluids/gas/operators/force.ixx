@@ -13,11 +13,11 @@ export namespace physica::fluids::gas::operators {
         };
 
         struct Cache final {
-            VectorField<float> force;
+            simulation::VectorField<float> force;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> force;
+            simulation::VectorField<float> force;
         };
 
         struct AdjointWorkspace final {};
@@ -28,9 +28,9 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const ScalarField<float>& density, Cache& cache) const;
-        void jvp(const Domain& domain, const ScalarField<float>& density_tangent, const Cache& cache, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const Cache& cache, const VectorField<double>& force_adjoint, ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::ScalarField<float>& density, Cache& cache) const;
+        void jvp(const Domain& domain, const simulation::ScalarField<float>& density_tangent, const Cache& cache, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const Cache& cache, const simulation::VectorField<double>& force_adjoint, simulation::ScalarField<double>& density_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -38,37 +38,37 @@ export namespace physica::fluids::gas::operators {
 
     struct VorticityConfinement final {
         struct Cache final {
-            VectorField<float> centered_velocity;
-            VectorField<float> vorticity;
-            ScalarField<float> magnitude;
-            VectorField<float> normal;
-            ScalarField<float> normalizer;
+            simulation::VectorField<float> centered_velocity;
+            simulation::VectorField<float> vorticity;
+            simulation::ScalarField<float> magnitude;
+            simulation::VectorField<float> normal;
+            simulation::ScalarField<float> normalizer;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> centered_velocity;
-            VectorField<float> vorticity;
-            ScalarField<float> magnitude;
-            VectorField<float> normal;
+            simulation::VectorField<float> centered_velocity;
+            simulation::VectorField<float> vorticity;
+            simulation::ScalarField<float> magnitude;
+            simulation::VectorField<float> normal;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> centered_velocity;
-            VectorField<double> vorticity;
-            ScalarField<double> magnitude;
-            VectorField<double> normal;
+            simulation::VectorField<double> centered_velocity;
+            simulation::VectorField<double> vorticity;
+            simulation::ScalarField<double> magnitude;
+            simulation::VectorField<double> normal;
         };
 
         [[nodiscard]] Cache allocate_cache(const Domain& domain) const;
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const VectorField<float>& velocity, const float* confinement, VectorField<float>& force, Cache& cache) const;
-        void forward(const Domain& domain, const VectorField<float>& velocity, float confinement, VectorField<float>& force, Cache& cache) const;
-        void jvp(const Domain& domain, const VectorField<float>& velocity_tangent, const float* confinement, const float* confinement_tangent, const Cache& cache, VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
-        void jvp(const Domain& domain, const VectorField<float>& velocity_tangent, float confinement, const Cache& cache, VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const float* confinement, const Cache& cache, const VectorField<double>& force_adjoint, VectorField<double>& velocity_adjoint, double* confinement_adjoint, AdjointWorkspace& workspace) const;
-        void vjp(const Domain& domain, float confinement, const Cache& cache, const VectorField<double>& force_adjoint, VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::VectorField<float>& velocity, const float* confinement, simulation::VectorField<float>& force, Cache& cache) const;
+        void forward(const Domain& domain, const simulation::VectorField<float>& velocity, float confinement, simulation::VectorField<float>& force, Cache& cache) const;
+        void jvp(const Domain& domain, const simulation::VectorField<float>& velocity_tangent, const float* confinement, const float* confinement_tangent, const Cache& cache, simulation::VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
+        void jvp(const Domain& domain, const simulation::VectorField<float>& velocity_tangent, float confinement, const Cache& cache, simulation::VectorField<float>& force_tangent, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const float* confinement, const Cache& cache, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& velocity_adjoint, double* confinement_adjoint, AdjointWorkspace& workspace) const;
+        void vjp(const Domain& domain, float confinement, const Cache& cache, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& velocity_adjoint, AdjointWorkspace& workspace) const;
     };
 
     struct ThermalBuoyancyVorticity final {
@@ -77,12 +77,12 @@ export namespace physica::fluids::gas::operators {
         };
 
         struct Cache final {
-            VectorField<float> force;
+            simulation::VectorField<float> force;
             VorticityConfinement::Cache vorticity;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> force;
+            simulation::VectorField<float> force;
             VorticityConfinement::TangentWorkspace vorticity;
         };
 
@@ -116,9 +116,9 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const ScalarField<float>& density, const ScalarField<float>& temperature, const VectorField<float>& velocity, const VectorField<float>& external_acceleration, const Parameters& parameters, Cache& cache) const;
-        void jvp(const Domain& domain, const ScalarField<float>& density, const ScalarField<float>& temperature, const ScalarField<float>& density_tangent, const ScalarField<float>& temperature_tangent, const VectorField<float>& velocity_tangent, const VectorField<float>& external_acceleration_tangent, const Parameters& parameters, const ParameterTangent& parameter_tangent, const Cache& cache, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const ScalarField<float>& density, const ScalarField<float>& temperature, const Parameters& parameters, const Cache& cache, const VectorField<double>& force_adjoint, VectorField<double>& velocity_adjoint, ScalarField<double>& density_adjoint, ScalarField<double>& temperature_adjoint, VectorField<double>& external_acceleration_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::ScalarField<float>& density, const simulation::ScalarField<float>& temperature, const simulation::VectorField<float>& velocity, const simulation::VectorField<float>& external_acceleration, const Parameters& parameters, Cache& cache) const;
+        void jvp(const Domain& domain, const simulation::ScalarField<float>& density, const simulation::ScalarField<float>& temperature, const simulation::ScalarField<float>& density_tangent, const simulation::ScalarField<float>& temperature_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::VectorField<float>& external_acceleration_tangent, const Parameters& parameters, const ParameterTangent& parameter_tangent, const Cache& cache, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const simulation::ScalarField<float>& density, const simulation::ScalarField<float>& temperature, const Parameters& parameters, const Cache& cache, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::ScalarField<double>& density_adjoint, simulation::ScalarField<double>& temperature_adjoint, simulation::VectorField<double>& external_acceleration_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const Configuration configuration;
@@ -133,18 +133,18 @@ export namespace physica::fluids::gas::operators {
 
         struct Cache final {
             DensityBuoyancy::Cache buoyancy;
-            VectorField<float> total;
+            simulation::VectorField<float> total;
             VorticityConfinement::Cache vorticity;
         };
 
         struct TangentWorkspace final {
             DensityBuoyancy::TangentWorkspace buoyancy;
-            VectorField<float> total;
+            simulation::VectorField<float> total;
             VorticityConfinement::TangentWorkspace vorticity;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> physical;
+            simulation::VectorField<double> physical;
             DensityBuoyancy::AdjointWorkspace buoyancy;
             VorticityConfinement::AdjointWorkspace vorticity;
         };
@@ -155,9 +155,9 @@ export namespace physica::fluids::gas::operators {
         [[nodiscard]] TangentWorkspace allocate_tangent_workspace(const Domain& domain) const;
         [[nodiscard]] AdjointWorkspace allocate_adjoint_workspace(const Domain& domain) const;
 
-        void forward(const Domain& domain, const ScalarField<float>& density, const VectorField<float>& velocity, const VectorField<float>& control, Cache& cache) const;
-        void jvp(const Domain& domain, const ScalarField<float>& density_tangent, const VectorField<float>& velocity_tangent, const VectorField<float>& control_tangent, const Cache& cache, TangentWorkspace& workspace) const;
-        void vjp(const Domain& domain, const Cache& cache, const VectorField<double>& total_adjoint, ScalarField<double>& density_adjoint, VectorField<double>& velocity_adjoint, VectorField<double>& control_adjoint, AdjointWorkspace& workspace) const;
+        void forward(const Domain& domain, const simulation::ScalarField<float>& density, const simulation::VectorField<float>& velocity, const simulation::VectorField<float>& control, Cache& cache) const;
+        void jvp(const Domain& domain, const simulation::ScalarField<float>& density_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::VectorField<float>& control_tangent, const Cache& cache, TangentWorkspace& workspace) const;
+        void vjp(const Domain& domain, const Cache& cache, const simulation::VectorField<double>& total_adjoint, simulation::ScalarField<double>& density_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& control_adjoint, AdjointWorkspace& workspace) const;
 
     private:
         const float vorticity_confinement;

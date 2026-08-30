@@ -2,16 +2,16 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.keyframe_smoke.optimization;
+export module physica.fluids.gas.solvers.keyframe_smoke.optimization;
 
 import std;
-import physica.fluids.gas.keyframe_smoke.control;
+import physica.fluids.gas.solvers.keyframe_smoke.control;
 import physica.fluids.gas.domain;
-import physica.fluids.gas.keyframe_smoke.evaluation;
+import physica.fluids.gas.solvers.keyframe_smoke.evaluation;
 import physica.optimization.lbfgsb;
 import physica.fluids.gas.operators.objective;
 
-export namespace physica::fluids::gas::keyframe_smoke {
+export namespace physica::fluids::gas::solvers::keyframe_smoke {
     struct ContinuationLevel final {
         float blur_sigma_cells{};
         optimization::LbfgsbConfiguration optimizer;
@@ -60,7 +60,7 @@ export namespace physica::fluids::gas::keyframe_smoke {
     OptimizationResult OptimizationRunner<SolverType>::run(const std::span<const double> initial_parameters, const std::span<const std::uint8_t> active_parameters, OptimizationCoordinates coordinates) {
         OptimizationResult result{};
         result.parameters.assign(initial_parameters.begin(), initial_parameters.end());
-        ::cuda::device_buffer<double> final_parameters(domain.grid.fields.stream, ::cuda::device_default_memory_pool(domain.grid.fields.stream.device()), initial_parameters.size(), ::cuda::no_init);
+        ::cuda::device_buffer<double> final_parameters(domain.grid.stream, ::cuda::device_default_memory_pool(domain.grid.stream.device()), initial_parameters.size(), ::cuda::no_init);
         const std::uint32_t first_continuation_level = coordinates.continuation_level;
         for (std::uint32_t level = 0u; level < continuation.size(); ++level) {
             const ContinuationLevel& level_configuration = continuation[level];
@@ -72,11 +72,11 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 lower_bounds[parameter] = result.parameters[parameter];
                 upper_bounds[parameter] = result.parameters[parameter];
             }
-            optimization::Lbfgsb optimizer(domain.grid.fields.stream, level_configuration.optimizer, result.parameters, lower_bounds, upper_bounds);
+            optimization::Lbfgsb optimizer(domain.grid.stream, level_configuration.optimizer, result.parameters, lower_bounds, upper_bounds);
             while (optimizer.request().kind == optimization::LbfgsbRequestKind::objective_gradient) {
                 const optimization::LbfgsbRequest request = optimizer.request();
                 std::vector<double> evaluation_parameters(request.parameters.size());
-                ::cuda::copy_bytes(domain.grid.fields.stream, request.parameters, ::cuda::std::span{evaluation_parameters.data(), evaluation_parameters.size()});
+                ::cuda::copy_bytes(domain.grid.stream, request.parameters, ::cuda::std::span{evaluation_parameters.data(), evaluation_parameters.size()});
                 EvaluationTrace trace                             = evaluator.evaluate(level_objective, request.parameters, EvaluationMode::objective_gradient);
                 coordinates.continuation_level                    = first_continuation_level + level;
                 coordinates.optimizer_iteration                   = request.iteration;
@@ -86,9 +86,9 @@ export namespace physica::fluids::gas::keyframe_smoke {
                 const optimization::LbfgsbGradientMetrics metrics = optimizer.submit(trace.objective.data(), {trace.reverse->parameter_gradient.data(), trace.reverse->parameter_gradient.size()});
                 result.evaluations.push_back({.coordinates = coordinates, .parameters = std::move(evaluation_parameters), .summary = trace.summary, .gradient_norm = metrics.gradient_norm, .projected_gradient_norm = metrics.projected_gradient_norm});
             }
-            ::cuda::copy_bytes(domain.grid.fields.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
-            ::cuda::copy_bytes(domain.grid.fields.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
-            domain.grid.fields.stream.sync();
+            ::cuda::copy_bytes(domain.grid.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{final_parameters.data(), final_parameters.size()});
+            ::cuda::copy_bytes(domain.grid.stream, ::cuda::std::span<const double>{optimizer.parameters.data(), optimizer.parameters.size()}, ::cuda::std::span{result.parameters.data(), result.parameters.size()});
+            domain.grid.stream.sync();
             result.level_stop_reasons.push_back(optimizer.stop_reason);
             result.gradient_norm           = optimizer.gradient_norm;
             result.projected_gradient_norm = optimizer.projected_gradient_norm;
@@ -97,4 +97,4 @@ export namespace physica::fluids::gas::keyframe_smoke {
         result.final_trace.emplace(evaluator.evaluate(final_objective, {final_parameters.data(), final_parameters.size()}, EvaluationMode::objective_gradient));
         return result;
     }
-} // namespace physica::fluids::gas::keyframe_smoke
+} // namespace physica::fluids::gas::solvers::keyframe_smoke

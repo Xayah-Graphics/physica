@@ -2,13 +2,13 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.keyframe_smoke.control;
+export module physica.fluids.gas.solvers.keyframe_smoke.control;
 
 import std;
 import physica.fluids.gas.domain;
-import physica.fluids.gas.keyframe_smoke;
+import physica.fluids.gas.solvers.keyframe_smoke;
 
-export namespace physica::fluids::gas::keyframe_smoke {
+export namespace physica::fluids::gas::solvers::keyframe_smoke {
     struct BoundedValue final {
         double initial{};
         double lower{};
@@ -54,4 +54,4 @@ export namespace physica::fluids::gas::keyframe_smoke {
         ::cuda::device_buffer<std::byte> device_winds;
         ::cuda::device_buffer<std::byte> device_vortices;
     };
-} // namespace physica::fluids::gas::keyframe_smoke
+} // namespace physica::fluids::gas::solvers::keyframe_smoke

@@ -1,4 +1,4 @@
-#include <physica/fluids/liquid/device.cuh>
+#include <fluids/liquid/device.cuh>
 #include "pbf-kernels.h"
 #include <cstdint>
 #include <cuda/cmath>
@@ -6,7 +6,7 @@
 #include <cuda/std/numbers>
 #include <cuda_runtime.h>
 
-namespace physica::fluids::liquid::pbf::kernels {
+namespace physica::fluids::liquid::solvers::pbf::kernels {
 
     namespace {
 
@@ -66,20 +66,20 @@ namespace physica::fluids::liquid::pbf::kernels {
             gradient            = (device::poly6_gradient(displacement, support_radius) * -strength * exponent * ::cuda::std::pow(ratio, exponent - 1.0F) / reference);
         }
 
-        __global__ void predict_forward_kernel(const std::uint32_t particle_count, const float time_step, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> controls, const field::VectorView<float> predicted_positions) {
+        __global__ void predict_forward_kernel(const std::uint32_t particle_count, const float time_step, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> controls, const simulation::VectorView<float> predicted_positions) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> predicted_velocity = (load(velocities, particle) + ((gravity + load(controls, particle)) * time_step));
             store(predicted_positions, particle, (load(positions, particle) + (predicted_velocity * time_step)));
         }
 
-        __global__ void predict_jvp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> control_tangent, const field::VectorView<float> predicted_position_tangent) {
+        __global__ void predict_jvp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> control_tangent, const simulation::VectorView<float> predicted_position_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(predicted_position_tangent, particle, (load(position_tangent, particle) + ((load(velocity_tangent, particle) + (load(control_tangent, particle) * time_step)) * time_step)));
         }
 
-        __global__ void predict_vjp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const double> predicted_position_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint) {
+        __global__ void predict_vjp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const double> predicted_position_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<double> adjoint = load(predicted_position_adjoint, particle);
@@ -88,7 +88,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             accumulate(control_adjoint, particle, (adjoint * time_step * time_step));
         }
 
-        __global__ void lambda_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* relaxation, const field::VectorView<float> gradient_sums, float* denominators, float* lambdas) {
+        __global__ void lambda_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* relaxation, const simulation::VectorView<float> gradient_sums, float* denominators, float* lambdas) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -122,7 +122,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             lambdas[particle]      = -(densities[particle] / rest_density - 1.0F) / denominator;
         }
 
-        __global__ void lambda_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* relaxation, const float* relaxation_tangent, const field::VectorView<float> gradient_sum_tangent, float* denominator_tangent, float* lambda_tangent) {
+        __global__ void lambda_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* relaxation, const float* relaxation_tangent, const simulation::VectorView<float> gradient_sum_tangent, float* denominator_tangent, float* lambda_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -173,7 +173,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             lambda_tangent[particle]      = -constraint_dot / denominator + constraint * denominator_dot / (denominator * denominator);
         }
 
-        __global__ void lambda_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<const float> gradient_sums, const float* denominators, const double* lambda_adjoint, const field::VectorView<double> position_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* relaxation_adjoint) {
+        __global__ void lambda_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<const float> gradient_sums, const float* denominators, const double* lambda_adjoint, const simulation::VectorView<double> position_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* relaxation_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position            = load(topology_positions, particle);
@@ -247,7 +247,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             relaxation_adjoint[particle] += local_denominator_adjoint;
         }
 
-        __global__ void correction_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* strength, const float* exponent, const float* radius, const field::VectorView<float> corrections) {
+        __global__ void correction_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* strength, const float* exponent, const float* radius, const simulation::VectorView<float> corrections) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -283,7 +283,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(corrections, particle, correction);
         }
 
-        __global__ void correction_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* lambda_tangent, const float* strength, const float* strength_tangent, const float* exponent, const float* exponent_tangent, const float* radius, const float* radius_tangent, const field::VectorView<float> correction_tangent) {
+        __global__ void correction_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* lambda_tangent, const float* strength, const float* strength_tangent, const float* exponent, const float* exponent_tangent, const float* radius, const float* radius_tangent, const simulation::VectorView<float> correction_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -328,7 +328,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(correction_tangent, particle, result);
         }
 
-        __global__ void correction_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* strength, const float* exponent, const float* radius, const field::VectorView<const double> correction_adjoint, const field::VectorView<double> position_adjoint, double* lambda_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* strength_adjoint, double* exponent_adjoint, double* radius_adjoint) {
+        __global__ void correction_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* strength, const float* exponent, const float* radius, const simulation::VectorView<const double> correction_adjoint, const simulation::VectorView<double> position_adjoint, double* lambda_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* strength_adjoint, double* exponent_adjoint, double* radius_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position     = load(topology_positions, particle);
@@ -410,7 +410,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             radius_adjoint[particle] += radius_contribution;
         }
 
-        __global__ void project_forward_kernel(const std::uint32_t particle_count, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> corrections, std::uint32_t* collision_masks, const field::VectorView<float> projected_positions) {
+        __global__ void project_forward_kernel(const std::uint32_t particle_count, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> corrections, std::uint32_t* collision_masks, const simulation::VectorView<float> projected_positions) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> candidate = (load(positions, particle) + load(corrections, particle));
@@ -427,7 +427,7 @@ namespace physica::fluids::liquid::pbf::kernels {
                 });
         }
 
-        __global__ void project_jvp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const field::VectorView<const float> position_tangent, const field::VectorView<const float> correction_tangent, const field::VectorView<float> projected_position_tangent) {
+        __global__ void project_jvp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> correction_tangent, const simulation::VectorView<float> projected_position_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             Vector3<float> result            = (load(position_tangent, particle) + load(correction_tangent, particle));
@@ -438,7 +438,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(projected_position_tangent, particle, result);
         }
 
-        __global__ void project_vjp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const field::VectorView<const double> projected_position_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> correction_adjoint) {
+        __global__ void project_vjp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const double> projected_position_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> correction_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             Vector3<double> result           = load(projected_position_adjoint, particle);
@@ -450,19 +450,19 @@ namespace physica::fluids::liquid::pbf::kernels {
             accumulate(correction_adjoint, particle, result);
         }
 
-        __global__ void reconstruct_forward_kernel(const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const float> positions, const field::VectorView<const float> corrected_positions, const field::VectorView<float> velocities) {
+        __global__ void reconstruct_forward_kernel(const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> corrected_positions, const simulation::VectorView<float> velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(velocities, particle, ((load(corrected_positions, particle) - load(positions, particle)) * inverse_time_step));
         }
 
-        __global__ void reconstruct_jvp_kernel(const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const float> position_tangent, const field::VectorView<const float> corrected_position_tangent, const field::VectorView<float> velocity_tangent) {
+        __global__ void reconstruct_jvp_kernel(const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> corrected_position_tangent, const simulation::VectorView<float> velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(velocity_tangent, particle, ((load(corrected_position_tangent, particle) - load(position_tangent, particle)) * inverse_time_step));
         }
 
-        __global__ void reconstruct_vjp_kernel(const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const double> velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> corrected_position_adjoint) {
+        __global__ void reconstruct_vjp_kernel(const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const double> velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> corrected_position_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<double> contribution = (load(velocity_adjoint, particle) * inverse_time_step);
@@ -470,7 +470,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             accumulate(corrected_position_adjoint, particle, contribution);
         }
 
-        __global__ void vorticity_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const field::VectorView<float> vorticities) {
+        __global__ void vorticity_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const simulation::VectorView<float> vorticities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -493,7 +493,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(vorticities, particle, vorticity);
         }
 
-        __global__ void vorticity_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const field::VectorView<float> vorticity_tangent) {
+        __global__ void vorticity_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const simulation::VectorView<float> vorticity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -522,7 +522,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(vorticity_tangent, particle, result);
         }
 
-        __global__ void vorticity_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const field::VectorView<const double> vorticity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint) {
+        __global__ void vorticity_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const simulation::VectorView<const double> vorticity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position     = load(topology_positions, particle);
@@ -559,13 +559,13 @@ namespace physica::fluids::liquid::pbf::kernels {
             accumulate(velocity_adjoint, particle, velocity_contribution);
         }
 
-        __global__ void magnitude_forward_kernel(const std::uint32_t particle_count, const field::VectorView<const float> vorticities, float* magnitudes) {
+        __global__ void magnitude_forward_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> vorticities, float* magnitudes) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             magnitudes[particle] = length(load(vorticities, particle));
         }
 
-        __global__ void normal_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::NeighborhoodView neighborhood, const float* magnitudes, const field::VectorView<float> normals, float* normalizers) {
+        __global__ void normal_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::NeighborhoodView neighborhood, const float* magnitudes, const simulation::VectorView<float> normals, float* normalizers) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -589,13 +589,13 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(normals, particle, normalizer > 0.0F ? (gradient * 1.0F / normalizer) : Vector3<float>{});
         }
 
-        __global__ void magnitude_jvp_kernel(const std::uint32_t particle_count, const field::VectorView<const float> vorticities, const field::VectorView<const float> vorticity_tangent, const float* magnitudes, float* magnitude_tangent) {
+        __global__ void magnitude_jvp_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> vorticity_tangent, const float* magnitudes, float* magnitude_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             magnitude_tangent[particle] = magnitudes[particle] > 0.0F ? dot(load(vorticities, particle), load(vorticity_tangent, particle)) / magnitudes[particle] : 0.0F;
         }
 
-        __global__ void normal_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::NeighborhoodView neighborhood, const float* magnitudes, const float* magnitude_tangent, const field::VectorView<const float> normals, const float* normalizers, const field::VectorView<float> normal_tangent) {
+        __global__ void normal_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::NeighborhoodView neighborhood, const float* magnitudes, const float* magnitude_tangent, const simulation::VectorView<const float> normals, const float* normalizers, const simulation::VectorView<float> normal_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -632,7 +632,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             return ((normal_adjoint + (normal * -dot(normal_adjoint, normal))) * 1.0 / normalizer);
         }
 
-        __global__ void normal_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, const float* magnitudes, const field::VectorView<const float> normals, const float* normalizers, const field::VectorView<const double> normal_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> vorticity_adjoint) {
+        __global__ void normal_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, const float* magnitudes, const simulation::VectorView<const float> normals, const float* normalizers, const simulation::VectorView<const double> normal_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> vorticity_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position       = load(topology_positions, particle);
@@ -668,13 +668,13 @@ namespace physica::fluids::liquid::pbf::kernels {
             if (magnitudes[particle] > 0.0F) accumulate(vorticity_adjoint, particle, (load(vorticities, particle) * magnitude_contribution / magnitudes[particle]));
         }
 
-        __global__ void confinement_forward_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> velocities, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<float> confined_velocities) {
+        __global__ void confinement_forward_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<float> confined_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             store(confined_velocities, particle, (load(velocities, particle) + (cross(load(normals, particle), load(vorticities, particle)) * time_step * confinement[particle])));
         }
 
-        __global__ void confinement_jvp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> vorticity_tangent, const field::VectorView<const float> normal_tangent, const float* confinement_tangent, const field::VectorView<float> confined_velocity_tangent) {
+        __global__ void confinement_jvp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> vorticity_tangent, const simulation::VectorView<const float> normal_tangent, const float* confinement_tangent, const simulation::VectorView<float> confined_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> force     = cross(load(normals, particle), load(vorticities, particle));
@@ -682,7 +682,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(confined_velocity_tangent, particle, (load(velocity_tangent, particle) + (((force * confinement_tangent[particle]) + (force_dot * confinement[particle])) * time_step)));
         }
 
-        __global__ void confinement_vjp_kernel(const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<const double> confined_velocity_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> vorticity_adjoint, const field::VectorView<double> normal_adjoint, double* confinement_adjoint) {
+        __global__ void confinement_vjp_kernel(const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<const double> confined_velocity_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> vorticity_adjoint, const simulation::VectorView<double> normal_adjoint, double* confinement_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<double> output_adjoint = load(confined_velocity_adjoint, particle);
@@ -694,7 +694,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             confinement_adjoint[particle] += time_step * dot(output_adjoint, cross(normal, vorticity));
         }
 
-        __global__ void xsph_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const field::VectorView<float> output_velocities) {
+        __global__ void xsph_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const simulation::VectorView<float> output_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -717,7 +717,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(output_velocities, particle, (velocity + (smoothing * viscosity[particle])));
         }
 
-        __global__ void xsph_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const float* viscosity, const float* viscosity_tangent, const field::VectorView<float> output_velocity_tangent) {
+        __global__ void xsph_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const float* viscosity, const float* viscosity_tangent, const simulation::VectorView<float> output_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
@@ -750,7 +750,7 @@ namespace physica::fluids::liquid::pbf::kernels {
             store(output_velocity_tangent, particle, (velocity_dot + ((smoothing * viscosity_tangent[particle]) + (smoothing_dot * viscosity[particle]))));
         }
 
-        __global__ void xsph_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const field::VectorView<const double> output_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, double* viscosity_adjoint) {
+        __global__ void xsph_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const simulation::VectorView<const double> output_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, double* viscosity_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> topology_position     = load(topology_positions, particle);
@@ -792,114 +792,114 @@ namespace physica::fluids::liquid::pbf::kernels {
 
     } // namespace
 
-    void launch_predict_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const float gravity_x, const float gravity_y, const float gravity_z, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> controls, const field::VectorView<float> predicted_positions) {
+    void launch_predict_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const float gravity_x, const float gravity_y, const float gravity_z, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> controls, const simulation::VectorView<float> predicted_positions) {
         predict_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, {gravity_x, gravity_y, gravity_z}, positions, velocities, controls, predicted_positions);
     }
 
-    void launch_predict_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> control_tangent, const field::VectorView<float> predicted_position_tangent) {
+    void launch_predict_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> control_tangent, const simulation::VectorView<float> predicted_position_tangent) {
         predict_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, position_tangent, velocity_tangent, control_tangent, predicted_position_tangent);
     }
 
-    void launch_predict_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const double> predicted_position_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint) {
+    void launch_predict_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const double> predicted_position_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint) {
         predict_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, predicted_position_adjoint, position_adjoint, velocity_adjoint, control_adjoint);
     }
 
-    void launch_lambda_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* relaxation, const field::VectorView<float> gradient_sums, float* denominators, float* lambdas) {
+    void launch_lambda_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* relaxation, const simulation::VectorView<float> gradient_sums, float* denominators, float* lambdas) {
         lambda_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, particles, neighborhood, boundary, densities, relaxation, gradient_sums, denominators, lambdas);
     }
 
-    void launch_lambda_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* relaxation, const float* relaxation_tangent, const field::VectorView<float> gradient_sum_tangent, float* denominator_tangent, float* lambda_tangent) {
+    void launch_lambda_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* relaxation, const float* relaxation_tangent, const simulation::VectorView<float> gradient_sum_tangent, float* denominator_tangent, float* lambda_tangent) {
         lambda_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, position_tangent, particles, particle_tangent, neighborhood, boundary, densities, density_tangent, relaxation, relaxation_tangent, gradient_sum_tangent, denominator_tangent, lambda_tangent);
     }
 
-    void launch_lambda_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<const float> gradient_sums, const float* denominators, const double* lambda_adjoint, const field::VectorView<double> position_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* relaxation_adjoint) {
+    void launch_lambda_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<const float> gradient_sums, const float* denominators, const double* lambda_adjoint, const simulation::VectorView<double> position_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* relaxation_adjoint) {
         lambda_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, particles, neighborhood, boundary, densities, gradient_sums, denominators, lambda_adjoint, position_adjoint, density_adjoint, particle_adjoint, relaxation_adjoint);
     }
 
-    void launch_correction_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* artificial_pressure_strength, const float* artificial_pressure_exponent, const float* artificial_pressure_radius, const field::VectorView<float> corrections) {
+    void launch_correction_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* artificial_pressure_strength, const float* artificial_pressure_exponent, const float* artificial_pressure_radius, const simulation::VectorView<float> corrections) {
         correction_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, particles, neighborhood, boundary, lambdas, artificial_pressure_strength, artificial_pressure_exponent, artificial_pressure_radius, corrections);
     }
 
-    void launch_correction_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* lambda_tangent, const float* artificial_pressure_strength, const float* artificial_pressure_strength_tangent, const float* artificial_pressure_exponent, const float* artificial_pressure_exponent_tangent, const float* artificial_pressure_radius, const float* artificial_pressure_radius_tangent, const field::VectorView<float> correction_tangent) {
+    void launch_correction_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* lambda_tangent, const float* artificial_pressure_strength, const float* artificial_pressure_strength_tangent, const float* artificial_pressure_exponent, const float* artificial_pressure_exponent_tangent, const float* artificial_pressure_radius, const float* artificial_pressure_radius_tangent, const simulation::VectorView<float> correction_tangent) {
         correction_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, position_tangent, particles, particle_tangent, neighborhood, boundary, lambdas, lambda_tangent, artificial_pressure_strength, artificial_pressure_strength_tangent, artificial_pressure_exponent, artificial_pressure_exponent_tangent, artificial_pressure_radius, artificial_pressure_radius_tangent, correction_tangent);
     }
 
-    void launch_correction_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* artificial_pressure_strength, const float* artificial_pressure_exponent, const float* artificial_pressure_radius, const field::VectorView<const double> correction_adjoint, const field::VectorView<double> position_adjoint, double* lambda_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* artificial_pressure_strength_adjoint, double* artificial_pressure_exponent_adjoint, double* artificial_pressure_radius_adjoint) {
+    void launch_correction_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView particles, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* lambdas, const float* artificial_pressure_strength, const float* artificial_pressure_exponent, const float* artificial_pressure_radius, const simulation::VectorView<const double> correction_adjoint, const simulation::VectorView<double> position_adjoint, double* lambda_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* artificial_pressure_strength_adjoint, double* artificial_pressure_exponent_adjoint, double* artificial_pressure_radius_adjoint) {
         correction_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, particles, neighborhood, boundary, lambdas, artificial_pressure_strength, artificial_pressure_exponent, artificial_pressure_radius, correction_adjoint, position_adjoint, lambda_adjoint, particle_adjoint, artificial_pressure_strength_adjoint, artificial_pressure_exponent_adjoint, artificial_pressure_radius_adjoint);
     }
 
-    void launch_project_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> corrections, std::uint32_t* collision_masks, const field::VectorView<float> projected_positions) {
+    void launch_project_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> corrections, std::uint32_t* collision_masks, const simulation::VectorView<float> projected_positions) {
         project_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, collision_box, positions, corrections, collision_masks, projected_positions);
     }
 
-    void launch_project_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t* collision_masks, const field::VectorView<const float> position_tangent, const field::VectorView<const float> correction_tangent, const field::VectorView<float> projected_position_tangent) {
+    void launch_project_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> correction_tangent, const simulation::VectorView<float> projected_position_tangent) {
         project_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, collision_masks, position_tangent, correction_tangent, projected_position_tangent);
     }
 
-    void launch_project_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t* collision_masks, const field::VectorView<const double> projected_position_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> correction_adjoint) {
+    void launch_project_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const double> projected_position_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> correction_adjoint) {
         project_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, collision_masks, projected_position_adjoint, position_adjoint, correction_adjoint);
     }
 
-    void launch_reconstruct_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const float> positions, const field::VectorView<const float> corrected_positions, const field::VectorView<float> velocities) {
+    void launch_reconstruct_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> corrected_positions, const simulation::VectorView<float> velocities) {
         reconstruct_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, inverse_time_step, positions, corrected_positions, velocities);
     }
 
-    void launch_reconstruct_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const float> position_tangent, const field::VectorView<const float> corrected_position_tangent, const field::VectorView<float> velocity_tangent) {
+    void launch_reconstruct_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> corrected_position_tangent, const simulation::VectorView<float> velocity_tangent) {
         reconstruct_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, inverse_time_step, position_tangent, corrected_position_tangent, velocity_tangent);
     }
 
-    void launch_reconstruct_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const field::VectorView<const double> velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> corrected_position_adjoint) {
+    void launch_reconstruct_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float inverse_time_step, const simulation::VectorView<const double> velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> corrected_position_adjoint) {
         reconstruct_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, inverse_time_step, velocity_adjoint, position_adjoint, corrected_position_adjoint);
     }
 
-    void launch_vorticity_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const field::VectorView<float> vorticities) {
+    void launch_vorticity_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const simulation::VectorView<float> vorticities) {
         vorticity_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, neighborhood, vorticities);
     }
 
-    void launch_vorticity_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const field::VectorView<float> vorticity_tangent) {
+    void launch_vorticity_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const simulation::VectorView<float> vorticity_tangent) {
         vorticity_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, position_tangent, velocity_tangent, neighborhood, vorticity_tangent);
     }
 
-    void launch_vorticity_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const field::VectorView<const double> vorticity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint) {
+    void launch_vorticity_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const simulation::VectorView<const double> vorticity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint) {
         vorticity_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, neighborhood, vorticity_adjoint, position_adjoint, velocity_adjoint);
     }
 
-    void launch_normal_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, float* magnitudes, const field::VectorView<float> normals, float* normalizers) {
+    void launch_normal_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, float* magnitudes, const simulation::VectorView<float> normals, float* normalizers) {
         magnitude_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, vorticities, magnitudes);
         normal_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, neighborhood, magnitudes, normals, normalizers);
     }
 
-    void launch_normal_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> vorticities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> vorticity_tangent, const device::NeighborhoodView neighborhood, const float* magnitudes, const field::VectorView<const float> normals, const float* normalizers, float* magnitude_tangent, const field::VectorView<float> normal_tangent) {
+    void launch_normal_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> vorticity_tangent, const device::NeighborhoodView neighborhood, const float* magnitudes, const simulation::VectorView<const float> normals, const float* normalizers, float* magnitude_tangent, const simulation::VectorView<float> normal_tangent) {
         magnitude_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, vorticities, vorticity_tangent, magnitudes, magnitude_tangent);
         normal_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, position_tangent, neighborhood, magnitudes, magnitude_tangent, normals, normalizers, normal_tangent);
     }
 
-    void launch_normal_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, const float* magnitudes, const field::VectorView<const float> normals, const float* normalizers, const field::VectorView<const double> normal_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> vorticity_adjoint) {
+    void launch_normal_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> vorticities, const device::NeighborhoodView neighborhood, const float* magnitudes, const simulation::VectorView<const float> normals, const float* normalizers, const simulation::VectorView<const double> normal_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> vorticity_adjoint) {
         normal_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, vorticities, neighborhood, magnitudes, normals, normalizers, normal_adjoint, position_adjoint, vorticity_adjoint);
     }
 
-    void launch_confinement_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> velocities, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<float> confined_velocities) {
+    void launch_confinement_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<float> confined_velocities) {
         confinement_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, velocities, vorticities, normals, confinement, confined_velocities);
     }
 
-    void launch_confinement_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> vorticity_tangent, const field::VectorView<const float> normal_tangent, const float* confinement_tangent, const field::VectorView<float> confined_velocity_tangent) {
+    void launch_confinement_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> vorticity_tangent, const simulation::VectorView<const float> normal_tangent, const float* confinement_tangent, const simulation::VectorView<float> confined_velocity_tangent) {
         confinement_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, vorticities, normals, confinement, velocity_tangent, vorticity_tangent, normal_tangent, confinement_tangent, confined_velocity_tangent);
     }
 
-    void launch_confinement_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const field::VectorView<const float> vorticities, const field::VectorView<const float> normals, const float* confinement, const field::VectorView<const double> confined_velocity_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> vorticity_adjoint, const field::VectorView<double> normal_adjoint, double* confinement_adjoint) {
+    void launch_confinement_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const simulation::VectorView<const float> vorticities, const simulation::VectorView<const float> normals, const float* confinement, const simulation::VectorView<const double> confined_velocity_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> vorticity_adjoint, const simulation::VectorView<double> normal_adjoint, double* confinement_adjoint) {
         confinement_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, vorticities, normals, confinement, confined_velocity_adjoint, velocity_adjoint, vorticity_adjoint, normal_adjoint, confinement_adjoint);
     }
 
-    void launch_xsph_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const field::VectorView<float> output_velocities) {
+    void launch_xsph_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const simulation::VectorView<float> output_velocities) {
         xsph_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, neighborhood, viscosity, output_velocities);
     }
 
-    void launch_xsph_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const float* viscosity, const float* viscosity_tangent, const field::VectorView<float> output_velocity_tangent) {
+    void launch_xsph_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::NeighborhoodView neighborhood, const float* viscosity, const float* viscosity_tangent, const simulation::VectorView<float> output_velocity_tangent) {
         xsph_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, position_tangent, velocity_tangent, neighborhood, viscosity, viscosity_tangent, output_velocity_tangent);
     }
 
-    void launch_xsph_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> topology_positions, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const field::VectorView<const double> output_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, double* viscosity_adjoint) {
+    void launch_xsph_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::NeighborhoodView neighborhood, const float* viscosity, const simulation::VectorView<const double> output_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, double* viscosity_adjoint) {
         xsph_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, topology_positions, positions, velocities, neighborhood, viscosity, output_velocity_adjoint, position_adjoint, velocity_adjoint, viscosity_adjoint);
     }
 
-} // namespace physica::fluids::liquid::pbf::kernels
+} // namespace physica::fluids::liquid::solvers::pbf::kernels

@@ -1,7 +1,7 @@
 #ifndef PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_SAMPLING_CUH
 #define PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_SAMPLING_CUH
 
-#include <physica/fluids/gas/device.cuh>
+#include <fluids/gas/device.cuh>
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
 
@@ -140,7 +140,7 @@ namespace physica::fluids::gas::operators::kernels {
                     }
         }
 
-        __device__ Vector3<float> sample_velocity_value(const field::VectorView<const float> velocity, const Vector3<float> position, const device::Discretization grid, const device::VelocityBoundary boundary) {
+        __device__ Vector3<float> sample_velocity_value(const simulation::VectorView<const float> velocity, const Vector3<float> position, const device::Discretization grid, const device::VelocityBoundary boundary) {
             return {sample_face(velocity.x, 0, position, grid, boundary).value, sample_face(velocity.y, 1, position, grid, boundary).value, sample_face(velocity.z, 2, position, grid, boundary).value};
         }
 
@@ -154,7 +154,7 @@ namespace physica::fluids::gas::operators::kernels {
             return collider_ids[fluids::grid::device::index3(x, y, z, grid.grid.nx, grid.grid.ny)] != 0u;
         }
 
-        __device__ Trace trace_rk2(const Vector3<float> start, const field::VectorView<const float> velocity, const std::uint32_t* collider_ids, const device::Discretization grid, const device::VelocityBoundary boundary) {
+        __device__ Trace trace_rk2(const Vector3<float> start, const simulation::VectorView<const float> velocity, const std::uint32_t* collider_ids, const device::Discretization grid, const device::VelocityBoundary boundary) {
             const Vector3<float> value0 = sample_velocity_value(velocity, start, grid, boundary);
             const Vector3<float> midpoint{start.x - 0.5F * grid.time_step * value0.x, start.y - 0.5F * grid.time_step * value0.y, start.z - 0.5F * grid.time_step * value0.z};
             const Vector3<float> value1 = sample_velocity_value(velocity, midpoint, grid, boundary);

@@ -2,7 +2,7 @@ module;
 
 #include <physica/cuda.h>
 
-export module physica.fluids.gas.adjoint_control;
+export module physica.fluids.gas.solvers.adjoint_control;
 
 import std;
 import physica.fluids.gas.operators.conservation;
@@ -12,32 +12,32 @@ import physica.fluids.gas.operators.advection;
 import physica.fluids.gas.operators.diffusion;
 import physica.fluids.gas.operators.projection;
 
-export namespace physica::fluids::gas::adjoint_control {
+export namespace physica::fluids::gas::solvers::adjoint_control {
     struct State final {
-        ScalarField<float> density;
-        VectorField<float> velocity;
+        simulation::ScalarField<float> density;
+        simulation::VectorField<float> velocity;
     };
 
     struct StateTangent final {
-        ScalarField<float> density;
-        VectorField<float> velocity;
+        simulation::ScalarField<float> density;
+        simulation::VectorField<float> velocity;
     };
 
     struct StateAdjoint final {
-        ScalarField<double> density;
-        VectorField<double> velocity;
+        simulation::ScalarField<double> density;
+        simulation::VectorField<double> velocity;
     };
 
     struct DenseControl final {
-        VectorField<float> force;
+        simulation::VectorField<float> force;
     };
 
     struct DenseControlTangent final {
-        VectorField<float> force;
+        simulation::VectorField<float> force;
     };
 
     struct DenseControlAdjoint final {
-        VectorField<double> force;
+        simulation::VectorField<double> force;
     };
 
     struct Keyframe final {
@@ -55,7 +55,7 @@ export namespace physica::fluids::gas::adjoint_control {
     };
 
     template <class Algorithm>
-    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const ScalarField<float>& density, const VectorField<double>& force_adjoint, ScalarField<double>& density_adjoint) {
+    concept ForceAlgorithm = std::constructible_from<Algorithm, typename Algorithm::Configuration> && requires(const Algorithm& algorithm, const Domain& domain, typename Algorithm::Cache& cache, const typename Algorithm::Cache& constant_cache, typename Algorithm::TangentWorkspace& tangent_workspace, typename Algorithm::AdjointWorkspace& adjoint_workspace, const simulation::ScalarField<float>& density, const simulation::VectorField<double>& force_adjoint, simulation::ScalarField<double>& density_adjoint) {
         { algorithm.allocate_cache(domain) } -> std::same_as<typename Algorithm::Cache>;
         { algorithm.allocate_tangent_workspace(domain) } -> std::same_as<typename Algorithm::TangentWorkspace>;
         { algorithm.allocate_adjoint_workspace(domain) } -> std::same_as<typename Algorithm::AdjointWorkspace>;
@@ -77,50 +77,50 @@ export namespace physica::fluids::gas::adjoint_control {
         };
 
         struct StepCache final {
-            VectorField<float> controlled_velocity;
-            ScalarField<float> advected_density;
+            simulation::VectorField<float> controlled_velocity;
+            simulation::ScalarField<float> advected_density;
             operators::MassConservation::Cache conservation;
             typename Force::Cache force;
         };
 
         struct Workspace final {
             typename Advection::Workspace advection;
-            VectorField<float> advected_velocity;
+            simulation::VectorField<float> advected_velocity;
             typename Diffusion::Workspace diffusion;
-            VectorField<float> diffused_velocity;
-            VectorField<float> forced_velocity;
-            VectorField<float> constrained_velocity;
+            simulation::VectorField<float> diffused_velocity;
+            simulation::VectorField<float> forced_velocity;
+            simulation::VectorField<float> constrained_velocity;
             typename Projection::Workspace projection;
         };
 
         struct TangentWorkspace final {
-            VectorField<float> controlled_velocity;
-            VectorField<float> advected_velocity;
+            simulation::VectorField<float> controlled_velocity;
+            simulation::VectorField<float> advected_velocity;
             typename Advection::TangentWorkspace advection;
-            ScalarField<float> advected_density;
+            simulation::ScalarField<float> advected_density;
             operators::MassConservation::TangentWorkspace conservation;
-            ScalarField<float> transported_density;
-            VectorField<float> diffused_velocity;
+            simulation::ScalarField<float> transported_density;
+            simulation::VectorField<float> diffused_velocity;
             typename Diffusion::TangentWorkspace diffusion;
             typename Force::TangentWorkspace force;
-            VectorField<float> forced_velocity;
-            VectorField<float> constrained_velocity;
+            simulation::VectorField<float> forced_velocity;
+            simulation::VectorField<float> constrained_velocity;
             typename Projection::TangentWorkspace projection;
         };
 
         struct AdjointWorkspace final {
-            VectorField<double> controlled_velocity;
-            VectorField<double> advected_velocity;
+            simulation::VectorField<double> controlled_velocity;
+            simulation::VectorField<double> advected_velocity;
             typename Advection::AdjointWorkspace advection;
-            ScalarField<double> advected_density;
+            simulation::ScalarField<double> advected_density;
             operators::MassConservation::AdjointWorkspace conservation;
-            ScalarField<double> transported_density;
-            VectorField<double> diffused_velocity;
+            simulation::ScalarField<double> transported_density;
+            simulation::VectorField<double> diffused_velocity;
             typename Diffusion::AdjointWorkspace diffusion;
             typename Force::AdjointWorkspace force;
-            VectorField<double> force_adjoint;
-            VectorField<double> forced_velocity;
-            VectorField<double> constrained_velocity;
+            simulation::VectorField<double> force_adjoint;
+            simulation::VectorField<double> forced_velocity;
+            simulation::VectorField<double> constrained_velocity;
             typename Projection::AdjointWorkspace projection;
         };
 
@@ -276,6 +276,6 @@ export namespace physica::fluids::gas::adjoint_control {
         operators::MassConservation conservation;
         Projection projection;
         const ScalarBoundary density_boundary;
-        ScalarField<float> collider_density;
+        simulation::ScalarField<float> collider_density;
     };
-} // namespace physica::fluids::gas::adjoint_control
+} // namespace physica::fluids::gas::solvers::adjoint_control

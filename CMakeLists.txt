@@ -29,6 +29,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(PHYSICA_EXAMPLES "Build examples" ON)
 option(PHYSICA_BUILD_SPECTRA "Build Spectra providers for examples" ON)
+include(CTest)
 
 # ============================================================================
 # Dependencies
@@ -64,184 +65,15 @@ target_sources(
         physica-math
         PUBLIC
         FILE_SET headers TYPE HEADERS
-        BASE_DIRS physica/math/include
-        FILES physica/math/include/physica/math.h
+        BASE_DIRS "${PROJECT_SOURCE_DIR}/physica"
+        FILES physica/math/math.h
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         physica/math/math.ixx
 )
 target_link_libraries(physica-math PUBLIC CCCL::libcudacxx)
 
 # ============================================================================
-# Field
-# ============================================================================
-add_library(physica-field STATIC)
-target_sources(
-        physica-field
-        PRIVATE
-        physica/field/field-kernels.h
-        physica/field/field.cpp
-        physica/field/field.cu
-        PUBLIC
-        FILE_SET headers TYPE HEADERS
-        BASE_DIRS physica/field/include
-        FILES physica/field/include/physica/field/device.cuh
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/field/field.ixx
-)
-target_include_directories(physica-field PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-field
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        physica-math
-)
-
-# ============================================================================
-# Fluid Grid
-# ============================================================================
-add_library(physica-fluids-grid STATIC)
-target_sources(
-        physica-fluids-grid
-        PUBLIC
-        FILE_SET headers TYPE HEADERS
-        BASE_DIRS physica/fluids/grid/include
-        FILES
-        physica/fluids/grid/include/physica/fluids/grid/device.cuh
-        physica/fluids/grid/include/physica/fluids/grid/interop.h
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/fluids/grid/grid.ixx
-        physica/fluids/grid/poisson.ixx
-)
-target_include_directories(physica-fluids-grid PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-fluids-grid
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        physica-field
-)
-
-# ============================================================================
-# Reconstruction Datasets
-# ============================================================================
-add_library(physica-dataset STATIC)
-target_sources(
-        physica-dataset
-        PRIVATE
-        physica/reconstruction/dataset/ffmpeg.h
-        physica/reconstruction/dataset/ffmpeg.cpp
-        physica/reconstruction/dataset/nerf_synthetic.cpp
-        physica/reconstruction/dataset/pinf.cpp
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/reconstruction/dataset/multiview.ixx
-        physica/reconstruction/dataset/nerf_synthetic.ixx
-        physica/reconstruction/dataset/pinf.ixx
-)
-target_link_libraries(
-        physica-dataset
-        PUBLIC
-        physica-math
-        PRIVATE
-        FFmpeg::FFmpeg
-        nlohmann_json::nlohmann_json
-        physica::stb
-)
-
-# ============================================================================
-# Instant-NGP
-# ============================================================================
-add_library(physica-instant-ngp STATIC)
-target_sources(
-        physica-instant-ngp
-        PRIVATE
-        physica/reconstruction/instant-ngp/instant_ngp.cpp
-        physica/reconstruction/instant-ngp/network/kernels.h
-        physica/reconstruction/instant-ngp/network/network.cpp
-        physica/reconstruction/instant-ngp/network/network.cu
-        physica/reconstruction/instant-ngp/rendering/kernels.h
-        physica/reconstruction/instant-ngp/rendering/rendering.cpp
-        physica/reconstruction/instant-ngp/rendering/rendering.cu
-        physica/reconstruction/instant-ngp/sampling/kernels.h
-        physica/reconstruction/instant-ngp/sampling/sampling.cpp
-        physica/reconstruction/instant-ngp/sampling/sampling.cu
-        physica/reconstruction/instant-ngp/scene/scene.cpp
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/reconstruction/instant-ngp/instant_ngp.ixx
-        physica/reconstruction/instant-ngp/network/network.ixx
-        physica/reconstruction/instant-ngp/rendering/rendering.ixx
-        physica/reconstruction/instant-ngp/sampling/sampling.ixx
-        physica/reconstruction/instant-ngp/scene/scene.ixx
-)
-target_include_directories(physica-instant-ngp PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-instant-ngp
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        physica-dataset
-        physica-math
-        PRIVATE
-        CUDA::cublas
-        CUDA::cublasLt
-        nlohmann_json::nlohmann_json
-)
-
-# ============================================================================
-# PINFS
-# ============================================================================
-add_library(physica-pinfs STATIC)
-target_sources(
-        physica-pinfs
-        PRIVATE
-        physica/reconstruction/pinfs/pinfs.cpp
-        physica/reconstruction/pinfs/field/field.cpp
-        physica/reconstruction/pinfs/field/field.cu
-        physica/reconstruction/pinfs/field/kernels.h
-        physica/reconstruction/pinfs/network/network.cpp
-        physica/reconstruction/pinfs/network/network.cu
-        physica/reconstruction/pinfs/network/kernels.h
-        physica/reconstruction/pinfs/perceptual/perceptual.cpp
-        physica/reconstruction/pinfs/perceptual/perceptual.cu
-        physica/reconstruction/pinfs/perceptual/kernels.h
-        physica/reconstruction/pinfs/physics/physics.cpp
-        physica/reconstruction/pinfs/physics/physics.cu
-        physica/reconstruction/pinfs/physics/kernels.h
-        physica/reconstruction/pinfs/rendering/rendering.cpp
-        physica/reconstruction/pinfs/rendering/rendering.cu
-        physica/reconstruction/pinfs/rendering/kernels.h
-        physica/reconstruction/pinfs/sampling/sampling.cpp
-        physica/reconstruction/pinfs/sampling/sampling.cu
-        physica/reconstruction/pinfs/sampling/kernels.h
-        physica/reconstruction/pinfs/scene/scene.cpp
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/reconstruction/pinfs/pinfs.ixx
-        physica/reconstruction/pinfs/field/field.ixx
-        physica/reconstruction/pinfs/network/network.ixx
-        physica/reconstruction/pinfs/perceptual/perceptual.ixx
-        physica/reconstruction/pinfs/physics/physics.ixx
-        physica/reconstruction/pinfs/rendering/rendering.ixx
-        physica/reconstruction/pinfs/sampling/sampling.ixx
-        physica/reconstruction/pinfs/scene/scene.ixx
-)
-target_include_directories(physica-pinfs PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-pinfs
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        physica-dataset
-        physica-math
-        PRIVATE
-        CUDA::cublas
-        nlohmann_json::nlohmann_json
-)
-
-# ============================================================================
-# L-BFGS-B
+# Optimization / L-BFGS-B
 # ============================================================================
 add_library(physica-optimization-lbfgsb STATIC)
 target_sources(
@@ -263,13 +95,137 @@ target_link_libraries(
 )
 
 # ============================================================================
-# Gas Fluids
+# Neural
+# ============================================================================
+add_library(physica-neural STATIC)
+target_sources(
+        physica-neural
+        PRIVATE
+        physica/neural/matmul.cpp
+        physica/neural/training-state-kernels.h
+        physica/neural/training-state.cpp
+        physica/neural/training-state.cu
+        physica/neural/transformer-kernels.h
+        physica/neural/transformer.cpp
+        physica/neural/transformer.cu
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/neural/matmul.ixx
+        physica/neural/training-state.ixx
+        physica/neural/transformer.ixx
+)
+target_include_directories(physica-neural PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-neural
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        PRIVATE
+        CUDA::cublas
+        CUDA::cublasLt
+)
+
+# ============================================================================
+# Simulation / Field
+# ============================================================================
+add_library(physica-simulation-field STATIC)
+target_sources(
+        physica-simulation-field
+        PRIVATE
+        physica/simulation/field/field-kernels.h
+        physica/simulation/field/field.cpp
+        physica/simulation/field/field.cu
+        PUBLIC
+        FILE_SET headers TYPE HEADERS
+        BASE_DIRS "${PROJECT_SOURCE_DIR}/physica"
+        FILES physica/simulation/field/device.cuh
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/simulation/field/field.ixx
+)
+target_include_directories(physica-simulation-field PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-simulation-field
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-math
+)
+
+# ============================================================================
+# Fluids / Grid
+# ============================================================================
+add_library(physica-fluids-grid STATIC)
+target_sources(
+        physica-fluids-grid
+        PUBLIC
+        FILE_SET headers TYPE HEADERS
+        BASE_DIRS "${PROJECT_SOURCE_DIR}/physica"
+        FILES
+        physica/fluids/grid/device.cuh
+        physica/fluids/grid/interop.h
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/fluids/grid/grid.ixx
+        physica/fluids/grid/poisson.ixx
+)
+target_include_directories(physica-fluids-grid PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-fluids-grid
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-simulation-field
+)
+
+# ============================================================================
+# Serialization
+# ============================================================================
+add_library(physica-serialization STATIC)
+target_sources(
+        physica-serialization
+        PRIVATE
+        physica/serialization/safetensors.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/serialization/safetensors.ixx
+)
+target_compile_definitions(physica-serialization PRIVATE PHYSICA_PROJECT_VERSION="${PROJECT_VERSION}")
+target_link_libraries(physica-serialization PRIVATE nlohmann_json::nlohmann_json)
+
+# ============================================================================
+# Reconstruction / Datasets
+# ============================================================================
+add_library(physica-reconstruction-dataset STATIC)
+target_sources(
+        physica-reconstruction-dataset
+        PRIVATE
+        physica/reconstruction/dataset/ffmpeg.h
+        physica/reconstruction/dataset/ffmpeg.cpp
+        physica/reconstruction/dataset/nerf_synthetic.cpp
+        physica/reconstruction/dataset/pinf.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/reconstruction/dataset/multiview.ixx
+        physica/reconstruction/dataset/nerf_synthetic.ixx
+        physica/reconstruction/dataset/pinf.ixx
+)
+target_link_libraries(
+        physica-reconstruction-dataset
+        PUBLIC
+        physica-math
+        PRIVATE
+        FFmpeg::FFmpeg
+        nlohmann_json::nlohmann_json
+        physica::stb
+)
+
+# ============================================================================
+# Fluids / Gas
 # ============================================================================
 add_library(physica-fluids-gas STATIC)
 target_sources(
         physica-fluids-gas
         PRIVATE
-        physica/fluids/gas/domain/domain.cpp
+        physica/fluids/gas/domain.cpp
         physica/fluids/gas/operators/advection-kernels.h
         physica/fluids/gas/operators/advection-sampling.cuh
         physica/fluids/gas/operators/advection.cpp
@@ -301,12 +257,12 @@ target_sources(
         physica/fluids/gas/solvers/keyframe-smoke/control.cu
         PUBLIC
         FILE_SET headers TYPE HEADERS
-        BASE_DIRS physica/fluids/gas/include
+        BASE_DIRS "${PROJECT_SOURCE_DIR}/physica"
         FILES
-        physica/fluids/gas/include/physica/fluids/gas/device.cuh
-        physica/fluids/gas/include/physica/fluids/gas/interop.h
+        physica/fluids/gas/device.cuh
+        physica/fluids/gas/interop.h
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/fluids/gas/domain/domain.ixx
+        physica/fluids/gas/domain.ixx
         physica/fluids/gas/operators/advection.ixx
         physica/fluids/gas/operators/conservation.ixx
         physica/fluids/gas/operators/diffusion.ixx
@@ -337,7 +293,7 @@ target_link_libraries(
 )
 
 # ============================================================================
-# Liquid Fluids
+# Fluids / Liquid
 # ============================================================================
 add_library(physica-fluids-liquid STATIC)
 target_sources(
@@ -373,10 +329,10 @@ target_sources(
         physica/fluids/liquid/solvers/sph/dynamics.cpp
         PUBLIC
         FILE_SET headers TYPE HEADERS
-        BASE_DIRS physica/fluids/liquid/include
+        BASE_DIRS "${PROJECT_SOURCE_DIR}/physica"
         FILES
-        physica/fluids/liquid/include/physica/fluids/liquid/device.cuh
-        physica/fluids/liquid/include/physica/fluids/liquid/interop.h
+        physica/fluids/liquid/device.cuh
+        physica/fluids/liquid/interop.h
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
         physica/fluids/liquid/operators/density.ixx
         physica/fluids/liquid/operators/neighborhood.ixx
@@ -397,18 +353,18 @@ target_link_libraries(
         PUBLIC
         CCCL::libcudacxx
         CUDA::toolkit
-        physica-field
+        physica-simulation-field
         physica-fluids-grid
 )
 
 # ============================================================================
-# Deformable Cloth
+# Deformables / Cloth
 # ============================================================================
 add_library(physica-deformables-cloth STATIC)
 target_sources(
         physica-deformables-cloth
         PRIVATE
-        physica/deformables/cloth/model/model.cpp
+        physica/deformables/cloth/model.cpp
         physica/deformables/cloth/operators/fixed-position-kernels.h
         physica/deformables/cloth/operators/fixed-position.cpp
         physica/deformables/cloth/operators/fixed-position.cu
@@ -420,7 +376,7 @@ target_sources(
         physica/deformables/cloth/operators/semi-implicit-euler.cu
         PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/deformables/cloth/model/model.ixx
+        physica/deformables/cloth/model.ixx
         physica/deformables/cloth/operators/fixed-position.ixx
         physica/deformables/cloth/operators/mass-spring.ixx
         physica/deformables/cloth/operators/semi-implicit-euler.ixx
@@ -432,13 +388,162 @@ target_link_libraries(
         PUBLIC
         CCCL::libcudacxx
         CUDA::toolkit
-        physica-field
+        physica-simulation-field
 )
+
+# ============================================================================
+# Reconstruction / Instant-NGP
+# ============================================================================
+add_library(physica-reconstruction-instant-ngp STATIC)
+target_sources(
+        physica-reconstruction-instant-ngp
+        PRIVATE
+        physica/reconstruction/instant-ngp/instant-ngp.cpp
+        physica/reconstruction/instant-ngp/network/kernels.h
+        physica/reconstruction/instant-ngp/network/network.cpp
+        physica/reconstruction/instant-ngp/network/network.cu
+        physica/reconstruction/instant-ngp/rendering/kernels.h
+        physica/reconstruction/instant-ngp/rendering/rendering.cpp
+        physica/reconstruction/instant-ngp/rendering/rendering.cu
+        physica/reconstruction/instant-ngp/sampling/kernels.h
+        physica/reconstruction/instant-ngp/sampling/sampling.cpp
+        physica/reconstruction/instant-ngp/sampling/sampling.cu
+        physica/reconstruction/instant-ngp/scene/scene.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/reconstruction/instant-ngp/instant-ngp.ixx
+        physica/reconstruction/instant-ngp/network/network.ixx
+        physica/reconstruction/instant-ngp/rendering/rendering.ixx
+        physica/reconstruction/instant-ngp/sampling/sampling.ixx
+        physica/reconstruction/instant-ngp/scene/scene.ixx
+)
+target_include_directories(physica-reconstruction-instant-ngp PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-reconstruction-instant-ngp
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-reconstruction-dataset
+        physica-math
+        PRIVATE
+        CUDA::cublas
+        CUDA::cublasLt
+        physica-serialization
+)
+
+# ============================================================================
+# Reconstruction / PINFS
+# ============================================================================
+add_library(physica-reconstruction-pinfs STATIC)
+target_sources(
+        physica-reconstruction-pinfs
+        PRIVATE
+        physica/reconstruction/pinfs/pinfs.cpp
+        physica/reconstruction/pinfs/field/field.cpp
+        physica/reconstruction/pinfs/field/field.cu
+        physica/reconstruction/pinfs/field/kernels.h
+        physica/reconstruction/pinfs/network/network.cpp
+        physica/reconstruction/pinfs/network/network.cu
+        physica/reconstruction/pinfs/network/kernels.h
+        physica/reconstruction/pinfs/perceptual/perceptual.cpp
+        physica/reconstruction/pinfs/perceptual/perceptual.cu
+        physica/reconstruction/pinfs/perceptual/kernels.h
+        physica/reconstruction/pinfs/physics/physics.cpp
+        physica/reconstruction/pinfs/physics/physics.cu
+        physica/reconstruction/pinfs/physics/kernels.h
+        physica/reconstruction/pinfs/rendering/rendering.cpp
+        physica/reconstruction/pinfs/rendering/rendering.cu
+        physica/reconstruction/pinfs/rendering/kernels.h
+        physica/reconstruction/pinfs/sampling/sampling.cpp
+        physica/reconstruction/pinfs/sampling/sampling.cu
+        physica/reconstruction/pinfs/sampling/kernels.h
+        physica/reconstruction/pinfs/scene/scene.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/reconstruction/pinfs/pinfs.ixx
+        physica/reconstruction/pinfs/field/field.ixx
+        physica/reconstruction/pinfs/network/network.ixx
+        physica/reconstruction/pinfs/perceptual/perceptual.ixx
+        physica/reconstruction/pinfs/physics/physics.ixx
+        physica/reconstruction/pinfs/rendering/rendering.ixx
+        physica/reconstruction/pinfs/sampling/sampling.ixx
+        physica/reconstruction/pinfs/scene/scene.ixx
+)
+target_include_directories(physica-reconstruction-pinfs PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-reconstruction-pinfs
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-reconstruction-dataset
+        physica-math
+        PRIVATE
+        CUDA::cublas
+        physica-serialization
+)
+
+# ============================================================================
+# Generative / Flow Matching
+# ============================================================================
+add_library(physica-generative-flow-matching STATIC)
+target_sources(
+        physica-generative-flow-matching
+        PRIVATE
+        physica/generative/dataset/cifar10.cpp
+        physica/generative/flow-matching/kernels.h
+        physica/generative/flow-matching/kernels.cu
+        physica/generative/flow-matching/model.cpp
+        physica/generative/flow-matching/sampling.cpp
+        physica/generative/flow-matching/flow-matching.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/generative/dataset/cifar10.ixx
+        physica/generative/flow-matching/model.ixx
+        physica/generative/flow-matching/sampling.ixx
+        physica/generative/flow-matching/flow-matching.ixx
+)
+target_include_directories(physica-generative-flow-matching PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(
+        physica-generative-flow-matching
+        PUBLIC
+        CCCL::libcudacxx
+        CUDA::toolkit
+        physica-neural
+        PRIVATE
+        CUDA::curand
+        physica-serialization
+)
+
+if (BUILD_TESTING)
+    add_executable(
+            physica-flow-matching-regression
+            physica/generative/flow-matching/regression.cpp
+    )
+    target_link_libraries(
+            physica-flow-matching-regression
+            PRIVATE
+            physica-generative-flow-matching
+            physica-neural
+            physica-serialization
+    )
+    add_test(NAME physica-flow-matching-regression COMMAND physica-flow-matching-regression)
+endif ()
 
 # ============================================================================
 # Examples
 # ============================================================================
 if (PHYSICA_EXAMPLES)
+    add_executable(
+            physica-example-flow-matching-cli
+            examples/generative/flow-matching/main.cpp
+    )
+    target_link_libraries(
+            physica-example-flow-matching-cli
+            PRIVATE
+            physica-generative-flow-matching
+            physica::stb
+    )
+
     add_executable(
             physica-example-instant-ngp-cli
             examples/reconstruction/instant-ngp/main.cpp
@@ -446,8 +551,8 @@ if (PHYSICA_EXAMPLES)
     target_link_libraries(
             physica-example-instant-ngp-cli
             PRIVATE
-            physica-dataset
-            physica-instant-ngp
+            physica-reconstruction-dataset
+            physica-reconstruction-instant-ngp
     )
 
     add_executable(
@@ -457,8 +562,8 @@ if (PHYSICA_EXAMPLES)
     target_link_libraries(
             physica-example-pinfs-cli
             PRIVATE
-            physica-dataset
-            physica-pinfs
+            physica-reconstruction-dataset
+            physica-reconstruction-pinfs
             physica::stb
     )
     if (WIN32)
@@ -585,8 +690,8 @@ if (PHYSICA_EXAMPLES)
         target_link_libraries(
                 physica-example-instant-ngp-spectra
                 PRIVATE
-                physica-dataset
-                physica-instant-ngp
+                physica-reconstruction-dataset
+                physica-reconstruction-instant-ngp
         )
         set(physica_instant_ngp_bundle_directory "${PROJECT_BINARY_DIR}/spectra/instant-ngp")
         file(MAKE_DIRECTORY "${physica_instant_ngp_bundle_directory}")

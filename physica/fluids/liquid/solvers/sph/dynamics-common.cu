@@ -4,10 +4,10 @@
 #include <cuda/std/cmath>
 #include <cuda_runtime.h>
 
-namespace physica::fluids::liquid::sph::kernels::common {
+namespace physica::fluids::liquid::solvers::sph::kernels::common {
     namespace {
         constexpr std::uint32_t block_size = 256u;
-        __global__ void non_pressure_forward_kernel(const std::uint32_t particle_count, const float support_radius, const Vector3<float> gravity, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> controls, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<float> accelerations) {
+        __global__ void non_pressure_forward_kernel(const std::uint32_t particle_count, const float support_radius, const Vector3<float> gravity, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> controls, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<float> accelerations) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position = load(positions, particle);
@@ -42,7 +42,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(accelerations, particle, acceleration);
         }
 
-        __global__ void non_pressure_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> control_tangent, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const field::VectorView<float> acceleration_tangent) {
+        __global__ void non_pressure_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> control_tangent, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const simulation::VectorView<float> acceleration_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position     = load(positions, particle);
@@ -91,7 +91,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(acceleration_tangent, particle, result);
         }
 
-        __global__ void non_pressure_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<const double> acceleration_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+        __global__ void non_pressure_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<const double> acceleration_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position       = load(positions, particle);
@@ -158,7 +158,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             parameter_adjoint.viscosities[particle] += viscosity_contribution;
         }
 
-        __global__ void pressure_forward_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const field::VectorView<float> accelerations) {
+        __global__ void pressure_forward_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const simulation::VectorView<float> accelerations) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position = load(positions, particle);
@@ -189,7 +189,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(accelerations, particle, acceleration);
         }
 
-        __global__ void pressure_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* pressures, const float* pressure_tangent, const field::VectorView<float> acceleration_tangent) {
+        __global__ void pressure_jvp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* pressures, const float* pressure_tangent, const simulation::VectorView<float> acceleration_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position      = load(positions, particle);
@@ -232,7 +232,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(acceleration_tangent, particle, result);
         }
 
-        __global__ void pressure_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const field::VectorView<const double> acceleration_adjoint, const field::VectorView<double> position_adjoint, double* density_adjoint, double* pressure_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+        __global__ void pressure_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const simulation::VectorView<const double> acceleration_adjoint, const simulation::VectorView<double> position_adjoint, double* density_adjoint, double* pressure_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> position       = load(positions, particle);
@@ -295,7 +295,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             collision_z = predicted_position.z < collision_box.bounds.minimum.z || predicted_position.z > collision_box.bounds.maximum.z;
         }
 
-        __global__ void integrate_forward_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<float> next_positions, const field::VectorView<float> next_velocities) {
+        __global__ void integrate_forward_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<float> next_positions, const simulation::VectorView<float> next_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             Vector3<float> velocity = (load(velocities, particle) + (load(accelerations, particle) * time_step));
@@ -315,7 +315,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(next_velocities, particle, velocity);
         }
 
-        __global__ void integrate_jvp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> acceleration_tangent, const field::VectorView<float> next_position_tangent, const field::VectorView<float> next_velocity_tangent) {
+        __global__ void integrate_jvp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> acceleration_tangent, const simulation::VectorView<float> next_position_tangent, const simulation::VectorView<float> next_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> predicted_velocity = (load(velocities, particle) + (load(accelerations, particle) * time_step));
@@ -337,7 +337,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(next_velocity_tangent, particle, velocity_dot);
         }
 
-        __global__ void integrate_vjp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<const double> next_position_adjoint, const field::VectorView<const double> next_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> acceleration_adjoint) {
+        __global__ void integrate_vjp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<const double> next_position_adjoint, const simulation::VectorView<const double> next_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> acceleration_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> predicted_velocity = (load(velocities, particle) + (load(accelerations, particle) * time_step));
@@ -361,7 +361,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             accumulate(acceleration_adjoint, particle, {time_step * velocity_bar_x, time_step * velocity_bar_y, time_step * velocity_bar_z});
         }
 
-        __global__ void predict_forward_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<float> predicted_positions, const field::VectorView<float> predicted_velocities) {
+        __global__ void predict_forward_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<float> predicted_positions, const simulation::VectorView<float> predicted_velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             Vector3<float> velocity = (load(velocities, particle) + ((load(non_pressure_accelerations, particle) + load(pressure_accelerations, particle)) * time_step));
@@ -381,7 +381,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(predicted_velocities, particle, velocity);
         }
 
-        __global__ void predict_jvp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> non_pressure_acceleration_tangent, const field::VectorView<const float> pressure_acceleration_tangent, const field::VectorView<float> predicted_position_tangent, const field::VectorView<float> predicted_velocity_tangent) {
+        __global__ void predict_jvp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> non_pressure_acceleration_tangent, const simulation::VectorView<const float> pressure_acceleration_tangent, const simulation::VectorView<float> predicted_position_tangent, const simulation::VectorView<float> predicted_velocity_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> predicted_velocity = (load(velocities, particle) + ((load(non_pressure_accelerations, particle) + load(pressure_accelerations, particle)) * time_step));
@@ -403,7 +403,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             store(predicted_velocity_tangent, particle, velocity_tangent_value);
         }
 
-        __global__ void predict_vjp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<const double> predicted_position_adjoint, const field::VectorView<const double> predicted_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> non_pressure_acceleration_adjoint, const field::VectorView<double> pressure_acceleration_adjoint) {
+        __global__ void predict_vjp_kernel(const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<const double> predicted_position_adjoint, const simulation::VectorView<const double> predicted_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> non_pressure_acceleration_adjoint, const simulation::VectorView<double> pressure_acceleration_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> predicted_velocity = (load(velocities, particle) + ((load(non_pressure_accelerations, particle) + load(pressure_accelerations, particle)) * time_step));
@@ -439,7 +439,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             pressure_acceleration_adjoint.z[particle] += acceleration_z;
         }
 
-        __global__ void add_kernel(const std::uint32_t particle_count, const field::VectorView<const float> first, const field::VectorView<const float> second, const field::VectorView<float> output) {
+        __global__ void add_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> first, const simulation::VectorView<const float> second, const simulation::VectorView<float> output) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             output.x[particle] = first.x[particle] + second.x[particle];
@@ -447,7 +447,7 @@ namespace physica::fluids::liquid::sph::kernels::common {
             output.z[particle] = first.z[particle] + second.z[particle];
         }
 
-        __global__ void add_adjoint_kernel(const std::uint32_t particle_count, const field::VectorView<const double> output_adjoint, const field::VectorView<double> first_adjoint, const field::VectorView<double> second_adjoint) {
+        __global__ void add_adjoint_kernel(const std::uint32_t particle_count, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> first_adjoint, const simulation::VectorView<double> second_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const double x = output_adjoint.x[particle];
@@ -463,60 +463,60 @@ namespace physica::fluids::liquid::sph::kernels::common {
 
     } // namespace
 
-    void non_pressure_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const float gravity_x, const float gravity_y, const float gravity_z, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> external_accelerations, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<float> accelerations) {
+    void non_pressure_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const float gravity_x, const float gravity_y, const float gravity_z, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> external_accelerations, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<float> accelerations) {
         non_pressure_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, {gravity_x, gravity_y, gravity_z}, positions, velocities, external_accelerations, parameters, neighborhood, boundary, densities, accelerations);
     }
 
-    void non_pressure_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> external_acceleration_tangent, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const field::VectorView<float> acceleration_tangent) {
+    void non_pressure_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> external_acceleration_tangent, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const simulation::VectorView<float> acceleration_tangent) {
         non_pressure_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, positions, velocities, external_acceleration_tangent, position_tangent, velocity_tangent, parameters, parameter_tangent, neighborhood, boundary, densities, density_tangent, acceleration_tangent);
     }
 
-    void non_pressure_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const field::VectorView<const double> acceleration_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> control_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+    void non_pressure_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const simulation::VectorView<const double> acceleration_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> control_adjoint, double* density_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
         non_pressure_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, positions, velocities, parameters, neighborhood, boundary, densities, acceleration_adjoint, position_adjoint, velocity_adjoint, control_adjoint, density_adjoint, parameter_adjoint);
     }
 
-    void integrate_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<float> next_positions, const field::VectorView<float> next_velocities) {
+    void integrate_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<float> next_positions, const simulation::VectorView<float> next_velocities) {
         integrate_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, accelerations, next_positions, next_velocities);
     }
 
-    void integrate_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> acceleration_tangent, const field::VectorView<float> next_position_tangent, const field::VectorView<float> next_velocity_tangent) {
+    void integrate_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> acceleration_tangent, const simulation::VectorView<float> next_position_tangent, const simulation::VectorView<float> next_velocity_tangent) {
         integrate_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, accelerations, position_tangent, velocity_tangent, acceleration_tangent, next_position_tangent, next_velocity_tangent);
     }
 
-    void integrate_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> accelerations, const field::VectorView<const double> next_position_adjoint, const field::VectorView<const double> next_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> acceleration_adjoint) {
+    void integrate_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> accelerations, const simulation::VectorView<const double> next_position_adjoint, const simulation::VectorView<const double> next_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> acceleration_adjoint) {
         integrate_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, accelerations, next_position_adjoint, next_velocity_adjoint, position_adjoint, velocity_adjoint, acceleration_adjoint);
     }
 
-    void predict_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<float> predicted_positions, const field::VectorView<float> predicted_velocities) {
+    void predict_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<float> predicted_positions, const simulation::VectorView<float> predicted_velocities) {
         predict_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, non_pressure_accelerations, pressure_accelerations, predicted_positions, predicted_velocities);
     }
 
-    void predict_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<const float> position_tangent, const field::VectorView<const float> velocity_tangent, const field::VectorView<const float> non_pressure_acceleration_tangent, const field::VectorView<const float> pressure_acceleration_tangent, const field::VectorView<float> predicted_position_tangent, const field::VectorView<float> predicted_velocity_tangent) {
+    void predict_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> velocity_tangent, const simulation::VectorView<const float> non_pressure_acceleration_tangent, const simulation::VectorView<const float> pressure_acceleration_tangent, const simulation::VectorView<float> predicted_position_tangent, const simulation::VectorView<float> predicted_velocity_tangent) {
         predict_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, non_pressure_accelerations, pressure_accelerations, position_tangent, velocity_tangent, non_pressure_acceleration_tangent, pressure_acceleration_tangent, predicted_position_tangent, predicted_velocity_tangent);
     }
 
-    void predict_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const field::VectorView<const float> positions, const field::VectorView<const float> velocities, const field::VectorView<const float> non_pressure_accelerations, const field::VectorView<const float> pressure_accelerations, const field::VectorView<const double> predicted_position_adjoint, const field::VectorView<const double> predicted_velocity_adjoint, const field::VectorView<double> position_adjoint, const field::VectorView<double> velocity_adjoint, const field::VectorView<double> non_pressure_acceleration_adjoint, const field::VectorView<double> pressure_acceleration_adjoint) {
+    void predict_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const device::CollisionBox collision_box, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> velocities, const simulation::VectorView<const float> non_pressure_accelerations, const simulation::VectorView<const float> pressure_accelerations, const simulation::VectorView<const double> predicted_position_adjoint, const simulation::VectorView<const double> predicted_velocity_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> velocity_adjoint, const simulation::VectorView<double> non_pressure_acceleration_adjoint, const simulation::VectorView<double> pressure_acceleration_adjoint) {
         predict_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, collision_box, positions, velocities, non_pressure_accelerations, pressure_accelerations, predicted_position_adjoint, predicted_velocity_adjoint, position_adjoint, velocity_adjoint, non_pressure_acceleration_adjoint, pressure_acceleration_adjoint);
     }
 
-    void pressure_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const field::VectorView<float> accelerations) {
+    void pressure_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const simulation::VectorView<float> accelerations) {
         pressure_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, positions, parameters, neighborhood, boundary, densities, pressures, accelerations);
     }
 
-    void pressure_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const field::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* pressures, const float* pressure_tangent, const field::VectorView<float> acceleration_tangent) {
+    void pressure_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> position_tangent, const device::ParticleParameterView parameters, const device::ParticleParameterTangentView parameter_tangent, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* density_tangent, const float* pressures, const float* pressure_tangent, const simulation::VectorView<float> acceleration_tangent) {
         pressure_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, positions, position_tangent, parameters, parameter_tangent, neighborhood, boundary, densities, density_tangent, pressures, pressure_tangent, acceleration_tangent);
     }
 
-    void pressure_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const field::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const field::VectorView<const double> acceleration_adjoint, const field::VectorView<double> position_adjoint, double* density_adjoint, double* pressure_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
+    void pressure_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const float* densities, const float* pressures, const simulation::VectorView<const double> acceleration_adjoint, const simulation::VectorView<double> position_adjoint, double* density_adjoint, double* pressure_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
         pressure_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, support_radius, positions, parameters, neighborhood, boundary, densities, pressures, acceleration_adjoint, position_adjoint, density_adjoint, pressure_adjoint, parameter_adjoint);
     }
 
-    void add(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const field::VectorView<const float> first, const field::VectorView<const float> second, const field::VectorView<float> output) {
+    void add(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const simulation::VectorView<const float> first, const simulation::VectorView<const float> second, const simulation::VectorView<float> output) {
         add_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, first, second, output);
     }
 
-    void add_adjoint(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const field::VectorView<const double> output_adjoint, const field::VectorView<double> first_adjoint, const field::VectorView<double> second_adjoint) {
+    void add_adjoint(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const simulation::VectorView<const double> output_adjoint, const simulation::VectorView<double> first_adjoint, const simulation::VectorView<double> second_adjoint) {
         add_adjoint_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, output_adjoint, first_adjoint, second_adjoint);
     }
 
-} // namespace physica::fluids::liquid::sph::kernels::common
+} // namespace physica::fluids::liquid::solvers::sph::kernels::common
