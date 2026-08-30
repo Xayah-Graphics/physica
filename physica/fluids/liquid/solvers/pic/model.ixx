@@ -21,8 +21,7 @@ export namespace physica::fluids::liquid::solvers::pic {
         const float particle_radius;
         const bool no_slip;
 
-        Model(ModelConfiguration next_configuration, const ::cuda::stream_ref stream)
-            : grid(std::move(next_configuration.grid), stream), maximum_particle_count(next_configuration.maximum_particle_count), particle_radius(next_configuration.particle_radius), no_slip(next_configuration.no_slip) {}
+        Model(ModelConfiguration next_configuration, const ::cuda::stream_ref stream) : grid(std::move(next_configuration.grid), stream), maximum_particle_count(next_configuration.maximum_particle_count), particle_radius(next_configuration.particle_radius), no_slip(next_configuration.no_slip) {}
 
         Model(const Model&)            = delete;
         Model& operator=(const Model&) = delete;

@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/liquid/interop.h>
 #include "pbf-kernels.h"
+#include <fluids/liquid/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.liquid.solvers.pbf;

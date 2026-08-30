@@ -12,8 +12,7 @@ export namespace physica::simulation {
     struct ScalarField final {
         ::cuda::device_buffer<Value> values;
 
-        ScalarField(const ::cuda::stream_ref stream, const std::size_t count)
-            : values{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init} {}
+        ScalarField(const ::cuda::stream_ref stream, const std::size_t count) : values{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init} {}
     };
 
     template <class Value>
@@ -22,13 +21,9 @@ export namespace physica::simulation {
         ::cuda::device_buffer<Value> y;
         ::cuda::device_buffer<Value> z;
 
-        VectorField(const ::cuda::stream_ref stream, const std::size_t count)
-            : VectorField(stream, {count, count, count}) {}
+        VectorField(const ::cuda::stream_ref stream, const std::size_t count) : VectorField(stream, {count, count, count}) {}
 
-        VectorField(const ::cuda::stream_ref stream, const std::array<std::size_t, 3u> counts)
-            : x{stream, ::cuda::device_default_memory_pool(stream.device()), counts[0], ::cuda::no_init},
-              y{stream, ::cuda::device_default_memory_pool(stream.device()), counts[1], ::cuda::no_init},
-              z{stream, ::cuda::device_default_memory_pool(stream.device()), counts[2], ::cuda::no_init} {}
+        VectorField(const ::cuda::stream_ref stream, const std::array<std::size_t, 3u> counts) : x{stream, ::cuda::device_default_memory_pool(stream.device()), counts[0], ::cuda::no_init}, y{stream, ::cuda::device_default_memory_pool(stream.device()), counts[1], ::cuda::no_init}, z{stream, ::cuda::device_default_memory_pool(stream.device()), counts[2], ::cuda::no_init} {}
     };
 
     template <class Value>
@@ -43,16 +38,7 @@ export namespace physica::simulation {
         ::cuda::device_buffer<Value> c21;
         ::cuda::device_buffer<Value> c22;
 
-        Matrix3Field(const ::cuda::stream_ref stream, const std::size_t count)
-            : c00{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c01{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c02{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c10{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c11{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c12{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c20{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c21{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init},
-              c22{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init} {}
+        Matrix3Field(const ::cuda::stream_ref stream, const std::size_t count) : c00{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c01{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c02{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c10{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c11{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c12{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c20{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c21{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, c22{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init} {}
     };
 
     template <class Value>
@@ -108,4 +94,4 @@ export namespace physica::simulation {
     void accumulate(::cuda::stream_ref stream, const ScalarField<double>& source, ScalarField<double>& destination);
     void accumulate(::cuda::stream_ref stream, const VectorField<double>& source, VectorField<double>& destination);
     void upload(::cuda::stream_ref stream, std::span<const Vector3<float>> source, VectorField<float>& destination);
-}
+} // namespace physica::simulation

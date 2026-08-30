@@ -47,4 +47,4 @@ export namespace physica::fluids::liquid::meshfree {
         Model(Model&&)                 = delete;
         Model& operator=(Model&&)      = delete;
     };
-}
+} // namespace physica::fluids::liquid::meshfree

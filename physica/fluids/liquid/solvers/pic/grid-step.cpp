@@ -1,9 +1,9 @@
 module;
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/interop.h>
 #include "grid-step-kernels.h"
+#include <fluids/grid/interop.h>
 #include <physica/cuda.h>
+#include <simulation/field/device.cuh>
 
 module physica.fluids.liquid.solvers.pic.grid_step;
 
@@ -26,13 +26,13 @@ namespace physica::fluids::liquid::solvers::pic {
     GridStep::Workspace GridStep::allocate_workspace(const Model& model) const {
         const ::cuda::stream_ref stream = model.grid.stream;
         return {
-            .face_mass                = model.grid.allocate_mac_field<float>(),
-            .valid_faces              = model.grid.allocate_mac_field<std::uint32_t>(),
+            .face_mass                 = model.grid.allocate_mac_field<float>(),
+            .valid_faces               = model.grid.allocate_mac_field<std::uint32_t>(),
             .projection_input_velocity = model.grid.allocate_mac_field<float>(),
-            .velocity_scratch         = model.grid.allocate_mac_field<float>(),
-            .valid_faces_scratch      = model.grid.allocate_mac_field<std::uint32_t>(),
-            .particle_counts          = model.grid.allocate_cell_field<std::uint32_t>(),
-            .divergence_metrics       = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 3u, ::cuda::no_init},
+            .velocity_scratch          = model.grid.allocate_mac_field<float>(),
+            .valid_faces_scratch       = model.grid.allocate_mac_field<std::uint32_t>(),
+            .particle_counts           = model.grid.allocate_cell_field<std::uint32_t>(),
+            .divergence_metrics        = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 3u, ::cuda::no_init},
         };
     }
 

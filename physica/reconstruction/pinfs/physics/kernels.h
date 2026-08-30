@@ -2,8 +2,8 @@
 #define PHYSICA_RECONSTRUCTION_PINFS_PHYSICS_KERNELS_H
 
 #include <cstdint>
-#include <physica/cuda_stream.h>
 #include <math/math.h>
+#include <physica/cuda_stream.h>
 
 namespace physica::reconstruction::pinfs::kernels {
     void sample_physics(::cuda::stream_ref stream, const Vector3<float>* voxel_positions, std::uint32_t voxel_count, float* points, float* derivatives, Vector3<float>* positions, std::uint32_t sample_count, float time, std::uint32_t seed, std::uint32_t step);

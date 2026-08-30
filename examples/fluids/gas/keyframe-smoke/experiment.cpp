@@ -102,8 +102,8 @@ namespace physica::examples::keyframe_smoke {
         fluids::gas::solvers::keyframe_smoke::State current        = solver.allocate_state(domain);
         fluids::gas::solvers::keyframe_smoke::State next           = solver.allocate_state(domain);
         fluids::gas::solvers::keyframe_smoke::DenseControl control = solver.allocate_control(domain);
-        decltype(solver)::StepCache cache                 = solver.allocate_step_cache(domain);
-        decltype(solver)::Workspace workspace             = solver.allocate_workspace(domain);
+        decltype(solver)::StepCache cache                          = solver.allocate_step_cache(domain);
+        decltype(solver)::Workspace workspace                      = solver.allocate_workspace(domain);
         ::cuda::copy_bytes(stream, combined, current.density.values);
         domain.grid.clear(current.velocity);
 

@@ -1,12 +1,12 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_DEVICE_CUH
 #define PHYSICA_FLUIDS_LIQUID_DEVICE_CUH
 
-#include <simulation/field/device.cuh>
+#include <cstdint>
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
 #include <cuda/std/numbers>
 #include <cuda_runtime.h>
-#include <cstdint>
+#include <simulation/field/device.cuh>
 
 namespace physica::fluids::liquid::device {
     struct CollisionBox final {
@@ -182,6 +182,6 @@ namespace physica::fluids::liquid::device {
         if (distance == 0.0 || distance >= support_radius) return {};
         return (displacement * -45.0 * scalar / (::cuda::std::numbers::pi_v<double> * ::cuda::std::pow(static_cast<double>(support_radius), 6.0) * distance));
     }
-}
+} // namespace physica::fluids::liquid::device
 
 #endif

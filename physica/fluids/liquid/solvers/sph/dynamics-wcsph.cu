@@ -33,31 +33,31 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
             ViscosityReverse result{};
             const double compression = dot(velocity_difference, displacement);
             if (compression >= 0.0) return result;
-            const double denominator         = dot(displacement, displacement) + 0.01 * support_radius * support_radius;
-            const double viscosity           = 0.5 * (first_viscosity + second_viscosity);
-            const double speed_of_sound      = 0.5 * (first_speed_of_sound + second_speed_of_sound);
-            const double density_sum         = first_density + second_density;
-            const double nu                  = 2.0 * viscosity * support_radius * speed_of_sound / density_sum;
-            const double pi_value            = -nu * compression / denominator;
-            const Vector3<float> gradient            = device::cubic_gradient(displacement, support_radius);
-            result.neighbor_mass             = -pi_value * dot(acceleration_adjoint, gradient);
-            const double pi_adjoint          = -neighbor_mass * dot(acceleration_adjoint, gradient);
-            const Vector3<double> gradient_adjoint   = (acceleration_adjoint * -neighbor_mass * pi_value);
-            result.displacement              = device::cubic_hessian_product(displacement, gradient_adjoint, support_radius);
-            const double nu_adjoint          = -compression * pi_adjoint / denominator;
-            const double compression_adjoint = -nu * pi_adjoint / denominator;
-            const double denominator_adjoint = nu * compression * pi_adjoint / (denominator * denominator);
-            result.velocity_difference       = (displacement * compression_adjoint);
-            result.displacement              = (result.displacement + ((velocity_difference * compression_adjoint) + (displacement * 2.0 * denominator_adjoint)));
-            const double viscosity_adjoint   = 2.0 * support_radius * speed_of_sound * nu_adjoint / density_sum;
-            const double speed_adjoint       = 2.0 * viscosity * support_radius * nu_adjoint / density_sum;
-            const double density_adjoint     = -nu * nu_adjoint / density_sum;
-            result.first_viscosity           = 0.5 * viscosity_adjoint;
-            result.second_viscosity          = 0.5 * viscosity_adjoint;
-            result.first_speed_of_sound      = 0.5 * speed_adjoint;
-            result.second_speed_of_sound     = 0.5 * speed_adjoint;
-            result.first_density             = density_adjoint;
-            result.second_density            = density_adjoint;
+            const double denominator               = dot(displacement, displacement) + 0.01 * support_radius * support_radius;
+            const double viscosity                 = 0.5 * (first_viscosity + second_viscosity);
+            const double speed_of_sound            = 0.5 * (first_speed_of_sound + second_speed_of_sound);
+            const double density_sum               = first_density + second_density;
+            const double nu                        = 2.0 * viscosity * support_radius * speed_of_sound / density_sum;
+            const double pi_value                  = -nu * compression / denominator;
+            const Vector3<float> gradient          = device::cubic_gradient(displacement, support_radius);
+            result.neighbor_mass                   = -pi_value * dot(acceleration_adjoint, gradient);
+            const double pi_adjoint                = -neighbor_mass * dot(acceleration_adjoint, gradient);
+            const Vector3<double> gradient_adjoint = (acceleration_adjoint * -neighbor_mass * pi_value);
+            result.displacement                    = device::cubic_hessian_product(displacement, gradient_adjoint, support_radius);
+            const double nu_adjoint                = -compression * pi_adjoint / denominator;
+            const double compression_adjoint       = -nu * pi_adjoint / denominator;
+            const double denominator_adjoint       = nu * compression * pi_adjoint / (denominator * denominator);
+            result.velocity_difference             = (displacement * compression_adjoint);
+            result.displacement                    = (result.displacement + ((velocity_difference * compression_adjoint) + (displacement * 2.0 * denominator_adjoint)));
+            const double viscosity_adjoint         = 2.0 * support_radius * speed_of_sound * nu_adjoint / density_sum;
+            const double speed_adjoint             = 2.0 * viscosity * support_radius * nu_adjoint / density_sum;
+            const double density_adjoint           = -nu * nu_adjoint / density_sum;
+            result.first_viscosity                 = 0.5 * viscosity_adjoint;
+            result.second_viscosity                = 0.5 * viscosity_adjoint;
+            result.first_speed_of_sound            = 0.5 * speed_adjoint;
+            result.second_speed_of_sound           = 0.5 * speed_adjoint;
+            result.first_density                   = density_adjoint;
+            result.second_density                  = density_adjoint;
             return result;
         }
 
@@ -144,7 +144,7 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement        = (position - load(positions, neighbor));
                             const Vector3<float> velocity_difference = (velocity - load(velocities, neighbor));
-                            const float compression          = dot(velocity_difference, displacement);
+                            const float compression                  = dot(velocity_difference, displacement);
                             if (compression >= 0.0F) continue;
                             const float alpha    = 0.5F * (particles.viscosities[particle] + particles.viscosities[neighbor]);
                             const float speed    = 0.5F * (speed_of_sound[particle] + speed_of_sound[neighbor]);
@@ -153,10 +153,10 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             acceleration         = (acceleration + (device::cubic_gradient(displacement, support_radius) * -particles.masses[neighbor] * pi_value));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor     = neighborhood.sorted_boundary_indices[sorted];
+                            const std::uint32_t neighbor             = neighborhood.sorted_boundary_indices[sorted];
                             const Vector3<float> displacement        = (position - device::boundary_position(boundary, neighbor));
                             const Vector3<float> velocity_difference = (velocity - device::boundary_velocity(boundary, neighbor));
-                            const float compression          = dot(velocity_difference, displacement);
+                            const float compression                  = dot(velocity_difference, displacement);
                             if (compression >= 0.0F) continue;
                             const float nu       = particles.viscosities[particle] * support_radius * speed_of_sound[particle] / densities[particle];
                             const float pi_value = -nu * compression / (dot(displacement, displacement) + 0.01F * support_radius * support_radius);
@@ -186,47 +186,47 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement        = (position - load(positions, neighbor));
                             const Vector3<float> velocity_difference = (velocity - load(velocities, neighbor));
-                            const float compression          = dot(velocity_difference, displacement);
+                            const float compression                  = dot(velocity_difference, displacement);
                             if (compression >= 0.0F) continue;
                             const Vector3<float> displacement_dot        = (position_dot - load(position_tangent, neighbor));
                             const Vector3<float> velocity_difference_dot = (velocity_dot - load(velocity_tangent, neighbor));
-                            const float compression_dot          = dot(velocity_difference_dot, displacement) + dot(velocity_difference, displacement_dot);
-                            const float denominator              = dot(displacement, displacement) + 0.01F * support_radius * support_radius;
-                            const float denominator_dot          = 2.0F * dot(displacement, displacement_dot);
-                            const float alpha                    = 0.5F * (particles.viscosities[particle] + particles.viscosities[neighbor]);
-                            const float alpha_dot                = 0.5F * (particle_tangent.viscosities[particle] + particle_tangent.viscosities[neighbor]);
-                            const float speed                    = 0.5F * (speed_of_sound[particle] + speed_of_sound[neighbor]);
-                            const float speed_dot                = 0.5F * (speed_of_sound_tangent[particle] + speed_of_sound_tangent[neighbor]);
-                            const float density_sum              = densities[particle] + densities[neighbor];
-                            const float density_sum_dot          = density_tangent[particle] + density_tangent[neighbor];
-                            const float nu                       = 2.0F * alpha * support_radius * speed / density_sum;
-                            const float nu_dot                   = 2.0F * support_radius * (alpha_dot * speed + alpha * speed_dot) / density_sum - nu * density_sum_dot / density_sum;
-                            const float pi_value                 = -nu * compression / denominator;
-                            const float pi_dot                   = -(nu_dot * compression + nu * compression_dot) / denominator + nu * compression * denominator_dot / (denominator * denominator);
-                            const float mass                     = particles.masses[neighbor];
-                            const float mass_dot                 = particle_tangent.masses[neighbor];
+                            const float compression_dot                  = dot(velocity_difference_dot, displacement) + dot(velocity_difference, displacement_dot);
+                            const float denominator                      = dot(displacement, displacement) + 0.01F * support_radius * support_radius;
+                            const float denominator_dot                  = 2.0F * dot(displacement, displacement_dot);
+                            const float alpha                            = 0.5F * (particles.viscosities[particle] + particles.viscosities[neighbor]);
+                            const float alpha_dot                        = 0.5F * (particle_tangent.viscosities[particle] + particle_tangent.viscosities[neighbor]);
+                            const float speed                            = 0.5F * (speed_of_sound[particle] + speed_of_sound[neighbor]);
+                            const float speed_dot                        = 0.5F * (speed_of_sound_tangent[particle] + speed_of_sound_tangent[neighbor]);
+                            const float density_sum                      = densities[particle] + densities[neighbor];
+                            const float density_sum_dot                  = density_tangent[particle] + density_tangent[neighbor];
+                            const float nu                               = 2.0F * alpha * support_radius * speed / density_sum;
+                            const float nu_dot                           = 2.0F * support_radius * (alpha_dot * speed + alpha * speed_dot) / density_sum - nu * density_sum_dot / density_sum;
+                            const float pi_value                         = -nu * compression / denominator;
+                            const float pi_dot                           = -(nu_dot * compression + nu * compression_dot) / denominator + nu * compression * denominator_dot / (denominator * denominator);
+                            const float mass                             = particles.masses[neighbor];
+                            const float mass_dot                         = particle_tangent.masses[neighbor];
                             const Vector3<float> gradient                = device::cubic_gradient(displacement, support_radius);
                             const Vector3<float> gradient_dot            = device::cubic_gradient_tangent(displacement, displacement_dot, support_radius);
-                            result                               = (result + ((gradient * -(mass_dot * pi_value + mass * pi_dot)) + (gradient_dot * -mass * pi_value)));
+                            result                                       = (result + ((gradient * -(mass_dot * pi_value + mass * pi_dot)) + (gradient_dot * -mass * pi_value)));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor     = neighborhood.sorted_boundary_indices[sorted];
+                            const std::uint32_t neighbor             = neighborhood.sorted_boundary_indices[sorted];
                             const Vector3<float> displacement        = (position - device::boundary_position(boundary, neighbor));
                             const Vector3<float> velocity_difference = (velocity - device::boundary_velocity(boundary, neighbor));
-                            const float compression          = dot(velocity_difference, displacement);
+                            const float compression                  = dot(velocity_difference, displacement);
                             if (compression >= 0.0F) continue;
-                            const float compression_dot = dot(velocity_dot, displacement) + dot(velocity_difference, position_dot);
-                            const float denominator     = dot(displacement, displacement) + 0.01F * support_radius * support_radius;
-                            const float denominator_dot = 2.0F * dot(displacement, position_dot);
-                            const float nu              = particles.viscosities[particle] * support_radius * speed_of_sound[particle] / densities[particle];
-                            const float nu_dot          = support_radius * (particle_tangent.viscosities[particle] * speed_of_sound[particle] + particles.viscosities[particle] * speed_of_sound_tangent[particle]) / densities[particle] - nu * density_tangent[particle] / densities[particle];
-                            const float pi_value        = -nu * compression / denominator;
-                            const float pi_dot          = -(nu_dot * compression + nu * compression_dot) / denominator + nu * compression * denominator_dot / (denominator * denominator);
-                            const float mass            = particles.rest_densities[particle] * boundary.volumes[neighbor];
-                            const float mass_dot        = particle_tangent.rest_densities[particle] * boundary.volumes[neighbor];
-                            const Vector3<float> gradient       = device::cubic_gradient(displacement, support_radius);
-                            const Vector3<float> gradient_dot   = device::cubic_gradient_tangent(displacement, position_dot, support_radius);
-                            result                      = (result + ((gradient * -(mass_dot * pi_value + mass * pi_dot)) + (gradient_dot * -mass * pi_value)));
+                            const float compression_dot       = dot(velocity_dot, displacement) + dot(velocity_difference, position_dot);
+                            const float denominator           = dot(displacement, displacement) + 0.01F * support_radius * support_radius;
+                            const float denominator_dot       = 2.0F * dot(displacement, position_dot);
+                            const float nu                    = particles.viscosities[particle] * support_radius * speed_of_sound[particle] / densities[particle];
+                            const float nu_dot                = support_radius * (particle_tangent.viscosities[particle] * speed_of_sound[particle] + particles.viscosities[particle] * speed_of_sound_tangent[particle]) / densities[particle] - nu * density_tangent[particle] / densities[particle];
+                            const float pi_value              = -nu * compression / denominator;
+                            const float pi_dot                = -(nu_dot * compression + nu * compression_dot) / denominator + nu * compression * denominator_dot / (denominator * denominator);
+                            const float mass                  = particles.rest_densities[particle] * boundary.volumes[neighbor];
+                            const float mass_dot              = particle_tangent.rest_densities[particle] * boundary.volumes[neighbor];
+                            const Vector3<float> gradient     = device::cubic_gradient(displacement, support_radius);
+                            const Vector3<float> gradient_dot = device::cubic_gradient_tangent(displacement, position_dot, support_radius);
+                            result                            = (result + ((gradient * -(mass_dot * pi_value + mass * pi_dot)) + (gradient_dot * -mass * pi_value)));
                         }
                     }
             store(acceleration_tangent, particle, result);
@@ -256,31 +256,31 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement        = (position - load(positions, neighbor));
                             const Vector3<float> velocity_difference = (velocity - load(velocities, neighbor));
-                            const ViscosityReverse local     = viscosity_reverse(displacement, velocity_difference, densities[particle], densities[neighbor], particles.viscosities[particle], particles.viscosities[neighbor], speed_of_sound[particle], speed_of_sound[neighbor], particles.masses[neighbor], support_radius, load(acceleration_adjoint, particle));
-                            position_contribution            = (position_contribution + local.displacement);
-                            velocity_contribution            = (velocity_contribution + local.velocity_difference);
+                            const ViscosityReverse local             = viscosity_reverse(displacement, velocity_difference, densities[particle], densities[neighbor], particles.viscosities[particle], particles.viscosities[neighbor], speed_of_sound[particle], speed_of_sound[neighbor], particles.masses[neighbor], support_radius, load(acceleration_adjoint, particle));
+                            position_contribution                    = (position_contribution + local.displacement);
+                            velocity_contribution                    = (velocity_contribution + local.velocity_difference);
                             density_contribution += local.first_density;
                             viscosity_contribution += local.first_viscosity;
                             speed_contribution += local.first_speed_of_sound;
 
                             const Vector3<float> reverse_displacement        = (displacement * -1.0F);
                             const Vector3<float> reverse_velocity_difference = (velocity_difference * -1.0F);
-                            const ViscosityReverse cross             = viscosity_reverse(reverse_displacement, reverse_velocity_difference, densities[neighbor], densities[particle], particles.viscosities[neighbor], particles.viscosities[particle], speed_of_sound[neighbor], speed_of_sound[particle], particles.masses[particle], support_radius, load(acceleration_adjoint, neighbor));
-                            position_contribution                    = (position_contribution + (cross.displacement * -1.0));
-                            velocity_contribution                    = (velocity_contribution + (cross.velocity_difference * -1.0));
+                            const ViscosityReverse cross                     = viscosity_reverse(reverse_displacement, reverse_velocity_difference, densities[neighbor], densities[particle], particles.viscosities[neighbor], particles.viscosities[particle], speed_of_sound[neighbor], speed_of_sound[particle], particles.masses[particle], support_radius, load(acceleration_adjoint, neighbor));
+                            position_contribution                            = (position_contribution + (cross.displacement * -1.0));
+                            velocity_contribution                            = (velocity_contribution + (cross.velocity_difference * -1.0));
                             mass_contribution += cross.neighbor_mass;
                             density_contribution += cross.second_density;
                             viscosity_contribution += cross.second_viscosity;
                             speed_contribution += cross.second_speed_of_sound;
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor     = neighborhood.sorted_boundary_indices[sorted];
+                            const std::uint32_t neighbor             = neighborhood.sorted_boundary_indices[sorted];
                             const Vector3<float> displacement        = (position - device::boundary_position(boundary, neighbor));
                             const Vector3<float> velocity_difference = (velocity - device::boundary_velocity(boundary, neighbor));
-                            const float boundary_mass        = particles.rest_densities[particle] * boundary.volumes[neighbor];
-                            const ViscosityReverse local     = viscosity_reverse(displacement, velocity_difference, densities[particle], densities[particle], particles.viscosities[particle], particles.viscosities[particle], speed_of_sound[particle], speed_of_sound[particle], boundary_mass, support_radius, load(acceleration_adjoint, particle));
-                            position_contribution            = (position_contribution + local.displacement);
-                            velocity_contribution            = (velocity_contribution + local.velocity_difference);
+                            const float boundary_mass                = particles.rest_densities[particle] * boundary.volumes[neighbor];
+                            const ViscosityReverse local             = viscosity_reverse(displacement, velocity_difference, densities[particle], densities[particle], particles.viscosities[particle], particles.viscosities[particle], speed_of_sound[particle], speed_of_sound[particle], boundary_mass, support_radius, load(acceleration_adjoint, particle));
+                            position_contribution                    = (position_contribution + local.displacement);
+                            velocity_contribution                    = (velocity_contribution + local.velocity_difference);
                             rest_density_contribution += local.neighbor_mass * boundary.volumes[neighbor];
                             density_contribution += local.first_density + local.second_density;
                             viscosity_contribution += local.first_viscosity + local.second_viscosity;
@@ -312,16 +312,16 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             const std::uint32_t neighbor = neighborhood.sorted_particle_indices[sorted];
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement = (position - load(positions, neighbor));
-                            const float distance      = length(displacement);
+                            const float distance              = length(displacement);
                             if (distance >= support_radius) continue;
                             const float weight = distance > diameter ? device::cubic(displacement, support_radius) : device::cubic({diameter, 0.0F, 0.0F}, support_radius);
                             const float factor = -particles.surface_tensions[particle] * particles.masses[neighbor] * weight / particles.masses[particle];
                             acceleration       = (acceleration + (displacement * factor));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            const float distance         = length(displacement);
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            const float distance              = length(displacement);
                             if (distance >= support_radius) continue;
                             const float weight = distance > diameter ? device::cubic(displacement, support_radius) : device::cubic({diameter, 0.0F, 0.0F}, support_radius);
                             const float factor = -boundary_surface_tension[particle] * particles.rest_densities[particle] * boundary.volumes[neighbor] * weight / particles.masses[particle];
@@ -349,7 +349,7 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement     = (position - load(positions, neighbor));
                             const Vector3<float> displacement_dot = (position_dot - load(position_tangent, neighbor));
-                            const float distance          = length(displacement);
+                            const float distance                  = length(displacement);
                             if (distance >= support_radius) continue;
                             const float weight      = distance > diameter ? device::cubic(displacement, support_radius) : device::cubic({diameter, 0.0F, 0.0F}, support_radius);
                             const float weight_dot  = distance > diameter ? dot(device::cubic_gradient(displacement, support_radius), displacement_dot) : 0.0F;
@@ -361,9 +361,9 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             result                  = (result + ((displacement * factor_dot) + (displacement_dot * factor)));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            const float distance         = length(displacement);
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            const float distance              = length(displacement);
                             if (distance >= support_radius) continue;
                             const float weight            = distance > diameter ? device::cubic(displacement, support_radius) : device::cubic({diameter, 0.0F, 0.0F}, support_radius);
                             const float weight_dot        = distance > diameter ? dot(device::cubic_gradient(displacement, support_radius), position_dot) : 0.0F;
@@ -398,9 +398,9 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
                             const std::uint32_t neighbor = neighborhood.sorted_particle_indices[sorted];
                             if (neighbor == particle) continue;
-                            const Vector3<float> displacement  = (position - load(positions, neighbor));
-                            const SurfaceReverse local = surface_reverse(displacement, particles.masses[particle], particles.masses[neighbor], particles.surface_tensions[particle], support_radius, diameter, load(acceleration_adjoint, particle));
-                            position_contribution      = (position_contribution + local.displacement);
+                            const Vector3<float> displacement = (position - load(positions, neighbor));
+                            const SurfaceReverse local        = surface_reverse(displacement, particles.masses[particle], particles.masses[neighbor], particles.surface_tensions[particle], support_radius, diameter, load(acceleration_adjoint, particle));
+                            position_contribution             = (position_contribution + local.displacement);
                             mass_contribution += local.first_mass;
                             tension_contribution += local.tension;
 
@@ -409,11 +409,11 @@ namespace physica::fluids::liquid::solvers::sph::kernels::wcsph {
                             mass_contribution += cross.second_mass;
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            const float boundary_mass    = particles.rest_densities[particle] * boundary.volumes[neighbor];
-                            const SurfaceReverse local   = surface_reverse(displacement, particles.masses[particle], boundary_mass, boundary_surface_tension[particle], support_radius, diameter, load(acceleration_adjoint, particle));
-                            position_contribution        = (position_contribution + local.displacement);
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            const float boundary_mass         = particles.rest_densities[particle] * boundary.volumes[neighbor];
+                            const SurfaceReverse local        = surface_reverse(displacement, particles.masses[particle], boundary_mass, boundary_surface_tension[particle], support_radius, diameter, load(acceleration_adjoint, particle));
+                            position_contribution             = (position_contribution + local.displacement);
                             mass_contribution += local.first_mass;
                             rest_density_contribution += local.second_mass * boundary.volumes[neighbor];
                             boundary_tension_contribution += local.tension;

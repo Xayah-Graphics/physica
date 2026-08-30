@@ -1,19 +1,17 @@
 #include "kernels.h"
-
-#include <curand_kernel.h>
-#include <cuda/launch>
-#include <physica/cuda.h>
-
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cuda/launch>
+#include <curand_kernel.h>
+#include <physica/cuda.h>
 
 namespace physica::generative::flow_matching::kernels {
     namespace {
-        constexpr std::uint32_t thread_count = 256u;
+        constexpr std::uint32_t thread_count        = 256u;
         constexpr std::uint32_t image_element_count = 32u * 32u * 3u;
-        constexpr std::uint32_t sequence = 256u;
-        constexpr std::uint32_t patch_width = 12u;
+        constexpr std::uint32_t sequence            = 256u;
+        constexpr std::uint32_t patch_width         = 12u;
 
         __device__ unsigned long long subsequence(const std::uint64_t step, const std::uint32_t batch, const std::uint32_t sample, const std::uint32_t domain) {
             return (step * batch + sample) * 8ull + domain;
@@ -28,12 +26,12 @@ namespace physica::generative::flow_matching::kernels {
                 curandStatePhilox4_32_10_t state{};
                 curand_init(*seed, subsequence(*step, batch, sample, 0u), 0ull, &state);
                 image_index = static_cast<std::uint32_t>(static_cast<std::uint64_t>(curand(&state)) * 50'000u >> 32u);
-                flip = curand(&state) & 1u;
+                flip        = curand(&state) & 1u;
                 curand_init(*seed, subsequence(*step, batch, sample, 1u), 0ull, &state);
                 time = static_cast<float>(curand(&state) >> 8u) * 0x1p-24F;
                 curand_init(*seed, subsequence(*step, batch, sample, 2u), 0ull, &state);
                 labels[sample] = static_cast<float>(curand(&state) >> 8u) * 0x1p-24F < 0.1F ? 10u : dataset_labels[image_index];
-                times[sample] = time;
+                times[sample]  = time;
             }
             __syncthreads();
             for (std::uint32_t group = threadIdx.x; group < image_element_count / 4u; group += blockDim.x) {
@@ -42,21 +40,21 @@ namespace physica::generative::flow_matching::kernels {
                 const float4 noise = curand_normal4(&state);
                 const float gaussian[4]{noise.x, noise.y, noise.z, noise.w};
                 for (std::uint32_t lane = 0u; lane < 4u; ++lane) {
-                    const std::uint32_t patch_index = group * 4u + lane;
-                    const std::uint32_t token = patch_index / patch_width;
+                    const std::uint32_t patch_index   = group * 4u + lane;
+                    const std::uint32_t token         = patch_index / patch_width;
                     const std::uint32_t patch_element = patch_index % patch_width;
-                    const std::uint32_t patch_y = token / 16u;
-                    const std::uint32_t patch_x = token % 16u;
-                    const std::uint32_t pixel = patch_element / 3u;
-                    const std::uint32_t channel = patch_element % 3u;
-                    const std::uint32_t y = patch_y * 2u + pixel / 2u;
-                    const std::uint32_t unflipped_x = patch_x * 2u + pixel % 2u;
-                    const std::uint32_t x = flip == 0u ? unflipped_x : 31u - unflipped_x;
-                    const std::size_t source = static_cast<std::size_t>(image_index) * image_element_count + static_cast<std::size_t>(channel) * 1024u + y * 32u + x;
-                    const float data = static_cast<float>(images[source]) * (2.0F / 255.0F) - 1.0F;
-                    const std::size_t destination = static_cast<std::size_t>(sample) * image_element_count + patch_index;
-                    path[destination] = fmaf(time, data - gaussian[lane], gaussian[lane]);
-                    target[destination] = data - gaussian[lane];
+                    const std::uint32_t patch_y       = token / 16u;
+                    const std::uint32_t patch_x       = token % 16u;
+                    const std::uint32_t pixel         = patch_element / 3u;
+                    const std::uint32_t channel       = patch_element % 3u;
+                    const std::uint32_t y             = patch_y * 2u + pixel / 2u;
+                    const std::uint32_t unflipped_x   = patch_x * 2u + pixel % 2u;
+                    const std::uint32_t x             = flip == 0u ? unflipped_x : 31u - unflipped_x;
+                    const std::size_t source          = static_cast<std::size_t>(image_index) * image_element_count + static_cast<std::size_t>(channel) * 1024u + y * 32u + x;
+                    const float data                  = static_cast<float>(images[source]) * (2.0F / 255.0F) - 1.0F;
+                    const std::size_t destination     = static_cast<std::size_t>(sample) * image_element_count + patch_index;
+                    path[destination]                 = fmaf(time, data - gaussian[lane], gaussian[lane]);
+                    target[destination]               = data - gaussian[lane];
                 }
             }
         }
@@ -66,12 +64,12 @@ namespace physica::generative::flow_matching::kernels {
             for (std::uint32_t group = threadIdx.x; group < image_element_count / 4u; group += blockDim.x) {
                 curandStatePhilox4_32_10_t random{};
                 curand_init(seed, subsequence(0u, batch, sample, 4u), static_cast<unsigned long long>(group) * 4ull, &random);
-                const float4 noise = curand_normal4(&random);
+                const float4 noise      = curand_normal4(&random);
                 const std::size_t index = static_cast<std::size_t>(sample) * image_element_count + group * 4u;
-                state[index] = noise.x;
-                state[index + 1u] = noise.y;
-                state[index + 2u] = noise.z;
-                state[index + 3u] = noise.w;
+                state[index]            = noise.x;
+                state[index + 1u]       = noise.y;
+                state[index + 2u]       = noise.z;
+                state[index + 3u]       = noise.w;
             }
         }
 
@@ -83,25 +81,25 @@ namespace physica::generative::flow_matching::kernels {
         __global__ void time_embedding_kernel(const float* const times, float* const embedding, const std::uint32_t width, const std::size_t count) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= count) return;
-            const std::uint32_t feature = static_cast<std::uint32_t>(index % width);
+            const std::uint32_t feature         = static_cast<std::uint32_t>(index % width);
             const std::uint32_t frequency_index = feature % (width / 2u);
-            const float frequency = expf(-logf(10'000.0F) * static_cast<float>(frequency_index) / static_cast<float>(width / 2u));
-            const float angle = times[index / width] * frequency;
-            embedding[index] = feature < width / 2u ? cosf(angle) : sinf(angle);
+            const float frequency               = expf(-logf(10'000.0F) * static_cast<float>(frequency_index) / static_cast<float>(width / 2u));
+            const float angle                   = times[index / width] * frequency;
+            embedding[index]                    = feature < width / 2u ? cosf(angle) : sinf(angle);
         }
 
         __global__ void silu_forward_kernel(const float* const input, float* const output, const std::size_t count) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= count) return;
             const float value = input[index];
-            output[index] = value / (1.0F + expf(-value));
+            output[index]     = value / (1.0F + expf(-value));
         }
 
         __global__ void silu_backward_kernel(const float* const input, const float* const output_gradient, float* const input_gradient, const std::size_t count) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= count) return;
-            const float value = input[index];
-            const float sigmoid = 1.0F / (1.0F + expf(-value));
+            const float value     = input[index];
+            const float sigmoid   = 1.0F / (1.0F + expf(-value));
             input_gradient[index] = output_gradient[index] * sigmoid * (1.0F + value * (1.0F - sigmoid));
         }
 
@@ -120,7 +118,7 @@ namespace physica::generative::flow_matching::kernels {
         __global__ void class_embedding_backward_kernel(const float* const condition_gradient, const std::uint8_t* const labels, float* const class_embedding_gradient, const std::uint32_t batch, const std::uint32_t width) {
             const std::uint32_t index = static_cast<std::uint32_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= 11u * width) return;
-            const std::uint32_t label = index / width;
+            const std::uint32_t label   = index / width;
             const std::uint32_t feature = index % width;
             float gradient{};
             for (std::uint32_t sample = 0u; sample < batch; ++sample)
@@ -130,11 +128,11 @@ namespace physica::generative::flow_matching::kernels {
 
         __global__ void final_adaln_forward_kernel(const float* const input, const float* const modulation, float* const output, float* const means, float* const inverse_standard_deviations, const std::uint32_t sequence_size, const std::uint32_t width) {
             __shared__ float reduction[thread_count];
-            const std::uint32_t row = blockIdx.x;
+            const std::uint32_t row     = blockIdx.x;
             const std::uint32_t feature = threadIdx.x;
-            const std::uint32_t sample = row / sequence_size;
-            const float value = feature < width ? input[static_cast<std::size_t>(row) * width + feature] : 0.0F;
-            reduction[feature] = value;
+            const std::uint32_t sample  = row / sequence_size;
+            const float value           = feature < width ? input[static_cast<std::size_t>(row) * width + feature] : 0.0F;
+            reduction[feature]          = value;
             __syncthreads();
             for (std::uint32_t stride = thread_count / 2u; stride != 0u; stride /= 2u) {
                 if (feature < stride) reduction[feature] += reduction[feature + stride];
@@ -150,11 +148,11 @@ namespace physica::generative::flow_matching::kernels {
             }
             const float inverse_standard_deviation = rsqrtf(reduction[0] / static_cast<float>(width) + 1.0e-6F);
             if (feature == 0u) {
-                means[row] = mean;
+                means[row]                       = mean;
                 inverse_standard_deviations[row] = inverse_standard_deviation;
             }
             if (feature < width) {
-                const std::size_t modulation_offset = static_cast<std::size_t>(sample) * 2u * width;
+                const std::size_t modulation_offset                     = static_cast<std::size_t>(sample) * 2u * width;
                 output[static_cast<std::size_t>(row) * width + feature] = (value - mean) * inverse_standard_deviation * (1.0F + modulation[modulation_offset + width + feature]) + modulation[modulation_offset + feature];
             }
         }
@@ -162,16 +160,16 @@ namespace physica::generative::flow_matching::kernels {
         __global__ void final_adaln_input_backward_kernel(const float* const input, const float* const modulation, const float* const output_gradient, const float* const means, const float* const inverse_standard_deviations, float* const input_gradient, const std::uint32_t sequence_size, const std::uint32_t width) {
             __shared__ float gradient_sum[thread_count];
             __shared__ float normalized_gradient_sum[thread_count];
-            const std::uint32_t row = blockIdx.x;
+            const std::uint32_t row     = blockIdx.x;
             const std::uint32_t feature = threadIdx.x;
-            const std::uint32_t sample = row / sequence_size;
+            const std::uint32_t sample  = row / sequence_size;
             float normalized{};
             float gradient{};
             if (feature < width) {
                 normalized = (input[static_cast<std::size_t>(row) * width + feature] - means[row]) * inverse_standard_deviations[row];
-                gradient = output_gradient[static_cast<std::size_t>(row) * width + feature] * (1.0F + modulation[static_cast<std::size_t>(sample) * 2u * width + width + feature]);
+                gradient   = output_gradient[static_cast<std::size_t>(row) * width + feature] * (1.0F + modulation[static_cast<std::size_t>(sample) * 2u * width + width + feature]);
             }
-            gradient_sum[feature] = gradient;
+            gradient_sum[feature]            = gradient;
             normalized_gradient_sum[feature] = gradient * normalized;
             __syncthreads();
             for (std::uint32_t stride = thread_count / 2u; stride != 0u; stride /= 2u) {
@@ -185,19 +183,19 @@ namespace physica::generative::flow_matching::kernels {
         }
 
         __global__ void final_adaln_modulation_backward_kernel(const float* const input, const float* const output_gradient, const float* const means, const float* const inverse_standard_deviations, float* const modulation_gradient, const std::uint32_t sequence_size, const std::uint32_t width) {
-            const std::uint32_t sample = blockIdx.x;
+            const std::uint32_t sample  = blockIdx.x;
             const std::uint32_t feature = threadIdx.x;
             if (feature >= width) return;
             float shift_gradient{};
             float scale_gradient{};
             for (std::uint32_t token = 0u; token < sequence_size; ++token) {
                 const std::size_t row = static_cast<std::size_t>(sample) * sequence_size + token;
-                const float gradient = output_gradient[row * width + feature];
+                const float gradient  = output_gradient[row * width + feature];
                 shift_gradient += gradient;
                 scale_gradient = fmaf(gradient, (input[row * width + feature] - means[row]) * inverse_standard_deviations[row], scale_gradient);
             }
-            const std::size_t offset = static_cast<std::size_t>(sample) * 2u * width;
-            modulation_gradient[offset + feature] = shift_gradient;
+            const std::size_t offset                      = static_cast<std::size_t>(sample) * 2u * width;
+            modulation_gradient[offset + feature]         = shift_gradient;
             modulation_gradient[offset + width + feature] = scale_gradient;
         }
 
@@ -206,9 +204,9 @@ namespace physica::generative::flow_matching::kernels {
             const std::uint32_t sample = blockIdx.x;
             float loss{};
             for (std::uint32_t element = threadIdx.x; element < image_element_count; element += blockDim.x) {
-                const std::size_t index = static_cast<std::size_t>(sample) * image_element_count + element;
-                const float difference = prediction[index] - target[index];
-                loss = fmaf(difference, difference, loss);
+                const std::size_t index    = static_cast<std::size_t>(sample) * image_element_count + element;
+                const float difference     = prediction[index] - target[index];
+                loss                       = fmaf(difference, difference, loss);
                 prediction_gradient[index] = 2.0F * difference / static_cast<float>(gridDim.x * image_element_count);
             }
             reduction[threadIdx.x] = loss;
@@ -278,14 +276,14 @@ namespace physica::generative::flow_matching::kernels {
         __global__ void unpatchify_kernel(const float* const patches, std::uint8_t* const rgba, const std::size_t count) {
             const std::size_t index = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (index >= count) return;
-            const std::uint32_t sample = static_cast<std::uint32_t>(index / (32u * 32u));
-            const std::uint32_t pixel = static_cast<std::uint32_t>(index % (32u * 32u));
-            const std::uint32_t y = pixel / 32u;
-            const std::uint32_t x = pixel % 32u;
-            const std::uint32_t token = (y / 2u) * 16u + x / 2u;
+            const std::uint32_t sample      = static_cast<std::uint32_t>(index / (32u * 32u));
+            const std::uint32_t pixel       = static_cast<std::uint32_t>(index % (32u * 32u));
+            const std::uint32_t y           = pixel / 32u;
+            const std::uint32_t x           = pixel % 32u;
+            const std::uint32_t token       = (y / 2u) * 16u + x / 2u;
             const std::uint32_t patch_pixel = (y % 2u) * 2u + x % 2u;
             for (std::uint32_t channel = 0u; channel < 3u; ++channel) {
-                const float value = fminf(fmaxf(patches[static_cast<std::size_t>(sample) * image_element_count + token * patch_width + patch_pixel * 3u + channel], -1.0F), 1.0F);
+                const float value          = fminf(fmaxf(patches[static_cast<std::size_t>(sample) * image_element_count + token * patch_width + patch_pixel * 3u + channel], -1.0F), 1.0F);
                 rgba[index * 4u + channel] = static_cast<std::uint8_t>(rintf((value + 1.0F) * 127.5F));
             }
             rgba[index * 4u + 3u] = 255u;

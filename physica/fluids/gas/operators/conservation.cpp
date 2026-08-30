@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/gas/interop.h>
 #include "conservation-kernels.h"
+#include <fluids/gas/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.gas.operators.conservation;

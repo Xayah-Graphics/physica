@@ -115,490 +115,490 @@ namespace physica::reconstruction::instant_ngp {
 
 namespace physica::reconstruction::instant_ngp::kernels {
     namespace {
-    inline constexpr std::uint32_t network_random_domain = 0u;
+        inline constexpr std::uint32_t network_random_domain = 0u;
 
-    enum class NetworkRandomSequence : std::uint32_t {
-        grid_parameters,
-        mlp_parameters,
-    };
+        enum class NetworkRandomSequence : std::uint32_t {
+            grid_parameters,
+            mlp_parameters,
+        };
 
-    inline __device__ std::uint32_t grid_index(const std::uint32_t hashmap_size, const std::uint32_t resolution, const std::uint32_t x, const std::uint32_t y, const std::uint32_t z) {
-        const std::uint64_t dense_size = static_cast<std::uint64_t>(resolution) * resolution * resolution;
-        if (dense_size <= hashmap_size) return static_cast<std::uint32_t>(x + static_cast<std::uint64_t>(y) * resolution + static_cast<std::uint64_t>(z) * resolution * resolution);
-        return (x ^ (y * 2654435761u) ^ (z * 805459861u)) % hashmap_size;
-    }
-
-    inline __device__ void grid_position_fraction(const float input, float& pos, std::uint32_t& pos_grid, const float scale) {
-        pos                 = ::cuda::std::fma(scale, input, 0.5f);
-        const float floored = ::cuda::std::floor(pos);
-        pos_grid            = static_cast<std::uint32_t>(static_cast<int>(floored));
-        pos -= floored;
-    }
-
-    __global__ void encode_grid_forward_kernel(const std::uint32_t sample_count, const NetworkGridOffsets grid_offsets, const float* __restrict__ sample_coords, const __half* __restrict__ grid, __half* __restrict__ encoded_positions) {
-        const std::uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-        if (i >= sample_count) return;
-
-        const std::uint32_t level             = blockIdx.y;
-        const std::uint32_t level_offset      = grid_offsets.values[level];
-        const std::uint32_t next_level_offset = grid_offsets.values[level + 1u];
-        grid += level_offset * NetworkLayout<network_cuda_shape>::grid_features_per_level;
-        const std::uint32_t hashmap_size = next_level_offset - level_offset;
-        std::uint32_t resolution         = NetworkLayout<network_cuda_shape>::grid_base_resolution;
-        for (std::uint32_t index = 0u; index < level; ++index) resolution *= NetworkLayout<network_cuda_shape>::grid_resolution_scale;
-        const float scale   = static_cast<float>(resolution) - 1.0f;
-        const float* sample = sample_coords + static_cast<std::uint64_t>(i) * 7u;
-
-        float pos_x          = 0.0f;
-        float pos_y          = 0.0f;
-        float pos_z          = 0.0f;
-        std::uint32_t grid_x = 0u;
-        std::uint32_t grid_y = 0u;
-        std::uint32_t grid_z = 0u;
-        grid_position_fraction(sample[0], pos_x, grid_x, scale);
-        grid_position_fraction(sample[1], pos_y, grid_y, scale);
-        grid_position_fraction(sample[2], pos_z, grid_z, scale);
-
-        __half result0 = 0.0f;
-        __half result1 = 0.0f;
-        __half result2 = 0.0f;
-        __half result3 = 0.0f;
-
-        for (std::uint32_t corner = 0u; corner < 8u; ++corner) {
-            const bool high_x         = (corner & 1u) != 0u;
-            const bool high_y         = (corner & 2u) != 0u;
-            const bool high_z         = (corner & 4u) != 0u;
-            const float weight        = (high_x ? pos_x : 1.0f - pos_x) * (high_y ? pos_y : 1.0f - pos_y) * (high_z ? pos_z : 1.0f - pos_z);
-            const std::uint32_t index = grid_index(hashmap_size, resolution, high_x ? grid_x + 1u : grid_x, high_y ? grid_y + 1u : grid_y, high_z ? grid_z + 1u : grid_z) * NetworkLayout<network_cuda_shape>::grid_features_per_level;
-            const __half weight_half  = weight;
-            result0                   = __hfma(weight_half, grid[index + 0u], result0);
-            result1                   = __hfma(weight_half, grid[index + 1u], result1);
-            result2                   = __hfma(weight_half, grid[index + 2u], result2);
-            result3                   = __hfma(weight_half, grid[index + 3u], result3);
+        inline __device__ std::uint32_t grid_index(const std::uint32_t hashmap_size, const std::uint32_t resolution, const std::uint32_t x, const std::uint32_t y, const std::uint32_t z) {
+            const std::uint64_t dense_size = static_cast<std::uint64_t>(resolution) * resolution * resolution;
+            if (dense_size <= hashmap_size) return static_cast<std::uint32_t>(x + static_cast<std::uint64_t>(y) * resolution + static_cast<std::uint64_t>(z) * resolution * resolution);
+            return (x ^ (y * 2654435761u) ^ (z * 805459861u)) % hashmap_size;
         }
 
-        encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 0u) * sample_count] = result0;
-        encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 1u) * sample_count] = result1;
-        encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 2u) * sample_count] = result2;
-        encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 3u) * sample_count] = result3;
-    }
-
-    __global__ void encode_grid_backward_kernel(const std::uint32_t sample_count, const NetworkGridOffsets grid_offsets, const float* __restrict__ sample_coords, const __half* __restrict__ encoded_position_gradients, __half* __restrict__ grid_gradients) {
-        const std::uint32_t thread = blockIdx.x * blockDim.x + threadIdx.x;
-        const std::uint32_t i      = (thread * 2u) / NetworkLayout<network_cuda_shape>::grid_features_per_level;
-        if (i >= sample_count) return;
-
-        const std::uint32_t level             = blockIdx.y;
-        const std::uint32_t feature           = thread * 2u - i * NetworkLayout<network_cuda_shape>::grid_features_per_level;
-        const std::uint32_t level_offset      = grid_offsets.values[level];
-        const std::uint32_t next_level_offset = grid_offsets.values[level + 1u];
-        grid_gradients += level_offset * NetworkLayout<network_cuda_shape>::grid_features_per_level;
-        const std::uint32_t hashmap_size = next_level_offset - level_offset;
-        std::uint32_t resolution         = NetworkLayout<network_cuda_shape>::grid_base_resolution;
-        for (std::uint32_t index = 0u; index < level; ++index) resolution *= NetworkLayout<network_cuda_shape>::grid_resolution_scale;
-        const float scale   = static_cast<float>(resolution) - 1.0f;
-        const float* sample = sample_coords + static_cast<std::uint64_t>(i) * 7u;
-
-        float pos_x          = 0.0f;
-        float pos_y          = 0.0f;
-        float pos_z          = 0.0f;
-        std::uint32_t grid_x = 0u;
-        std::uint32_t grid_y = 0u;
-        std::uint32_t grid_z = 0u;
-        grid_position_fraction(sample[0], pos_x, grid_x, scale);
-        grid_position_fraction(sample[1], pos_y, grid_y, scale);
-        grid_position_fraction(sample[2], pos_z, grid_z, scale);
-
-        const __half grad0 = encoded_position_gradients[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature + 0u) * sample_count];
-        const __half grad1 = encoded_position_gradients[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature + 1u) * sample_count];
-
-        for (std::uint32_t corner = 0u; corner < 8u; ++corner) {
-            const bool high_x         = (corner & 1u) != 0u;
-            const bool high_y         = (corner & 2u) != 0u;
-            const bool high_z         = (corner & 4u) != 0u;
-            const float weight        = (high_x ? pos_x : 1.0f - pos_x) * (high_y ? pos_y : 1.0f - pos_y) * (high_z ? pos_z : 1.0f - pos_z);
-            const std::uint32_t index = grid_index(hashmap_size, resolution, high_x ? grid_x + 1u : grid_x, high_y ? grid_y + 1u : grid_y, high_z ? grid_z + 1u : grid_z) * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature;
-            const __half weight_half  = weight;
-            atomicAdd(reinterpret_cast<__half2*>(grid_gradients + index), __halves2half2(__hmul(weight_half, grad0), __hmul(weight_half, grad1)));
-        }
-    }
-
-    __global__ void encode_spherical_harmonics_kernel(const std::uint32_t sample_count, const float* __restrict__ sample_coords, __half* __restrict__ output) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= sample_count) return;
-
-        const float* coord = sample_coords + static_cast<std::uint64_t>(i) * 7u;
-        const float x      = coord[4] * 2.0f - 1.0f;
-        const float y      = coord[5] * 2.0f - 1.0f;
-        const float z      = coord[6] * 2.0f - 1.0f;
-        const float xy     = x * y;
-        const float xz     = x * z;
-        const float yz     = y * z;
-        const float x2     = x * x;
-        const float y2     = y * y;
-        const float z2     = z * z;
-
-        output[i + 0u * sample_count]  = static_cast<__half>(0.28209479177387814f);
-        output[i + 1u * sample_count]  = static_cast<__half>(-0.48860251190291987f * y);
-        output[i + 2u * sample_count]  = static_cast<__half>(0.48860251190291987f * z);
-        output[i + 3u * sample_count]  = static_cast<__half>(-0.48860251190291987f * x);
-        output[i + 4u * sample_count]  = static_cast<__half>(1.0925484305920792f * xy);
-        output[i + 5u * sample_count]  = static_cast<__half>(-1.0925484305920792f * yz);
-        output[i + 6u * sample_count]  = static_cast<__half>(0.94617469575755997f * z2 - 0.31539156525251999f);
-        output[i + 7u * sample_count]  = static_cast<__half>(-1.0925484305920792f * xz);
-        output[i + 8u * sample_count]  = static_cast<__half>(0.54627421529603959f * x2 - 0.54627421529603959f * y2);
-        output[i + 9u * sample_count]  = static_cast<__half>(0.59004358992664352f * y * (-3.0f * x2 + y2));
-        output[i + 10u * sample_count] = static_cast<__half>(2.8906114426405538f * xy * z);
-        output[i + 11u * sample_count] = static_cast<__half>(0.45704579946446572f * y * (1.0f - 5.0f * z2));
-        output[i + 12u * sample_count] = static_cast<__half>(0.3731763325901154f * z * (5.0f * z2 - 3.0f));
-        output[i + 13u * sample_count] = static_cast<__half>(0.45704579946446572f * x * (1.0f - 5.0f * z2));
-        output[i + 14u * sample_count] = static_cast<__half>(1.4453057213202769f * z * (x2 - y2));
-        output[i + 15u * sample_count] = static_cast<__half>(0.59004358992664352f * x * (-x2 + 3.0f * y2));
-    }
-
-    template <std::uint32_t PARAM_COUNT>
-    __global__ void cast_params_to_half_kernel(const float* __restrict__ params_full_precision, __half* __restrict__ params) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= PARAM_COUNT) return;
-        params[i] = static_cast<__half>(params_full_precision[i]);
-    }
-
-    __global__ void initialize_grid_params_kernel(const std::uint32_t seed, float* __restrict__ params_full_precision, __half* __restrict__ params, __half* __restrict__ param_gradients) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.grid_param_count) return;
-        ::cuda::std::philox4x32 random{seed};
-        random.set_counter({network_random_domain, ::cuda::std::to_underlying(NetworkRandomSequence::grid_parameters), 0u, i});
-        ::cuda::std::uniform_real_distribution<float> unit_distribution;
-        const float value        = unit_distribution(random) * 2e-4f - 1e-4f;
-        params_full_precision[i] = value;
-        params[i]                = static_cast<__half>(value);
-        param_gradients[i]       = static_cast<__half>(0.0f);
-    }
-
-    __global__ void initialize_mlp_params_kernel(const std::uint32_t seed, float* __restrict__ params_full_precision, __half* __restrict__ params, __half* __restrict__ param_gradients) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count) return;
-
-        float scale = 0.0f;
-        if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.density_output_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::grid_output_width));
-        else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_input_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::density_output_width + NetworkLayout<network_cuda_shape>::mlp_width));
-        else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_hidden_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::rgb_input_width));
-        else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_output_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::mlp_width));
-        else scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::network_output_width + NetworkLayout<network_cuda_shape>::mlp_width));
-
-        ::cuda::std::philox4x32 random{seed};
-        random.set_counter({network_random_domain, ::cuda::std::to_underlying(NetworkRandomSequence::mlp_parameters), 0u, i});
-        ::cuda::std::uniform_real_distribution<float> unit_distribution;
-        const float value        = unit_distribution(random) * 2.0f * scale - scale;
-        params_full_precision[i] = value;
-        params[i]                = static_cast<__half>(value);
-        param_gradients[i]       = static_cast<__half>(0.0f);
-    }
-
-    template <typename Fragment>
-    __device__ void relu_fragment(Fragment& fragment) {
-        for (int i = 0; i < static_cast<int>(fragment.num_elements); ++i) fragment.x[i] = __hmax(fragment.x[i], static_cast<__half>(0.0f));
-    }
-
-    template <typename Fragment, typename ForwardFragment>
-    __device__ void relu_backward_fragment(Fragment& fragment, const ForwardFragment& forward_fragment) {
-        for (int i = 0; i < static_cast<int>(fragment.num_elements); ++i) fragment.x[i] = fragment.x[i] * static_cast<__half>(forward_fragment.x[i] > static_cast<__half>(0.0f));
-    }
-
-    __device__ void mlp_input_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ input_threadblock, const __half* __restrict__ weights_this_layer, __half* __restrict__ hidden_threadblock, const std::uint32_t batch_size) {
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::col_major> act_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
-
-        const std::uint32_t li          = threadIdx.x;
-        const std::uint32_t wi          = threadIdx.y;
-        const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t weights_col = 16u * wi;
-
-        __half* __restrict__ weights_shmem        = act_shmem + 16u * (NetworkLayout<network_cuda_shape>::grid_output_width + 8u);
-        constexpr std::uint32_t n_elems_per_load  = NetworkLayout<network_cuda_shape>::mlp_width_blocks * 32u * 8u;
-        const std::uint32_t thread_elem_idx       = (li + wi * 32u) * 8u;
-        constexpr std::uint32_t n_weight_elements = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
-
-        for (std::uint32_t idx = thread_elem_idx; idx < n_weight_elements; idx += n_elems_per_load) {
-            const std::uint32_t idx_skewed                       = idx + idx / NetworkLayout<network_cuda_shape>::grid_output_width * 8u;
-            *reinterpret_cast<int4*>(&weights_shmem[idx_skewed]) = *reinterpret_cast<const int4*>(&weights_this_layer[idx]);
+        inline __device__ void grid_position_fraction(const float input, float& pos, std::uint32_t& pos_grid, const float scale) {
+            pos                 = ::cuda::std::fma(scale, input, 0.5f);
+            const float floored = ::cuda::std::floor(pos);
+            pos_grid            = static_cast<std::uint32_t>(static_cast<int>(floored));
+            pos -= floored;
         }
 
-        __syncthreads();
+        __global__ void encode_grid_forward_kernel(const std::uint32_t sample_count, const NetworkGridOffsets grid_offsets, const float* __restrict__ sample_coords, const __half* __restrict__ grid, __half* __restrict__ encoded_positions) {
+            const std::uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+            if (i >= sample_count) return;
 
-        for (std::uint32_t l = 0u; l < 8u; ++l) {
-            nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
-            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::grid_output_width / 16u; ++i) {
-                nvcuda::wmma::load_matrix_sync(act_frag, input_threadblock + 16u * i * batch_size + 16u * l, batch_size);
-                nvcuda::wmma::load_matrix_sync(weights_frag, weights_shmem + 16u * i + weights_col * (NetworkLayout<network_cuda_shape>::grid_output_width + 8u), NetworkLayout<network_cuda_shape>::grid_output_width + 8u);
+            const std::uint32_t level             = blockIdx.y;
+            const std::uint32_t level_offset      = grid_offsets.values[level];
+            const std::uint32_t next_level_offset = grid_offsets.values[level + 1u];
+            grid += level_offset * NetworkLayout<network_cuda_shape>::grid_features_per_level;
+            const std::uint32_t hashmap_size = next_level_offset - level_offset;
+            std::uint32_t resolution         = NetworkLayout<network_cuda_shape>::grid_base_resolution;
+            for (std::uint32_t index = 0u; index < level; ++index) resolution *= NetworkLayout<network_cuda_shape>::grid_resolution_scale;
+            const float scale   = static_cast<float>(resolution) - 1.0f;
+            const float* sample = sample_coords + static_cast<std::uint64_t>(i) * 7u;
+
+            float pos_x          = 0.0f;
+            float pos_y          = 0.0f;
+            float pos_z          = 0.0f;
+            std::uint32_t grid_x = 0u;
+            std::uint32_t grid_y = 0u;
+            std::uint32_t grid_z = 0u;
+            grid_position_fraction(sample[0], pos_x, grid_x, scale);
+            grid_position_fraction(sample[1], pos_y, grid_y, scale);
+            grid_position_fraction(sample[2], pos_z, grid_z, scale);
+
+            __half result0 = 0.0f;
+            __half result1 = 0.0f;
+            __half result2 = 0.0f;
+            __half result3 = 0.0f;
+
+            for (std::uint32_t corner = 0u; corner < 8u; ++corner) {
+                const bool high_x         = (corner & 1u) != 0u;
+                const bool high_y         = (corner & 2u) != 0u;
+                const bool high_z         = (corner & 4u) != 0u;
+                const float weight        = (high_x ? pos_x : 1.0f - pos_x) * (high_y ? pos_y : 1.0f - pos_y) * (high_z ? pos_z : 1.0f - pos_z);
+                const std::uint32_t index = grid_index(hashmap_size, resolution, high_x ? grid_x + 1u : grid_x, high_y ? grid_y + 1u : grid_y, high_z ? grid_z + 1u : grid_z) * NetworkLayout<network_cuda_shape>::grid_features_per_level;
+                const __half weight_half  = weight;
+                result0                   = __hfma(weight_half, grid[index + 0u], result0);
+                result1                   = __hfma(weight_half, grid[index + 1u], result1);
+                result2                   = __hfma(weight_half, grid[index + 2u], result2);
+                result3                   = __hfma(weight_half, grid[index + 3u], result3);
+            }
+
+            encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 0u) * sample_count] = result0;
+            encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 1u) * sample_count] = result1;
+            encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 2u) * sample_count] = result2;
+            encoded_positions[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + 3u) * sample_count] = result3;
+        }
+
+        __global__ void encode_grid_backward_kernel(const std::uint32_t sample_count, const NetworkGridOffsets grid_offsets, const float* __restrict__ sample_coords, const __half* __restrict__ encoded_position_gradients, __half* __restrict__ grid_gradients) {
+            const std::uint32_t thread = blockIdx.x * blockDim.x + threadIdx.x;
+            const std::uint32_t i      = (thread * 2u) / NetworkLayout<network_cuda_shape>::grid_features_per_level;
+            if (i >= sample_count) return;
+
+            const std::uint32_t level             = blockIdx.y;
+            const std::uint32_t feature           = thread * 2u - i * NetworkLayout<network_cuda_shape>::grid_features_per_level;
+            const std::uint32_t level_offset      = grid_offsets.values[level];
+            const std::uint32_t next_level_offset = grid_offsets.values[level + 1u];
+            grid_gradients += level_offset * NetworkLayout<network_cuda_shape>::grid_features_per_level;
+            const std::uint32_t hashmap_size = next_level_offset - level_offset;
+            std::uint32_t resolution         = NetworkLayout<network_cuda_shape>::grid_base_resolution;
+            for (std::uint32_t index = 0u; index < level; ++index) resolution *= NetworkLayout<network_cuda_shape>::grid_resolution_scale;
+            const float scale   = static_cast<float>(resolution) - 1.0f;
+            const float* sample = sample_coords + static_cast<std::uint64_t>(i) * 7u;
+
+            float pos_x          = 0.0f;
+            float pos_y          = 0.0f;
+            float pos_z          = 0.0f;
+            std::uint32_t grid_x = 0u;
+            std::uint32_t grid_y = 0u;
+            std::uint32_t grid_z = 0u;
+            grid_position_fraction(sample[0], pos_x, grid_x, scale);
+            grid_position_fraction(sample[1], pos_y, grid_y, scale);
+            grid_position_fraction(sample[2], pos_z, grid_z, scale);
+
+            const __half grad0 = encoded_position_gradients[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature + 0u) * sample_count];
+            const __half grad1 = encoded_position_gradients[i + (level * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature + 1u) * sample_count];
+
+            for (std::uint32_t corner = 0u; corner < 8u; ++corner) {
+                const bool high_x         = (corner & 1u) != 0u;
+                const bool high_y         = (corner & 2u) != 0u;
+                const bool high_z         = (corner & 4u) != 0u;
+                const float weight        = (high_x ? pos_x : 1.0f - pos_x) * (high_y ? pos_y : 1.0f - pos_y) * (high_z ? pos_z : 1.0f - pos_z);
+                const std::uint32_t index = grid_index(hashmap_size, resolution, high_x ? grid_x + 1u : grid_x, high_y ? grid_y + 1u : grid_y, high_z ? grid_z + 1u : grid_z) * NetworkLayout<network_cuda_shape>::grid_features_per_level + feature;
+                const __half weight_half  = weight;
+                atomicAdd(reinterpret_cast<__half2*>(grid_gradients + index), __halves2half2(__hmul(weight_half, grad0), __hmul(weight_half, grad1)));
+            }
+        }
+
+        __global__ void encode_spherical_harmonics_kernel(const std::uint32_t sample_count, const float* __restrict__ sample_coords, __half* __restrict__ output) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= sample_count) return;
+
+            const float* coord = sample_coords + static_cast<std::uint64_t>(i) * 7u;
+            const float x      = coord[4] * 2.0f - 1.0f;
+            const float y      = coord[5] * 2.0f - 1.0f;
+            const float z      = coord[6] * 2.0f - 1.0f;
+            const float xy     = x * y;
+            const float xz     = x * z;
+            const float yz     = y * z;
+            const float x2     = x * x;
+            const float y2     = y * y;
+            const float z2     = z * z;
+
+            output[i + 0u * sample_count]  = static_cast<__half>(0.28209479177387814f);
+            output[i + 1u * sample_count]  = static_cast<__half>(-0.48860251190291987f * y);
+            output[i + 2u * sample_count]  = static_cast<__half>(0.48860251190291987f * z);
+            output[i + 3u * sample_count]  = static_cast<__half>(-0.48860251190291987f * x);
+            output[i + 4u * sample_count]  = static_cast<__half>(1.0925484305920792f * xy);
+            output[i + 5u * sample_count]  = static_cast<__half>(-1.0925484305920792f * yz);
+            output[i + 6u * sample_count]  = static_cast<__half>(0.94617469575755997f * z2 - 0.31539156525251999f);
+            output[i + 7u * sample_count]  = static_cast<__half>(-1.0925484305920792f * xz);
+            output[i + 8u * sample_count]  = static_cast<__half>(0.54627421529603959f * x2 - 0.54627421529603959f * y2);
+            output[i + 9u * sample_count]  = static_cast<__half>(0.59004358992664352f * y * (-3.0f * x2 + y2));
+            output[i + 10u * sample_count] = static_cast<__half>(2.8906114426405538f * xy * z);
+            output[i + 11u * sample_count] = static_cast<__half>(0.45704579946446572f * y * (1.0f - 5.0f * z2));
+            output[i + 12u * sample_count] = static_cast<__half>(0.3731763325901154f * z * (5.0f * z2 - 3.0f));
+            output[i + 13u * sample_count] = static_cast<__half>(0.45704579946446572f * x * (1.0f - 5.0f * z2));
+            output[i + 14u * sample_count] = static_cast<__half>(1.4453057213202769f * z * (x2 - y2));
+            output[i + 15u * sample_count] = static_cast<__half>(0.59004358992664352f * x * (-x2 + 3.0f * y2));
+        }
+
+        template <std::uint32_t PARAM_COUNT>
+        __global__ void cast_params_to_half_kernel(const float* __restrict__ params_full_precision, __half* __restrict__ params) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= PARAM_COUNT) return;
+            params[i] = static_cast<__half>(params_full_precision[i]);
+        }
+
+        __global__ void initialize_grid_params_kernel(const std::uint32_t seed, float* __restrict__ params_full_precision, __half* __restrict__ params, __half* __restrict__ param_gradients) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.grid_param_count) return;
+            ::cuda::std::philox4x32 random{seed};
+            random.set_counter({network_random_domain, ::cuda::std::to_underlying(NetworkRandomSequence::grid_parameters), 0u, i});
+            ::cuda::std::uniform_real_distribution<float> unit_distribution;
+            const float value        = unit_distribution(random) * 2e-4f - 1e-4f;
+            params_full_precision[i] = value;
+            params[i]                = static_cast<__half>(value);
+            param_gradients[i]       = static_cast<__half>(0.0f);
+        }
+
+        __global__ void initialize_mlp_params_kernel(const std::uint32_t seed, float* __restrict__ params_full_precision, __half* __restrict__ params, __half* __restrict__ param_gradients) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count) return;
+
+            float scale = 0.0f;
+            if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.density_output_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::grid_output_width));
+            else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_input_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::density_output_width + NetworkLayout<network_cuda_shape>::mlp_width));
+            else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_hidden_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::rgb_input_width));
+            else if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.rgb_output_weight_offset) scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::mlp_width + NetworkLayout<network_cuda_shape>::mlp_width));
+            else scale = ::cuda::std::sqrt(6.0f / static_cast<float>(NetworkLayout<network_cuda_shape>::network_output_width + NetworkLayout<network_cuda_shape>::mlp_width));
+
+            ::cuda::std::philox4x32 random{seed};
+            random.set_counter({network_random_domain, ::cuda::std::to_underlying(NetworkRandomSequence::mlp_parameters), 0u, i});
+            ::cuda::std::uniform_real_distribution<float> unit_distribution;
+            const float value        = unit_distribution(random) * 2.0f * scale - scale;
+            params_full_precision[i] = value;
+            params[i]                = static_cast<__half>(value);
+            param_gradients[i]       = static_cast<__half>(0.0f);
+        }
+
+        template <typename Fragment>
+        __device__ void relu_fragment(Fragment& fragment) {
+            for (int i = 0; i < static_cast<int>(fragment.num_elements); ++i) fragment.x[i] = __hmax(fragment.x[i], static_cast<__half>(0.0f));
+        }
+
+        template <typename Fragment, typename ForwardFragment>
+        __device__ void relu_backward_fragment(Fragment& fragment, const ForwardFragment& forward_fragment) {
+            for (int i = 0; i < static_cast<int>(fragment.num_elements); ++i) fragment.x[i] = fragment.x[i] * static_cast<__half>(forward_fragment.x[i] > static_cast<__half>(0.0f));
+        }
+
+        __device__ void mlp_input_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ input_threadblock, const __half* __restrict__ weights_this_layer, __half* __restrict__ hidden_threadblock, const std::uint32_t batch_size) {
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::col_major> act_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
+
+            const std::uint32_t li          = threadIdx.x;
+            const std::uint32_t wi          = threadIdx.y;
+            const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t weights_col = 16u * wi;
+
+            __half* __restrict__ weights_shmem        = act_shmem + 16u * (NetworkLayout<network_cuda_shape>::grid_output_width + 8u);
+            constexpr std::uint32_t n_elems_per_load  = NetworkLayout<network_cuda_shape>::mlp_width_blocks * 32u * 8u;
+            const std::uint32_t thread_elem_idx       = (li + wi * 32u) * 8u;
+            constexpr std::uint32_t n_weight_elements = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
+
+            for (std::uint32_t idx = thread_elem_idx; idx < n_weight_elements; idx += n_elems_per_load) {
+                const std::uint32_t idx_skewed                       = idx + idx / NetworkLayout<network_cuda_shape>::grid_output_width * 8u;
+                *reinterpret_cast<int4*>(&weights_shmem[idx_skewed]) = *reinterpret_cast<const int4*>(&weights_this_layer[idx]);
+            }
+
+            __syncthreads();
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) {
+                nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
+                for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::grid_output_width / 16u; ++i) {
+                    nvcuda::wmma::load_matrix_sync(act_frag, input_threadblock + 16u * i * batch_size + 16u * l, batch_size);
+                    nvcuda::wmma::load_matrix_sync(weights_frag, weights_shmem + 16u * i + weights_col * (NetworkLayout<network_cuda_shape>::grid_output_width + 8u), NetworkLayout<network_cuda_shape>::grid_output_width + 8u);
+                    nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag, result_frag[l]);
+                }
+                relu_fragment(result_frag[l]);
+            }
+
+            __syncthreads();
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
+
+            __syncthreads();
+
+            if (hidden_threadblock != nullptr)
+                for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&hidden_threadblock[lane_offset + (row + 16u * i) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
+        }
+
+        __device__ void mlp_hidden_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, __half* __restrict__ hidden_threadblock) {
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
+            nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
+
+            const std::uint32_t li          = threadIdx.x;
+            const std::uint32_t wi          = threadIdx.y;
+            const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t weights_col = 16u * wi;
+
+            __syncthreads();
+
+            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_this_layer + 16u * i + weights_col * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) {
+                nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
+                for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
+                    nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
+                    nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag[i], result_frag[l]);
+                }
+                relu_fragment(result_frag[l]);
+            }
+
+            __syncthreads();
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + l * 16u * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
+
+            __syncthreads();
+
+            if (hidden_threadblock != nullptr)
+                for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&hidden_threadblock[lane_offset + (row + 16u * i) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
+        }
+
+        __device__ void mlp_last_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, __half* __restrict__ out, const std::uint32_t output_stride, const nvcuda::wmma::layout_t output_layout) {
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
+            nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag;
+
+            const std::uint32_t li = threadIdx.x;
+            const std::uint32_t wi = threadIdx.y;
+
+            __half* __restrict__ weights_shmem = act_shmem + 8u * 16u * (NetworkLayout<network_cuda_shape>::mlp_width + 8u);
+            const std::uint32_t weights_row    = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t weights_col    = (8u * li + 8u * 32u * wi) / NetworkLayout<network_cuda_shape>::mlp_width;
+
+            *reinterpret_cast<int4*>(&weights_shmem[weights_row + weights_col * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]) = *reinterpret_cast<const int4*>(&weights_this_layer[weights_row + weights_col * NetworkLayout<network_cuda_shape>::mlp_width]);
+            __syncthreads();
+
+            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_shmem + 16u * i, NetworkLayout<network_cuda_shape>::mlp_width + 8u);
+
+            for (std::uint32_t idx = wi; idx < 8u; idx += NetworkLayout<network_cuda_shape>::mlp_width_blocks) {
+                nvcuda::wmma::fill_fragment(result_frag, 0.0f);
+                for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
+                    nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * idx) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
+                    nvcuda::wmma::mma_sync(result_frag, act_frag, weights_frag[i], result_frag);
+                }
+
+                if (output_layout == nvcuda::wmma::mem_row_major) nvcuda::wmma::store_matrix_sync(out + idx * 16u * output_stride, result_frag, output_stride, output_layout);
+                else nvcuda::wmma::store_matrix_sync(out + idx * 16u, result_frag, output_stride, output_layout);
+            }
+        }
+
+        template <bool OutputRowMajor, std::uint32_t HiddenLayers>
+        __global__ void mlp_forward_64_relu_kernel(const std::uint32_t batch_size, const __half* __restrict__ input, const __half* __restrict__ weights, __half* __restrict__ hidden, __half* __restrict__ output) {
+            extern __shared__ __half shmem[];
+            const std::uint32_t elem_idx                = 16u * blockIdx.x * 8u;
+            constexpr std::uint32_t first_layer_params  = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
+            constexpr std::uint32_t hidden_layer_params = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::mlp_width;
+
+            mlp_input_layer_forward(shmem, input + elem_idx, weights, hidden == nullptr ? nullptr : hidden + elem_idx * NetworkLayout<network_cuda_shape>::mlp_width, batch_size);
+            if constexpr (HiddenLayers == 2u) mlp_hidden_layer_forward(shmem, weights + first_layer_params, hidden == nullptr ? nullptr : hidden + static_cast<std::uint64_t>(NetworkLayout<network_cuda_shape>::mlp_width) * batch_size + elem_idx * NetworkLayout<network_cuda_shape>::mlp_width);
+
+            const __half* last_weights = weights + first_layer_params + (HiddenLayers - 1u) * hidden_layer_params;
+            if constexpr (OutputRowMajor) mlp_last_layer_forward(shmem, last_weights, output + elem_idx * NetworkLayout<network_cuda_shape>::network_output_width, NetworkLayout<network_cuda_shape>::network_output_width, nvcuda::wmma::mem_row_major);
+            else mlp_last_layer_forward(shmem, last_weights, output + elem_idx, batch_size, nvcuda::wmma::mem_col_major);
+        }
+
+        __device__ void mlp_hidden_layer_backward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, const __half* __restrict__ forward_hidden, __half* __restrict__ backward_hidden) {
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::row_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
+            nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
+
+            const std::uint32_t li          = threadIdx.x;
+            const std::uint32_t wi          = threadIdx.y;
+            const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t weights_col = 16u * wi;
+
+            __syncthreads();
+
+            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_this_layer + 16u * i * NetworkLayout<network_cuda_shape>::mlp_width + weights_col, NetworkLayout<network_cuda_shape>::mlp_width);
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) {
+                nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
+                for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
+                    nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
+                    nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag[i], result_frag[l]);
+                }
+
+                nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> forward_frag;
+                nvcuda::wmma::load_matrix_sync(forward_frag, forward_hidden + weights_col + l * 16u * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
+                relu_backward_fragment(result_frag[l], forward_frag);
+            }
+
+            __syncthreads();
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
+
+            __syncthreads();
+
+            for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&backward_hidden[lane_offset + (row + i * 16u) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
+        }
+
+        template <typename OutputLayout, std::uint32_t HiddenLayers>
+        __global__ void mlp_backward_hidden_64_relu_kernel(const std::uint32_t batch_size, const __half* __restrict__ dloss_doutput, const __half* __restrict__ weights, const __half* __restrict__ forward_hidden, __half* __restrict__ backward_hidden, const std::uint32_t output_stride) {
+            const std::uint32_t wi            = threadIdx.y;
+            const std::uint32_t elem_idx_base = 16u * blockIdx.x * 8u;
+
+            extern __shared__ __half shmem[];
+            __half* act_shmem = shmem;
+
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, OutputLayout> act_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::row_major> weights_frag;
+            nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
+
+            const std::uint32_t weights_col             = 16u * wi;
+            constexpr std::uint32_t first_layer_params  = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
+            constexpr std::uint32_t hidden_layer_params = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::mlp_width;
+            const __half* last_weights                  = weights + first_layer_params + (HiddenLayers - 1u) * hidden_layer_params;
+            const __half* forward_last                  = forward_hidden + static_cast<std::uint64_t>(HiddenLayers - 1u) * NetworkLayout<network_cuda_shape>::mlp_width * batch_size;
+            nvcuda::wmma::load_matrix_sync(weights_frag, last_weights + weights_col, NetworkLayout<network_cuda_shape>::mlp_width);
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) {
+                nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
+
+                if constexpr (std::is_same_v<OutputLayout, nvcuda::wmma::row_major>) nvcuda::wmma::load_matrix_sync(act_frag, dloss_doutput + (elem_idx_base + 16u * l) * output_stride, output_stride);
+                else nvcuda::wmma::load_matrix_sync(act_frag, dloss_doutput + elem_idx_base + 16u * l, output_stride);
+
                 nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag, result_frag[l]);
-            }
-            relu_fragment(result_frag[l]);
-        }
 
-        __syncthreads();
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
-
-        __syncthreads();
-
-        if (hidden_threadblock != nullptr)
-            for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&hidden_threadblock[lane_offset + (row + 16u * i) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
-    }
-
-    __device__ void mlp_hidden_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, __half* __restrict__ hidden_threadblock) {
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
-        nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
-
-        const std::uint32_t li          = threadIdx.x;
-        const std::uint32_t wi          = threadIdx.y;
-        const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t weights_col = 16u * wi;
-
-        __syncthreads();
-
-        for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_this_layer + 16u * i + weights_col * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) {
-            nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
-            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
-                nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
-                nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag[i], result_frag[l]);
-            }
-            relu_fragment(result_frag[l]);
-        }
-
-        __syncthreads();
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + l * 16u * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
-
-        __syncthreads();
-
-        if (hidden_threadblock != nullptr)
-            for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&hidden_threadblock[lane_offset + (row + 16u * i) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
-    }
-
-    __device__ void mlp_last_layer_forward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, __half* __restrict__ out, const std::uint32_t output_stride, const nvcuda::wmma::layout_t output_layout) {
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::col_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
-        nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag;
-
-        const std::uint32_t li = threadIdx.x;
-        const std::uint32_t wi = threadIdx.y;
-
-        __half* __restrict__ weights_shmem = act_shmem + 8u * 16u * (NetworkLayout<network_cuda_shape>::mlp_width + 8u);
-        const std::uint32_t weights_row    = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t weights_col    = (8u * li + 8u * 32u * wi) / NetworkLayout<network_cuda_shape>::mlp_width;
-
-        *reinterpret_cast<int4*>(&weights_shmem[weights_row + weights_col * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]) = *reinterpret_cast<const int4*>(&weights_this_layer[weights_row + weights_col * NetworkLayout<network_cuda_shape>::mlp_width]);
-        __syncthreads();
-
-        for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_shmem + 16u * i, NetworkLayout<network_cuda_shape>::mlp_width + 8u);
-
-        for (std::uint32_t idx = wi; idx < 8u; idx += NetworkLayout<network_cuda_shape>::mlp_width_blocks) {
-            nvcuda::wmma::fill_fragment(result_frag, 0.0f);
-            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
-                nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * idx) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
-                nvcuda::wmma::mma_sync(result_frag, act_frag, weights_frag[i], result_frag);
+                nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> forward_frag;
+                nvcuda::wmma::load_matrix_sync(forward_frag, forward_last + weights_col + (elem_idx_base + l * 16u) * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
+                relu_backward_fragment(result_frag[l], forward_frag);
             }
 
-            if (output_layout == nvcuda::wmma::mem_row_major) nvcuda::wmma::store_matrix_sync(out + idx * 16u * output_stride, result_frag, output_stride, output_layout);
-            else nvcuda::wmma::store_matrix_sync(out + idx * 16u, result_frag, output_stride, output_layout);
+            __syncthreads();
+
+            for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
+
+            __syncthreads();
+
+            const std::uint32_t li          = threadIdx.x;
+            const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
+            const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
+
+            for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&backward_hidden[lane_offset + (row + elem_idx_base + i * 16u) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
+
+            if constexpr (HiddenLayers == 2u) mlp_hidden_layer_backward(act_shmem, weights + first_layer_params, forward_hidden + elem_idx_base * NetworkLayout<network_cuda_shape>::mlp_width, backward_hidden + static_cast<std::uint64_t>(NetworkLayout<network_cuda_shape>::mlp_width) * batch_size + elem_idx_base * NetworkLayout<network_cuda_shape>::mlp_width);
         }
-    }
 
-    template <bool OutputRowMajor, std::uint32_t HiddenLayers>
-    __global__ void mlp_forward_64_relu_kernel(const std::uint32_t batch_size, const __half* __restrict__ input, const __half* __restrict__ weights, __half* __restrict__ hidden, __half* __restrict__ output) {
-        extern __shared__ __half shmem[];
-        const std::uint32_t elem_idx                = 16u * blockIdx.x * 8u;
-        constexpr std::uint32_t first_layer_params  = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
-        constexpr std::uint32_t hidden_layer_params = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::mlp_width;
+        __global__ void extract_density_kernel(const std::uint32_t batch_size, const __half* __restrict__ density_output, __half* __restrict__ network_output) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= batch_size) return;
+            network_output[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 3u] = density_output[i];
+        }
 
-        mlp_input_layer_forward(shmem, input + elem_idx, weights, hidden == nullptr ? nullptr : hidden + elem_idx * NetworkLayout<network_cuda_shape>::mlp_width, batch_size);
-        if constexpr (HiddenLayers == 2u) mlp_hidden_layer_forward(shmem, weights + first_layer_params, hidden == nullptr ? nullptr : hidden + static_cast<std::uint64_t>(NetworkLayout<network_cuda_shape>::mlp_width) * batch_size + elem_idx * NetworkLayout<network_cuda_shape>::mlp_width);
+        __global__ void extract_rgb_gradients_kernel(const std::uint32_t batch_size, const __half* __restrict__ network_output_gradients, __half* __restrict__ rgb_output_gradients) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= batch_size) return;
 
-        const __half* last_weights = weights + first_layer_params + (HiddenLayers - 1u) * hidden_layer_params;
-        if constexpr (OutputRowMajor) mlp_last_layer_forward(shmem, last_weights, output + elem_idx * NetworkLayout<network_cuda_shape>::network_output_width, NetworkLayout<network_cuda_shape>::network_output_width, nvcuda::wmma::mem_row_major);
-        else mlp_last_layer_forward(shmem, last_weights, output + elem_idx, batch_size, nvcuda::wmma::mem_col_major);
-    }
+            const __half zero = 0.0f;
+            for (std::uint32_t j = 0u; j < NetworkLayout<network_cuda_shape>::network_output_width; ++j) rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + j] = zero;
+            rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 0u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 0u];
+            rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 1u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 1u];
+            rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 2u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 2u];
+        }
 
-    __device__ void mlp_hidden_layer_backward(__half* __restrict__ act_shmem, const __half* __restrict__ weights_this_layer, const __half* __restrict__ forward_hidden, __half* __restrict__ backward_hidden) {
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> act_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::row_major> weights_frag[NetworkLayout<network_cuda_shape>::mlp_width_blocks];
-        nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
+        __global__ void add_density_gradient_kernel(const std::uint32_t batch_size, const __half* __restrict__ network_output_gradients, __half* __restrict__ density_output_gradients) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= batch_size) return;
+            density_output_gradients[i] = density_output_gradients[i] + network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 3u];
+        }
 
-        const std::uint32_t li          = threadIdx.x;
-        const std::uint32_t wi          = threadIdx.y;
-        const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t weights_col = 16u * wi;
+        __global__ void adam_step_kernel(float* __restrict__ params_full_precision, __half* __restrict__ params, const __half* __restrict__ gradients, float* __restrict__ first_moments, float* __restrict__ second_moments, std::uint32_t* __restrict__ param_steps) {
+            const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
+            if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.total_param_count) return;
 
-        __syncthreads();
+            float gradient = static_cast<float>(gradients[i]) / 128.0F;
+            if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count && gradient == 0.0f) return;
 
-        for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) nvcuda::wmma::load_matrix_sync(weights_frag[i], weights_this_layer + 16u * i * NetworkLayout<network_cuda_shape>::mlp_width + weights_col, NetworkLayout<network_cuda_shape>::mlp_width);
+            const float param = params_full_precision[i];
+            if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count) gradient += 1e-6F * param;
 
-        for (std::uint32_t l = 0u; l < 8u; ++l) {
-            nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
-            for (std::uint32_t i = 0u; i < NetworkLayout<network_cuda_shape>::mlp_width_blocks; ++i) {
-                nvcuda::wmma::load_matrix_sync(act_frag, act_shmem + 16u * i + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), NetworkLayout<network_cuda_shape>::mlp_width + 8u);
-                nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag[i], result_frag[l]);
+            const float gradient_sq  = gradient * gradient;
+            const float first_moment = first_moments[i] = 0.9F * first_moments[i] + (1.0f - 0.9F) * gradient;
+            const float second_moment = second_moments[i] = 0.99F * second_moments[i] + (1.0f - 0.99F) * gradient_sq;
+            const std::uint32_t step                      = ++param_steps[i];
+            const float corrected_lr                      = 1e-2F * ::cuda::std::sqrt(1.0f - ::cuda::std::pow(0.99F, static_cast<float>(step))) / (1.0f - ::cuda::std::pow(0.9F, static_cast<float>(step)));
+            const float updated_param                     = param - corrected_lr * first_moment / (::cuda::std::sqrt(second_moment) + 1e-15F);
+
+            params_full_precision[i] = updated_param;
+            params[i]                = static_cast<__half>(updated_param);
+        }
+
+        struct CublasLtMatrixLayout final {
+            cublasLtOrder_t order;
+            std::uint64_t rows;
+            std::uint64_t columns;
+            std::int64_t leading_dimension;
+        };
+
+        struct CublasLtPreference final {
+            cublasLtMatmulPreference_t handle = nullptr;
+
+            CublasLtPreference() = default;
+            ~CublasLtPreference() noexcept {
+                if (handle != nullptr) cublasLtMatmulPreferenceDestroy(handle);
             }
 
-            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> forward_frag;
-            nvcuda::wmma::load_matrix_sync(forward_frag, forward_hidden + weights_col + l * 16u * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
-            relu_backward_fragment(result_frag[l], forward_frag);
+            CublasLtPreference(const CublasLtPreference&)            = delete;
+            CublasLtPreference& operator=(const CublasLtPreference&) = delete;
+            CublasLtPreference(CublasLtPreference&&)                 = delete;
+            CublasLtPreference& operator=(CublasLtPreference&&)      = delete;
+        };
+
+        void initialize_cublaslt_matmul_plan(const cublasLtHandle_t handle, const std::string_view name, cublasLtMatmulDesc_t& operation_descriptor, cublasLtMatrixLayout_t& a_descriptor, cublasLtMatrixLayout_t& b_descriptor, cublasLtMatrixLayout_t& output_descriptor, cublasLtMatmulAlgo_t& algorithm, const CublasLtMatrixLayout a_layout, const CublasLtMatrixLayout b_layout, const CublasLtMatrixLayout output_layout) {
+            constexpr std::size_t max_workspace_bytes = (static_cast<std::size_t>(64u) * 1024u * 1024u);
+            cublasLtMatmulHeuristicResult_t heuristic = {};
+            CublasLtPreference preference;
+            int returned_algorithm_count = 0;
+
+            if (const cublasStatus_t status = cublasLtMatmulDescCreate(&operation_descriptor, CUBLAS_COMPUTE_16F, CUDA_R_16F); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " operation descriptor failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&a_descriptor, CUDA_R_16F, a_layout.rows, a_layout.columns, a_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A layout failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&b_descriptor, CUDA_R_16F, b_layout.rows, b_layout.columns, b_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B layout failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&output_descriptor, CUDA_R_16F, output_layout.rows, output_layout.columns, output_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output layout failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(a_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &a_layout.order, sizeof(a_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A order failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(b_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &b_layout.order, sizeof(b_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B order failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(output_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &output_layout.order, sizeof(output_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output order failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatmulPreferenceCreate(&preference.handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " preference failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatmulPreferenceSetAttribute(preference.handle, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &max_workspace_bytes, sizeof(max_workspace_bytes)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " workspace preference failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatmulAlgoGetHeuristic(handle, operation_descriptor, a_descriptor, b_descriptor, output_descriptor, output_descriptor, preference.handle, 1, &heuristic, &returned_algorithm_count); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " algorithm selection failed: " + cublasGetStatusString(status)};
+            if (returned_algorithm_count == 0 || heuristic.state != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " has no supported algorithm."};
+            algorithm = heuristic.algo;
         }
 
-        __syncthreads();
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
-
-        __syncthreads();
-
-        for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&backward_hidden[lane_offset + (row + i * 16u) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
-    }
-
-    template <typename OutputLayout, std::uint32_t HiddenLayers>
-    __global__ void mlp_backward_hidden_64_relu_kernel(const std::uint32_t batch_size, const __half* __restrict__ dloss_doutput, const __half* __restrict__ weights, const __half* __restrict__ forward_hidden, __half* __restrict__ backward_hidden, const std::uint32_t output_stride) {
-        const std::uint32_t wi            = threadIdx.y;
-        const std::uint32_t elem_idx_base = 16u * blockIdx.x * 8u;
-
-        extern __shared__ __half shmem[];
-        __half* act_shmem = shmem;
-
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, OutputLayout> act_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, 16, 16, 16, __half, nvcuda::wmma::row_major> weights_frag;
-        nvcuda::wmma::fragment<nvcuda::wmma::accumulator, 16, 16, 16, __half> result_frag[8u];
-
-        const std::uint32_t weights_col             = 16u * wi;
-        constexpr std::uint32_t first_layer_params  = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::grid_output_width;
-        constexpr std::uint32_t hidden_layer_params = NetworkLayout<network_cuda_shape>::mlp_width * NetworkLayout<network_cuda_shape>::mlp_width;
-        const __half* last_weights                  = weights + first_layer_params + (HiddenLayers - 1u) * hidden_layer_params;
-        const __half* forward_last                  = forward_hidden + static_cast<std::uint64_t>(HiddenLayers - 1u) * NetworkLayout<network_cuda_shape>::mlp_width * batch_size;
-        nvcuda::wmma::load_matrix_sync(weights_frag, last_weights + weights_col, NetworkLayout<network_cuda_shape>::mlp_width);
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) {
-            nvcuda::wmma::fill_fragment(result_frag[l], 0.0f);
-
-            if constexpr (std::is_same_v<OutputLayout, nvcuda::wmma::row_major>) nvcuda::wmma::load_matrix_sync(act_frag, dloss_doutput + (elem_idx_base + 16u * l) * output_stride, output_stride);
-            else nvcuda::wmma::load_matrix_sync(act_frag, dloss_doutput + elem_idx_base + 16u * l, output_stride);
-
-            nvcuda::wmma::mma_sync(result_frag[l], act_frag, weights_frag, result_frag[l]);
-
-            nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, 16, 16, 16, __half, nvcuda::wmma::row_major> forward_frag;
-            nvcuda::wmma::load_matrix_sync(forward_frag, forward_last + weights_col + (elem_idx_base + l * 16u) * NetworkLayout<network_cuda_shape>::mlp_width, NetworkLayout<network_cuda_shape>::mlp_width);
-            relu_backward_fragment(result_frag[l], forward_frag);
+        void cublaslt_matmul(const ::cuda::stream_ref stream, const cublasLtHandle_t handle, const std::string_view name, const cublasLtMatmulDesc_t operation_descriptor, const cublasLtMatrixLayout_t a_descriptor, const cublasLtMatrixLayout_t b_descriptor, const cublasLtMatrixLayout_t output_descriptor, const cublasLtMatmulAlgo_t& algorithm, const __half* const a, const __half* const b, __half* const output, std::uint8_t* const workspace) {
+            const auto alpha = static_cast<__half>(1.0f);
+            const auto beta  = static_cast<__half>(0.0f);
+            if (const cublasStatus_t status = cublasLtMatmul(handle, operation_descriptor, &alpha, a, a_descriptor, b, b_descriptor, &beta, output, output_descriptor, output, output_descriptor, &algorithm, workspace, (static_cast<std::size_t>(64u) * 1024u * 1024u), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " failed: " + cublasGetStatusString(status)};
         }
-
-        __syncthreads();
-
-        for (std::uint32_t l = 0u; l < 8u; ++l) nvcuda::wmma::store_matrix_sync(act_shmem + weights_col + (16u * l) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u), result_frag[l], NetworkLayout<network_cuda_shape>::mlp_width + 8u, nvcuda::wmma::mem_row_major);
-
-        __syncthreads();
-
-        const std::uint32_t li          = threadIdx.x;
-        const std::uint32_t lane_offset = (8u * li) % NetworkLayout<network_cuda_shape>::mlp_width;
-        const std::uint32_t row         = (8u * li + wi * 8u * 32u) / NetworkLayout<network_cuda_shape>::mlp_width;
-
-        for (std::uint32_t i = 0u; i < 8u; ++i) *reinterpret_cast<int4*>(&backward_hidden[lane_offset + (row + elem_idx_base + i * 16u) * NetworkLayout<network_cuda_shape>::mlp_width]) = *reinterpret_cast<int4*>(&act_shmem[lane_offset + (row + 16u * i) * (NetworkLayout<network_cuda_shape>::mlp_width + 8u)]);
-
-        if constexpr (HiddenLayers == 2u) mlp_hidden_layer_backward(act_shmem, weights + first_layer_params, forward_hidden + elem_idx_base * NetworkLayout<network_cuda_shape>::mlp_width, backward_hidden + static_cast<std::uint64_t>(NetworkLayout<network_cuda_shape>::mlp_width) * batch_size + elem_idx_base * NetworkLayout<network_cuda_shape>::mlp_width);
-    }
-
-    __global__ void extract_density_kernel(const std::uint32_t batch_size, const __half* __restrict__ density_output, __half* __restrict__ network_output) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= batch_size) return;
-        network_output[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 3u] = density_output[i];
-    }
-
-    __global__ void extract_rgb_gradients_kernel(const std::uint32_t batch_size, const __half* __restrict__ network_output_gradients, __half* __restrict__ rgb_output_gradients) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= batch_size) return;
-
-        const __half zero = 0.0f;
-        for (std::uint32_t j = 0u; j < NetworkLayout<network_cuda_shape>::network_output_width; ++j) rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + j] = zero;
-        rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 0u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 0u];
-        rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 1u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 1u];
-        rgb_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 2u] = network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 2u];
-    }
-
-    __global__ void add_density_gradient_kernel(const std::uint32_t batch_size, const __half* __restrict__ network_output_gradients, __half* __restrict__ density_output_gradients) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= batch_size) return;
-        density_output_gradients[i] = density_output_gradients[i] + network_output_gradients[static_cast<std::uint64_t>(i) * NetworkLayout<network_cuda_shape>::network_output_width + 3u];
-    }
-
-    __global__ void adam_step_kernel(float* __restrict__ params_full_precision, __half* __restrict__ params, const __half* __restrict__ gradients, float* __restrict__ first_moments, float* __restrict__ second_moments, std::uint32_t* __restrict__ param_steps) {
-        const std::uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-        if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.total_param_count) return;
-
-        float gradient = static_cast<float>(gradients[i]) / 128.0F;
-        if (i >= NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count && gradient == 0.0f) return;
-
-        const float param = params_full_precision[i];
-        if (i < NetworkLayout<network_cuda_shape>::network_parameter_layout.mlp_param_count) gradient += 1e-6F * param;
-
-        const float gradient_sq  = gradient * gradient;
-        const float first_moment = first_moments[i] = 0.9F * first_moments[i] + (1.0f - 0.9F) * gradient;
-        const float second_moment = second_moments[i] = 0.99F * second_moments[i] + (1.0f - 0.99F) * gradient_sq;
-        const std::uint32_t step                      = ++param_steps[i];
-        const float corrected_lr                      = 1e-2F * ::cuda::std::sqrt(1.0f - ::cuda::std::pow(0.99F, static_cast<float>(step))) / (1.0f - ::cuda::std::pow(0.9F, static_cast<float>(step)));
-        const float updated_param                     = param - corrected_lr * first_moment / (::cuda::std::sqrt(second_moment) + 1e-15F);
-
-        params_full_precision[i] = updated_param;
-        params[i]                = static_cast<__half>(updated_param);
-    }
-
-    struct CublasLtMatrixLayout final {
-        cublasLtOrder_t order;
-        std::uint64_t rows;
-        std::uint64_t columns;
-        std::int64_t leading_dimension;
-    };
-
-    struct CublasLtPreference final {
-        cublasLtMatmulPreference_t handle = nullptr;
-
-        CublasLtPreference() = default;
-        ~CublasLtPreference() noexcept {
-            if (handle != nullptr) cublasLtMatmulPreferenceDestroy(handle);
-        }
-
-        CublasLtPreference(const CublasLtPreference&)            = delete;
-        CublasLtPreference& operator=(const CublasLtPreference&) = delete;
-        CublasLtPreference(CublasLtPreference&&)                 = delete;
-        CublasLtPreference& operator=(CublasLtPreference&&)      = delete;
-    };
-
-    void initialize_cublaslt_matmul_plan(const cublasLtHandle_t handle, const std::string_view name, cublasLtMatmulDesc_t& operation_descriptor, cublasLtMatrixLayout_t& a_descriptor, cublasLtMatrixLayout_t& b_descriptor, cublasLtMatrixLayout_t& output_descriptor, cublasLtMatmulAlgo_t& algorithm, const CublasLtMatrixLayout a_layout, const CublasLtMatrixLayout b_layout, const CublasLtMatrixLayout output_layout) {
-        constexpr std::size_t max_workspace_bytes = (static_cast<std::size_t>(64u) * 1024u * 1024u);
-        cublasLtMatmulHeuristicResult_t heuristic = {};
-        CublasLtPreference preference;
-        int returned_algorithm_count = 0;
-
-        if (const cublasStatus_t status = cublasLtMatmulDescCreate(&operation_descriptor, CUBLAS_COMPUTE_16F, CUDA_R_16F); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " operation descriptor failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&a_descriptor, CUDA_R_16F, a_layout.rows, a_layout.columns, a_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A layout failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&b_descriptor, CUDA_R_16F, b_layout.rows, b_layout.columns, b_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B layout failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&output_descriptor, CUDA_R_16F, output_layout.rows, output_layout.columns, output_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output layout failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(a_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &a_layout.order, sizeof(a_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A order failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(b_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &b_layout.order, sizeof(b_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B order failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(output_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &output_layout.order, sizeof(output_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output order failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatmulPreferenceCreate(&preference.handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " preference failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatmulPreferenceSetAttribute(preference.handle, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &max_workspace_bytes, sizeof(max_workspace_bytes)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " workspace preference failed: " + cublasGetStatusString(status)};
-        if (const cublasStatus_t status = cublasLtMatmulAlgoGetHeuristic(handle, operation_descriptor, a_descriptor, b_descriptor, output_descriptor, output_descriptor, preference.handle, 1, &heuristic, &returned_algorithm_count); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " algorithm selection failed: " + cublasGetStatusString(status)};
-        if (returned_algorithm_count == 0 || heuristic.state != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " has no supported algorithm."};
-        algorithm = heuristic.algo;
-    }
-
-    void cublaslt_matmul(const ::cuda::stream_ref stream, const cublasLtHandle_t handle, const std::string_view name, const cublasLtMatmulDesc_t operation_descriptor, const cublasLtMatrixLayout_t a_descriptor, const cublasLtMatrixLayout_t b_descriptor, const cublasLtMatrixLayout_t output_descriptor, const cublasLtMatmulAlgo_t& algorithm, const __half* const a, const __half* const b, __half* const output, std::uint8_t* const workspace) {
-        const auto alpha = static_cast<__half>(1.0f);
-        const auto beta  = static_cast<__half>(0.0f);
-        if (const cublasStatus_t status = cublasLtMatmul(handle, operation_descriptor, &alpha, a, a_descriptor, b, b_descriptor, &beta, output, output_descriptor, output, output_descriptor, &algorithm, workspace, (static_cast<std::size_t>(64u) * 1024u * 1024u), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " failed: " + cublasGetStatusString(status)};
-    }
 
     } // namespace
 } // namespace physica::reconstruction::instant_ngp::kernels

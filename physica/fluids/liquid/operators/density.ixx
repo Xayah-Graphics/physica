@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/liquid/interop.h>
 #include "density-kernels.h"
+#include <fluids/liquid/interop.h>
 #include <physica/cuda.h>
 
 export module physica.fluids.liquid.operators.density;

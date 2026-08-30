@@ -72,7 +72,7 @@ namespace physica::optimization {
     LbfgsbGradientMetrics Lbfgsb::submit(const double* next_objective_device, const ::cuda::std::span<const double> next_gradient) {
         double next_objective;
         ::cuda::copy_bytes(stream, ::cuda::std::span{next_objective_device, 1u}, ::cuda::std::span{&next_objective, 1u});
-        const double* request_parameters                  = phase == Phase::initial ? parameters.data() : trial_parameters.data();
+        const double* request_parameters             = phase == Phase::initial ? parameters.data() : trial_parameters.data();
         const kernels::GradientMetrics device_result = kernels::gradient_metrics(stream, static_cast<std::uint32_t>(parameter_count), request_parameters, next_gradient.data(), LbfgsbBackendAccess::storage(*this));
         const LbfgsbGradientMetrics metrics{.gradient_norm = device_result.gradient_norm, .projected_gradient_norm = device_result.projected_gradient_norm};
         ++evaluation;
@@ -132,9 +132,9 @@ namespace physica::optimization {
     }
 
     void Lbfgsb::accept_trial(const double next_objective, const ::cuda::std::span<const double> next_gradient, const LbfgsbGradientMetrics metrics) {
-        const std::uint32_t correction_slot             = correction_count < configuration.memory ? correction_count : correction_head;
+        const std::uint32_t correction_slot        = correction_count < configuration.memory ? correction_count : correction_head;
         const kernels::AcceptanceResult acceptance = kernels::accept_trial(stream, static_cast<std::uint32_t>(parameter_count), correction_slot, next_gradient.data(), LbfgsbBackendAccess::storage(*this));
-        const bool accepted                             = acceptance.correction_accepted != 0u;
+        const bool accepted                        = acceptance.correction_accepted != 0u;
         if (accepted) {
             if (correction_count < configuration.memory) ++correction_count;
             else correction_head = (correction_head + 1u) % configuration.memory;

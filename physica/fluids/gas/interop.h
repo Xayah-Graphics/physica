@@ -1,11 +1,11 @@
 #ifndef PHYSICA_FLUIDS_GAS_INTEROP_H
 #define PHYSICA_FLUIDS_GAS_INTEROP_H
 
-#include <fluids/gas/device.cuh>
-#include <fluids/grid/interop.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <fluids/gas/device.cuh>
+#include <fluids/grid/interop.h>
 
 namespace physica::fluids::gas::device {
     template <class Configuration>
@@ -32,6 +32,6 @@ namespace physica::fluids::gas::device {
         for (std::size_t face = 0u; face < faces.size(); ++face) packed.faces[face] = {.mode = static_cast<std::uint32_t>(faces[face].mode), .value = faces[face].value};
         return packed;
     }
-}
+} // namespace physica::fluids::gas::device
 
 #endif

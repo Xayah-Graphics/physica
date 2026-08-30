@@ -1,6 +1,6 @@
-#include <fluids/gas/device.cuh>
 #include "objective-kernels.h"
 #include <cuda/launch>
+#include <fluids/gas/device.cuh>
 #include <physica/cuda.h>
 
 namespace physica::fluids::gas::operators::kernels {

@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -54,7 +54,7 @@ jobs:
 
       - name: Configure
         shell: pwsh
-        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DPHYSICA_BUILD_SPECTRA=OFF
+        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF -DBUILD_TESTING=ON
 
       - name: Build
         run: cmake --build cmake-build-release --parallel 30

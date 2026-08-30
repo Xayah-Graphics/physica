@@ -18,7 +18,7 @@ namespace physica::simulation::kernels {
             if (index >= count) return;
             destination[index] += source[index];
         }
-    }
+    } // namespace
 
     void accumulate(const ::cuda::stream_ref stream, const double* source, double* destination, const std::size_t count) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(count), accumulate_scalar_kernel, source, destination, count);
@@ -27,4 +27,4 @@ namespace physica::simulation::kernels {
     void accumulate(const ::cuda::stream_ref stream, const VectorView<const double> source, const VectorView<double> destination, const std::size_t count) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(count), accumulate_vector_kernel, source, destination, count);
     }
-}
+} // namespace physica::simulation::kernels

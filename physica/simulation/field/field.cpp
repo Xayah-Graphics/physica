@@ -30,4 +30,4 @@ namespace physica::simulation {
         ::cuda::copy_bytes(stream, z, destination.z);
         stream.sync();
     }
-}
+} // namespace physica::simulation

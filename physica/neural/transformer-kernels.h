@@ -1,10 +1,9 @@
 #ifndef PHYSICA_NEURAL_TRANSFORMER_KERNELS_H
 #define PHYSICA_NEURAL_TRANSFORMER_KERNELS_H
 
-#include <physica/cuda_stream.h>
-
 #include <cstddef>
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::neural::kernels {
     void adaln_forward(::cuda::stream_ref stream, const float* input, const float* modulation, float* output, float* means, float* inverse_standard_deviations, std::uint32_t batch, std::uint32_t sequence, std::uint32_t width, std::uint32_t modulation_group);

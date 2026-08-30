@@ -1,5 +1,5 @@
-#include "kernels.h"
 #include "../../neural/transformer-kernels.h"
+#include "kernels.h"
 #include <physica/cuda.h>
 
 import std;
@@ -135,7 +135,7 @@ namespace {
         constexpr std::array<float, 5u> gelu_inputs{-4.0F, -1.0F, 0.0F, 1.0F, 4.0F};
         constexpr std::array<float, 5u> gelu_upstreams{0.25F, -0.5F, 1.0F, 0.75F, -0.25F};
         for (std::size_t index = 0uz; index < gelu_input_host.size(); ++index) {
-            gelu_input_host[index] = gelu_inputs[index % gelu_inputs.size()];
+            gelu_input_host[index]    = gelu_inputs[index % gelu_inputs.size()];
             gelu_upstream_host[index] = gelu_upstreams[index % gelu_upstreams.size()];
         }
         for (std::size_t index = 0uz; index < 32uz; ++index) gelu_weight_host[index * 32uz + index] = 1.0F;
@@ -161,17 +161,17 @@ namespace {
         stream.sync();
         constexpr float gelu_scale = 0.79788456080286535588F;
         for (std::size_t index = 0uz; index < gelu_input_host.size(); ++index) {
-            const float value = gelu_input_host[index];
-            const float cubic = value * value * value;
-            const float hyperbolic_tangent = std::tanh(gelu_scale * (value + 0.044715F * cubic));
-            const float reference_output = 0.5F * value * (1.0F + hyperbolic_tangent);
+            const float value                = gelu_input_host[index];
+            const float cubic                = value * value * value;
+            const float hyperbolic_tangent   = std::tanh(gelu_scale * (value + 0.044715F * cubic));
+            const float reference_output     = 0.5F * value * (1.0F + hyperbolic_tangent);
             const float reference_derivative = 0.5F * (1.0F + hyperbolic_tangent) + 0.5F * value * (1.0F - hyperbolic_tangent * hyperbolic_tangent) * gelu_scale * (1.0F + 3.0F * 0.044715F * value * value);
             expect(gelu_auxiliary_host[index] == value, "cuBLASLt GELU auxiliary stores preactivation");
             expect(std::abs(gelu_output_host[index] - reference_output) < 2.0e-5F, "cuBLASLt GELU forward epilogue");
             expect(std::abs(gelu_gradient_host[index] - gelu_upstream_host[index] * reference_derivative) < 2.0e-5F, "cuBLASLt GELU backward epilogue");
         }
 
-        constexpr std::uint32_t reduction = 65'536u;
+        constexpr std::uint32_t reduction       = 65'536u;
         constexpr std::size_t reduction_a_count = static_cast<std::size_t>(reduction) * 256uz;
         constexpr std::size_t reduction_b_count = static_cast<std::size_t>(reduction) * 12uz;
         std::vector<float> reduction_a_host(reduction_a_count);
@@ -216,7 +216,7 @@ namespace {
         ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{gradients.data(), gradients.size()}, resumed.gradients);
         direct.step({}, 2u, 256u, 256u);
         resumed.step({}, 2u, 256u, 256u);
-        const physica::neural::ParameterState direct_state = direct.download();
+        const physica::neural::ParameterState direct_state  = direct.download();
         const physica::neural::ParameterState resumed_state = resumed.download();
         expect(std::memcmp(direct_state.parameters.data(), resumed_state.parameters.data(), initial.size() * sizeof(float)) == 0, "AdamW resume parameters");
         expect(std::memcmp(direct_state.ema.data(), resumed_state.ema.data(), initial.size() * sizeof(float)) == 0, "EMA resume");
@@ -241,15 +241,15 @@ namespace {
             ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{step_gradients.data(), step_gradients.size()}, long_run.gradients);
             long_run.step(optimization, device_step.data(), device_processed_samples.data(), 256u);
             physica::generative::flow_matching::kernels::advance_training_state(stream, device_step.data(), device_processed_samples.data(), 256u);
-            const float first_correction = 1.0F - std::pow(optimization.first_decay, static_cast<float>(step));
-            const float second_correction = 1.0F - std::pow(optimization.second_decay, static_cast<float>(step));
+            const float first_correction          = 1.0F - std::pow(optimization.first_decay, static_cast<float>(step));
+            const float second_correction         = 1.0F - std::pow(optimization.second_decay, static_cast<float>(step));
             const std::uint64_t processed_samples = (step - 1u) * 256u;
-            const float half_life = std::min(static_cast<float>(optimization.exponential_average.half_life_samples), static_cast<float>(processed_samples) * optimization.exponential_average.ramp_up_ratio);
+            const float half_life                 = std::min(static_cast<float>(optimization.exponential_average.half_life_samples), static_cast<float>(processed_samples) * optimization.exponential_average.ramp_up_ratio);
             const float exponential_average_decay = processed_samples == 0u ? 0.0F : std::exp2(-256.0F / half_life);
             for (std::size_t index = 0uz; index < initial.size(); ++index) {
-                reference_first_moments[index] = std::fma(1.0F - optimization.first_decay, step_gradients[index], optimization.first_decay * reference_first_moments[index]);
+                reference_first_moments[index]  = std::fma(1.0F - optimization.first_decay, step_gradients[index], optimization.first_decay * reference_first_moments[index]);
                 reference_second_moments[index] = std::fma(1.0F - optimization.second_decay, step_gradients[index] * step_gradients[index], optimization.second_decay * reference_second_moments[index]);
-                const float corrected = reference_first_moments[index] / first_correction / (std::sqrt(reference_second_moments[index] / second_correction) + optimization.epsilon);
+                const float corrected           = reference_first_moments[index] / first_correction / (std::sqrt(reference_second_moments[index] / second_correction) + optimization.epsilon);
                 reference_parameters[index] -= optimization.learning_rate * std::fma(optimization.weight_decay, reference_parameters[index], corrected);
                 reference_ema[index] = std::fma(1.0F - exponential_average_decay, reference_parameters[index], exponential_average_decay * reference_ema[index]);
             }
@@ -264,9 +264,9 @@ namespace {
     }
 
     void test_sdpa(const ::cuda::stream_ref stream) {
-        constexpr std::uint32_t sequence = 37u;
-        constexpr std::uint32_t width = 32u;
-        constexpr std::size_t qkv_count = static_cast<std::size_t>(sequence) * 3uz * width;
+        constexpr std::uint32_t sequence   = 37u;
+        constexpr std::uint32_t width      = 32u;
+        constexpr std::size_t qkv_count    = static_cast<std::size_t>(sequence) * 3uz * width;
         constexpr std::size_t output_count = static_cast<std::size_t>(sequence) * width;
         std::vector<float> qkv_host(qkv_count);
         std::vector<float> gradient_host(output_count);
@@ -294,7 +294,7 @@ namespace {
             double score{};
             for (std::uint32_t feature = 0u; feature < width; ++feature) score += static_cast<double>(qkv_host[feature]) * qkv_host[static_cast<std::size_t>(key) * 3uz * width + width + feature];
             probabilities[key] = score * scale;
-            maximum = std::max(maximum, probabilities[key]);
+            maximum            = std::max(maximum, probabilities[key]);
         }
         double denominator{};
         for (double& probability : probabilities) denominator += probability = std::exp(probability - maximum);
@@ -324,7 +324,7 @@ namespace {
                 double score{};
                 for (std::uint32_t feature = 0u; feature < width; ++feature) score += static_cast<double>(qkv_host[static_cast<std::size_t>(query) * 3uz * width + feature]) * qkv_host[static_cast<std::size_t>(key) * 3uz * width + width + feature];
                 query_probabilities[key] = score * scale;
-                query_maximum = std::max(query_maximum, query_probabilities[key]);
+                query_maximum            = std::max(query_maximum, query_probabilities[key]);
             }
             double query_denominator{};
             for (double& probability : query_probabilities) query_denominator += probability = std::exp(probability - query_maximum);
@@ -332,7 +332,7 @@ namespace {
             double output_dot{};
             double value_dot{};
             for (std::uint32_t feature = 0u; feature < width; ++feature) {
-                const double output_value = output_host[static_cast<std::size_t>(query) * width + feature];
+                const double output_value          = output_host[static_cast<std::size_t>(query) * width + feature];
                 const double output_gradient_value = gradient_host[static_cast<std::size_t>(query) * width + feature];
                 output_dot += output_gradient_value * output_value;
                 value_dot += output_gradient_value * qkv_host[2uz * width + feature];
@@ -367,7 +367,7 @@ namespace {
             ::cuda::copy_bytes(stream, input_gradient, ::cuda::std::span<float>{input_gradient_host});
             stream.sync();
             for (std::size_t index = 0uz; index < input_values.size(); ++index) {
-                const float value = input_values[index];
+                const float value   = input_values[index];
                 const float sigmoid = 1.0F / (1.0F + std::exp(-value));
                 expect(std::abs(output_host[index] - value * sigmoid) < 1.0e-6F, "SiLU forward");
                 expect(std::abs(input_gradient_host[index] - upstream_values[index] * (sigmoid + value * sigmoid * (1.0F - sigmoid))) < 1.0e-6F, "SiLU backward");
@@ -379,7 +379,7 @@ namespace {
         physica::neural::Transformer transformer{matmul, configuration};
         physica::neural::TransformerWorkspaceLayout layout{configuration, batch};
         expect(physica::neural::StaticTransformerWorkspace<configuration, batch>::byte_count == layout.byte_count, "consteval Transformer workspace layout");
-        std::vector<float> parameter_values = transformer.initialize_parameters(7u);
+        std::vector<float> parameter_values                                                            = transformer.initialize_parameters(7u);
         parameter_values[transformer.parameters.blocks[0].modulation_bias + 2uz * configuration.width] = 1.0F;
         parameter_values[transformer.parameters.blocks[0].modulation_bias + 5uz * configuration.width] = 1.0F;
         physica::neural::ParameterBuffer parameters{stream, parameter_values.size()};
@@ -442,7 +442,7 @@ namespace {
         for (std::size_t index = 0uz; index < condition_host.size(); ++index) {
             const float condition_value = condition_host[index];
             const float activated_value = condition_activated_host[index];
-            const float reference = condition_value / (1.0F + std::exp(-condition_value));
+            const float reference       = condition_value / (1.0F + std::exp(-condition_value));
             expect(std::abs(activated_value - reference) < 0.01F, "FlowDiT AdaLN condition SiLU");
             nonlinear_condition |= std::abs(activated_value - condition_value) > 0.01F;
         }
@@ -463,14 +463,14 @@ namespace {
         physica::generative::flow_matching::SamplingRuntime sampling{stream, model};
         for (const physica::generative::flow_matching::SamplingSolver solver : {physica::generative::flow_matching::SamplingSolver::euler, physica::generative::flow_matching::SamplingSolver::heun, physica::generative::flow_matching::SamplingSolver::rk4}) {
             const physica::generative::flow_matching::SamplingResult result = sampling.sample(model_parameters.parameters.data(), {.solver = solver, .step_count = 1u});
-            const std::uint32_t expected_nfe = solver == physica::generative::flow_matching::SamplingSolver::euler ? 1u : (solver == physica::generative::flow_matching::SamplingSolver::heun ? 2u : 4u);
+            const std::uint32_t expected_nfe                                = solver == physica::generative::flow_matching::SamplingSolver::euler ? 1u : (solver == physica::generative::flow_matching::SamplingSolver::heun ? 2u : 4u);
             expect(result.nfe == expected_nfe, "ODE sampler NFE");
             expect(result.width == 320u && result.height == 320u && result.rgba.size() == 320uz * 320uz * 4uz, "ODE sampler RGBA output");
         }
     }
 
     void test_training_resume() {
-        const std::filesystem::path directory = std::filesystem::temp_directory_path() / "physica-flow-matching-resume";
+        const std::filesystem::path directory         = std::filesystem::temp_directory_path() / "physica-flow-matching-resume";
         const std::filesystem::path dataset_directory = directory / "cifar-10-batches-bin";
         std::filesystem::create_directories(dataset_directory);
         std::vector<std::uint8_t> batch_bytes(10'000uz * 3073uz);
@@ -483,11 +483,11 @@ namespace {
             file.write(reinterpret_cast<const char*>(batch_bytes.data()), static_cast<std::streamsize>(batch_bytes.size()));
         }
         physica::generative::Cifar10TrainingSet dataset{dataset_directory};
-        const std::filesystem::path continuous_path = directory / "continuous.safetensors";
-        const std::filesystem::path midpoint_path = directory / "midpoint.safetensors";
-        const std::filesystem::path resumed_path = directory / "resumed.safetensors";
+        const std::filesystem::path continuous_path      = directory / "continuous.safetensors";
+        const std::filesystem::path midpoint_path        = directory / "midpoint.safetensors";
+        const std::filesystem::path resumed_path         = directory / "resumed.safetensors";
         const std::filesystem::path repeated_resume_path = directory / "repeated-resume.safetensors";
-        const auto optimize = [](physica::generative::flow_matching::Trainer& trainer, const std::uint64_t iterations) {
+        const auto optimize                              = [](physica::generative::flow_matching::Trainer& trainer, const std::uint64_t iterations) {
             const physica::generative::flow_matching::TrainingStatistics statistics = trainer.optimize(iterations);
             expect(std::isfinite(statistics.average_loss) && statistics.samples_per_second > 0.0, "CUDA Graph training statistics");
         };
@@ -504,8 +504,8 @@ namespace {
             optimize(trainer, 1u);
             trainer.save(repeated_resume_path);
         }
-        const physica::serialization::safetensors::File continuous = physica::serialization::safetensors::read(continuous_path);
-        const physica::serialization::safetensors::File resumed = physica::serialization::safetensors::read(resumed_path);
+        const physica::serialization::safetensors::File continuous      = physica::serialization::safetensors::read(continuous_path);
+        const physica::serialization::safetensors::File resumed         = physica::serialization::safetensors::read(resumed_path);
         const physica::serialization::safetensors::File repeated_resume = physica::serialization::safetensors::read(repeated_resume_path);
         for (std::size_t index = 0uz; index < resumed.tensors.size(); ++index)
             if (resumed.tensors[index].name != "training.state") expect(resumed.tensors[index].data == repeated_resume.tensors[index].data, "repeated resume determinism");

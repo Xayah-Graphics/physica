@@ -18,7 +18,7 @@ namespace physica::generative::flow_matching {
     namespace {
         std::vector<float> load_ema(const std::filesystem::path& path) {
             const serialization::safetensors::File file = serialization::safetensors::read(path);
-            const auto tensor = std::ranges::find(file.tensors, std::string{"model.ema"}, &serialization::safetensors::Tensor::name);
+            const auto tensor                           = std::ranges::find(file.tensors, std::string{"model.ema"}, &serialization::safetensors::Tensor::name);
             std::vector<float> result(tensor->data.size() / sizeof(float));
             std::memcpy(result.data(), tensor->data.data(), tensor->data.size());
             return result;
@@ -26,7 +26,8 @@ namespace physica::generative::flow_matching {
     } // namespace
 
     Trainer::Trainer(const Cifar10TrainingSet& training_set, const int device_ordinal, const std::uint64_t seed)
-        : state{.seed = seed}, stream{::cuda::devices[device_ordinal]}, dataset_images{stream, ::cuda::device_default_memory_pool(stream.device()), training_set.images.size(), ::cuda::no_init}, dataset_labels{stream, ::cuda::device_default_memory_pool(stream.device()), training_set.labels.size(), ::cuda::no_init}, matmul{stream, flow_matmul_runtime_configuration}, model{stream, matmul}, parameter_buffer{stream, model.parameters.parameter_count}, model_workspace_layout{batch}, model_workspace{stream, ::cuda::device_default_memory_pool(stream.device()), model_workspace_layout.byte_count, ::cuda::no_init}, path{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, target{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, times{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, patch_gradient{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, loss{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, loss_sum{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_step{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_processed_samples{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_seed{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init} {
+        : state{.seed = seed}, stream{::cuda::devices[device_ordinal]}, dataset_images{stream, ::cuda::device_default_memory_pool(stream.device()), training_set.images.size(), ::cuda::no_init}, dataset_labels{stream, ::cuda::device_default_memory_pool(stream.device()), training_set.labels.size(), ::cuda::no_init}, matmul{stream, flow_matmul_runtime_configuration}, model{stream, matmul}, parameter_buffer{stream, model.parameters.parameter_count}, model_workspace_layout{batch}, model_workspace{stream, ::cuda::device_default_memory_pool(stream.device()), model_workspace_layout.byte_count, ::cuda::no_init}, path{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, target{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, times{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init},
+          patch_gradient{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, loss{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, loss_sum{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_step{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_processed_samples{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init}, device_seed{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init} {
         ::cuda::copy_bytes(stream, ::cuda::std::span<const std::uint8_t>{training_set.images.data(), training_set.images.size()}, dataset_images);
         ::cuda::copy_bytes(stream, ::cuda::std::span<const std::uint8_t>{training_set.labels.data(), training_set.labels.size()}, dataset_labels);
         parameter_buffer.initialize(model.initialize_parameters(seed));
@@ -96,9 +97,9 @@ namespace physica::generative::flow_matching {
         const serialization::safetensors::File file = serialization::safetensors::read(path);
         neural::ParameterState parameters;
         const auto master = std::ranges::find(file.tensors, std::string{"model.parameters"}, &serialization::safetensors::Tensor::name);
-        const auto first = std::ranges::find(file.tensors, std::string{"optimizer.first_moments"}, &serialization::safetensors::Tensor::name);
+        const auto first  = std::ranges::find(file.tensors, std::string{"optimizer.first_moments"}, &serialization::safetensors::Tensor::name);
         const auto second = std::ranges::find(file.tensors, std::string{"optimizer.second_moments"}, &serialization::safetensors::Tensor::name);
-        const auto ema = std::ranges::find(file.tensors, std::string{"model.ema"}, &serialization::safetensors::Tensor::name);
+        const auto ema    = std::ranges::find(file.tensors, std::string{"model.ema"}, &serialization::safetensors::Tensor::name);
         parameters.parameters.resize(master->data.size() / sizeof(float));
         parameters.first_moments.resize(first->data.size() / sizeof(float));
         parameters.second_moments.resize(second->data.size() / sizeof(float));
@@ -111,7 +112,7 @@ namespace physica::generative::flow_matching {
         const auto training = std::ranges::find(file.tensors, std::string{"training.state"}, &serialization::safetensors::Tensor::name);
         std::array<std::uint64_t, 4u> training_state{};
         std::memcpy(training_state.data(), training->data.data(), training->data.size());
-        state = {.step = training_state[0], .processed_samples = training_state[1], .seed = training_state[2], .elapsed_seconds = std::bit_cast<double>(training_state[3])};
+        state                         = {.step = training_state[0], .processed_samples = training_state[1], .seed = training_state[2], .elapsed_seconds = std::bit_cast<double>(training_state[3])};
         const std::uint64_t next_step = state.step + 1u;
         ::cuda::copy_bytes(stream, ::cuda::std::span<const std::uint64_t>{&next_step, 1uz}, device_step);
         ::cuda::copy_bytes(stream, ::cuda::std::span<const std::uint64_t>{&state.processed_samples, 1uz}, device_processed_samples);
@@ -129,8 +130,7 @@ namespace physica::generative::flow_matching {
         kernels::advance_training_state(stream, device_step.data(), device_processed_samples.data(), batch);
     }
 
-    Sampler::Sampler(const std::filesystem::path& checkpoint, const int device_ordinal)
-        : stream{::cuda::devices[device_ordinal]}, matmul{stream, flow_matmul_runtime_configuration}, model{stream, matmul}, checkpoint_ema{load_ema(checkpoint)}, parameters{stream, checkpoint_ema}, runtime{stream, model} {}
+    Sampler::Sampler(const std::filesystem::path& checkpoint, const int device_ordinal) : stream{::cuda::devices[device_ordinal]}, matmul{stream, flow_matmul_runtime_configuration}, model{stream, matmul}, checkpoint_ema{load_ema(checkpoint)}, parameters{stream, checkpoint_ema}, runtime{stream, model} {}
 
     SamplingResult Sampler::sample(const SamplingRequest& request) {
         return runtime.sample(parameters.parameters.data(), request);

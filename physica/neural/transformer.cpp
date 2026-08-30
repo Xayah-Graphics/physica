@@ -14,7 +14,7 @@ namespace physica::neural {
             return (value + 255uz) & ~255uz;
         }
 
-        template<class Type>
+        template <class Type>
         Type* workspace_pointer(std::uint8_t* const workspace, const std::size_t offset) {
             return reinterpret_cast<Type*>(workspace + offset);
         }
@@ -26,8 +26,7 @@ namespace physica::neural {
         }
     } // namespace
 
-    TransformerParameterLayout::TransformerParameterLayout(const TransformerConfiguration& source_configuration)
-        : configuration{source_configuration}, blocks(configuration.block_count) {
+    TransformerParameterLayout::TransformerParameterLayout(const TransformerConfiguration& source_configuration) : configuration{source_configuration}, blocks(configuration.block_count) {
         std::size_t offset{};
         for (TransformerBlockParameterLayout& block : blocks) {
             block.modulation_weight = offset;
@@ -54,65 +53,63 @@ namespace physica::neural {
         parameter_count = offset;
     }
 
-    TransformerWorkspaceLayout::TransformerWorkspaceLayout(const TransformerConfiguration& source_configuration, const std::uint32_t source_batch)
-        : configuration{source_configuration}, batch{source_batch}, blocks(configuration.block_count) {
+    TransformerWorkspaceLayout::TransformerWorkspaceLayout(const TransformerConfiguration& source_configuration, const std::uint32_t source_batch) : configuration{source_configuration}, batch{source_batch}, blocks(configuration.block_count) {
         const std::size_t token_count = static_cast<std::size_t>(batch) * configuration.sequence;
         std::size_t offset{};
         for (std::uint32_t index = 0u; index < configuration.block_count; ++index) {
-            TransformerBlockWorkspaceLayout& block = blocks[index];
-            block.modulation = offset;
-            offset = align_workspace(offset + static_cast<std::size_t>(batch) * 6uz * configuration.width * sizeof(float));
-            block.attention_normalized = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.attention_means = offset;
-            offset = align_workspace(offset + token_count * sizeof(float));
+            TransformerBlockWorkspaceLayout& block      = blocks[index];
+            block.modulation                            = offset;
+            offset                                      = align_workspace(offset + static_cast<std::size_t>(batch) * 6uz * configuration.width * sizeof(float));
+            block.attention_normalized                  = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.attention_means                       = offset;
+            offset                                      = align_workspace(offset + token_count * sizeof(float));
             block.attention_inverse_standard_deviations = offset;
-            offset = align_workspace(offset + token_count * sizeof(float));
-            block.qkv = offset;
-            offset = align_workspace(offset + token_count * 3uz * configuration.width * sizeof(float));
-            block.attention = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.attention_log_sum_exp = offset;
-            offset = align_workspace(offset + static_cast<std::size_t>(batch) * configuration.head_count * configuration.sequence * sizeof(float));
-            block.attention_projected = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.after_attention = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.mlp_normalized = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.mlp_means = offset;
-            offset = align_workspace(offset + token_count * sizeof(float));
-            block.mlp_inverse_standard_deviations = offset;
-            offset = align_workspace(offset + token_count * sizeof(float));
-            block.mlp_preactivation = offset;
-            offset = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
-            block.mlp_hidden = offset;
-            offset = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
-            block.mlp_projected = offset;
-            offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-            block.output = offset;
+            offset                                      = align_workspace(offset + token_count * sizeof(float));
+            block.qkv                                   = offset;
+            offset                                      = align_workspace(offset + token_count * 3uz * configuration.width * sizeof(float));
+            block.attention                             = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.attention_log_sum_exp                 = offset;
+            offset                                      = align_workspace(offset + static_cast<std::size_t>(batch) * configuration.head_count * configuration.sequence * sizeof(float));
+            block.attention_projected                   = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.after_attention                       = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.mlp_normalized                        = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.mlp_means                             = offset;
+            offset                                      = align_workspace(offset + token_count * sizeof(float));
+            block.mlp_inverse_standard_deviations       = offset;
+            offset                                      = align_workspace(offset + token_count * sizeof(float));
+            block.mlp_preactivation                     = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
+            block.mlp_hidden                            = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
+            block.mlp_projected                         = offset;
+            offset                                      = align_workspace(offset + token_count * configuration.width * sizeof(float));
+            block.output                                = offset;
             if (index + 1u < configuration.block_count) offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
         }
-        gradient_a = offset;
-        offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-        gradient_b = offset;
-        offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-        branch_gradient = offset;
-        offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-        normalized_gradient = offset;
-        offset = align_workspace(offset + token_count * configuration.width * sizeof(float));
-        modulation_gradient = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * 6uz * configuration.width * sizeof(float));
-        qkv_gradient = offset;
-        offset = align_workspace(offset + token_count * 3uz * configuration.width * sizeof(float));
-        attention_delta = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * configuration.head_count * configuration.sequence * sizeof(float));
+        gradient_a                 = offset;
+        offset                     = align_workspace(offset + token_count * configuration.width * sizeof(float));
+        gradient_b                 = offset;
+        offset                     = align_workspace(offset + token_count * configuration.width * sizeof(float));
+        branch_gradient            = offset;
+        offset                     = align_workspace(offset + token_count * configuration.width * sizeof(float));
+        normalized_gradient        = offset;
+        offset                     = align_workspace(offset + token_count * configuration.width * sizeof(float));
+        modulation_gradient        = offset;
+        offset                     = align_workspace(offset + static_cast<std::size_t>(batch) * 6uz * configuration.width * sizeof(float));
+        qkv_gradient               = offset;
+        offset                     = align_workspace(offset + token_count * 3uz * configuration.width * sizeof(float));
+        attention_delta            = offset;
+        offset                     = align_workspace(offset + static_cast<std::size_t>(batch) * configuration.head_count * configuration.sequence * sizeof(float));
         mlp_preactivation_gradient = offset;
-        byte_count = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
+        byte_count                 = align_workspace(offset + token_count * configuration.mlp_width * sizeof(float));
     }
 
-    Transformer::Transformer(MatmulRuntime& source_matmul, const TransformerConfiguration& configuration)
-        : matmul{source_matmul}, parameters{configuration} {}
+    Transformer::Transformer(MatmulRuntime& source_matmul, const TransformerConfiguration& configuration) : matmul{source_matmul}, parameters{configuration} {}
 
     std::vector<float> Transformer::initialize_parameters(const std::uint64_t seed) const {
         std::vector<float> values(parameters.parameter_count);
@@ -129,22 +126,22 @@ namespace physica::neural {
 
     void Transformer::forward(const float* const parameter_values, const float* const tokens, const float* const condition, float* const output, std::uint8_t* const workspace, const TransformerWorkspaceLayout& workspace_layout) {
         const TransformerConfiguration& configuration = parameters.configuration;
-        const std::uint32_t token_count = workspace_layout.batch * configuration.sequence;
+        const std::uint32_t token_count               = workspace_layout.batch * configuration.sequence;
         for (std::uint32_t index = 0u; index < configuration.block_count; ++index) {
             const TransformerBlockParameterLayout& parameter = parameters.blocks[index];
-            const TransformerBlockWorkspaceLayout& block = workspace_layout.blocks[index];
-            const float* input = index == 0u ? tokens : workspace_pointer<float>(workspace, workspace_layout.blocks[index - 1u].output);
-            float* modulation = workspace_pointer<float>(workspace, block.modulation);
-            float* attention_normalized = workspace_pointer<float>(workspace, block.attention_normalized);
-            float* qkv = workspace_pointer<float>(workspace, block.qkv);
-            float* attention = workspace_pointer<float>(workspace, block.attention);
-            float* attention_projected = workspace_pointer<float>(workspace, block.attention_projected);
-            float* after_attention = workspace_pointer<float>(workspace, block.after_attention);
-            float* mlp_normalized = workspace_pointer<float>(workspace, block.mlp_normalized);
-            float* mlp_preactivation = workspace_pointer<float>(workspace, block.mlp_preactivation);
-            float* mlp_hidden = workspace_pointer<float>(workspace, block.mlp_hidden);
-            float* mlp_projected = workspace_pointer<float>(workspace, block.mlp_projected);
-            float* block_output = index + 1u == configuration.block_count ? output : workspace_pointer<float>(workspace, block.output);
+            const TransformerBlockWorkspaceLayout& block     = workspace_layout.blocks[index];
+            const float* input                               = index == 0u ? tokens : workspace_pointer<float>(workspace, workspace_layout.blocks[index - 1u].output);
+            float* modulation                                = workspace_pointer<float>(workspace, block.modulation);
+            float* attention_normalized                      = workspace_pointer<float>(workspace, block.attention_normalized);
+            float* qkv                                       = workspace_pointer<float>(workspace, block.qkv);
+            float* attention                                 = workspace_pointer<float>(workspace, block.attention);
+            float* attention_projected                       = workspace_pointer<float>(workspace, block.attention_projected);
+            float* after_attention                           = workspace_pointer<float>(workspace, block.after_attention);
+            float* mlp_normalized                            = workspace_pointer<float>(workspace, block.mlp_normalized);
+            float* mlp_preactivation                         = workspace_pointer<float>(workspace, block.mlp_preactivation);
+            float* mlp_hidden                                = workspace_pointer<float>(workspace, block.mlp_hidden);
+            float* mlp_projected                             = workspace_pointer<float>(workspace, block.mlp_projected);
+            float* block_output                              = index + 1u == configuration.block_count ? output : workspace_pointer<float>(workspace, block.output);
 
             matmul.execute({condition, parameter_values + parameter.modulation_weight, modulation, workspace_layout.batch, 6u * configuration.width, configuration.width, false, false, MatmulEpilogue::bias, parameter_values + parameter.modulation_bias});
             kernels::adaln_forward(matmul.stream, input, modulation, attention_normalized, workspace_pointer<float>(workspace, block.attention_means), workspace_pointer<float>(workspace, block.attention_inverse_standard_deviations), workspace_layout.batch, configuration.sequence, configuration.width, 0u);
@@ -161,33 +158,33 @@ namespace physica::neural {
 
     void Transformer::backward(const float* const parameter_values, float* const parameter_gradients, const float* const tokens, const float* const condition, const float* const output_gradient, float* const token_gradient, float* const condition_gradient, std::uint8_t* const workspace, const TransformerWorkspaceLayout& workspace_layout) {
         const TransformerConfiguration& configuration = parameters.configuration;
-        const std::uint32_t token_count = workspace_layout.batch * configuration.sequence;
-        float* gradient_a = workspace_pointer<float>(workspace, workspace_layout.gradient_a);
-        float* gradient_b = workspace_pointer<float>(workspace, workspace_layout.gradient_b);
-        float* branch_gradient = workspace_pointer<float>(workspace, workspace_layout.branch_gradient);
-        float* normalized_gradient = workspace_pointer<float>(workspace, workspace_layout.normalized_gradient);
-        float* modulation_gradient = workspace_pointer<float>(workspace, workspace_layout.modulation_gradient);
-        float* qkv_gradient = workspace_pointer<float>(workspace, workspace_layout.qkv_gradient);
-        float* attention_delta = workspace_pointer<float>(workspace, workspace_layout.attention_delta);
-        float* mlp_preactivation_gradient = workspace_pointer<float>(workspace, workspace_layout.mlp_preactivation_gradient);
-        const float* current_gradient = output_gradient;
+        const std::uint32_t token_count               = workspace_layout.batch * configuration.sequence;
+        float* gradient_a                             = workspace_pointer<float>(workspace, workspace_layout.gradient_a);
+        float* gradient_b                             = workspace_pointer<float>(workspace, workspace_layout.gradient_b);
+        float* branch_gradient                        = workspace_pointer<float>(workspace, workspace_layout.branch_gradient);
+        float* normalized_gradient                    = workspace_pointer<float>(workspace, workspace_layout.normalized_gradient);
+        float* modulation_gradient                    = workspace_pointer<float>(workspace, workspace_layout.modulation_gradient);
+        float* qkv_gradient                           = workspace_pointer<float>(workspace, workspace_layout.qkv_gradient);
+        float* attention_delta                        = workspace_pointer<float>(workspace, workspace_layout.attention_delta);
+        float* mlp_preactivation_gradient             = workspace_pointer<float>(workspace, workspace_layout.mlp_preactivation_gradient);
+        const float* current_gradient                 = output_gradient;
         for (std::uint32_t reverse = configuration.block_count; reverse != 0u; --reverse) {
-            const std::uint32_t index = reverse - 1u;
+            const std::uint32_t index                        = reverse - 1u;
             const TransformerBlockParameterLayout& parameter = parameters.blocks[index];
-            const TransformerBlockWorkspaceLayout& block = workspace_layout.blocks[index];
-            const float* input = index == 0u ? tokens : workspace_pointer<float>(workspace, workspace_layout.blocks[index - 1u].output);
-            const float* modulation = workspace_pointer<float>(workspace, block.modulation);
-            const float* attention_normalized = workspace_pointer<float>(workspace, block.attention_normalized);
-            const float* qkv = workspace_pointer<float>(workspace, block.qkv);
-            const float* attention = workspace_pointer<float>(workspace, block.attention);
-            const float* attention_projected = workspace_pointer<float>(workspace, block.attention_projected);
-            const float* after_attention = workspace_pointer<float>(workspace, block.after_attention);
-            const float* mlp_normalized = workspace_pointer<float>(workspace, block.mlp_normalized);
-            const float* mlp_preactivation = workspace_pointer<float>(workspace, block.mlp_preactivation);
-            const float* mlp_hidden = workspace_pointer<float>(workspace, block.mlp_hidden);
-            const float* mlp_projected = workspace_pointer<float>(workspace, block.mlp_projected);
-            float* after_attention_gradient = index % 2u == 0u ? gradient_a : gradient_b;
-            float* input_gradient = index == 0u ? token_gradient : (index % 2u == 0u ? gradient_b : gradient_a);
+            const TransformerBlockWorkspaceLayout& block     = workspace_layout.blocks[index];
+            const float* input                               = index == 0u ? tokens : workspace_pointer<float>(workspace, workspace_layout.blocks[index - 1u].output);
+            const float* modulation                          = workspace_pointer<float>(workspace, block.modulation);
+            const float* attention_normalized                = workspace_pointer<float>(workspace, block.attention_normalized);
+            const float* qkv                                 = workspace_pointer<float>(workspace, block.qkv);
+            const float* attention                           = workspace_pointer<float>(workspace, block.attention);
+            const float* attention_projected                 = workspace_pointer<float>(workspace, block.attention_projected);
+            const float* after_attention                     = workspace_pointer<float>(workspace, block.after_attention);
+            const float* mlp_normalized                      = workspace_pointer<float>(workspace, block.mlp_normalized);
+            const float* mlp_preactivation                   = workspace_pointer<float>(workspace, block.mlp_preactivation);
+            const float* mlp_hidden                          = workspace_pointer<float>(workspace, block.mlp_hidden);
+            const float* mlp_projected                       = workspace_pointer<float>(workspace, block.mlp_projected);
+            float* after_attention_gradient                  = index % 2u == 0u ? gradient_a : gradient_b;
+            float* input_gradient                            = index == 0u ? token_gradient : (index % 2u == 0u ? gradient_b : gradient_a);
 
             kernels::residual_backward(matmul.stream, current_gradient, mlp_projected, modulation, branch_gradient, modulation_gradient, workspace_layout.batch, configuration.sequence, configuration.width, 3u);
             matmul.execute({mlp_hidden, branch_gradient, parameter_gradients + parameter.mlp_output_weight, configuration.mlp_width, configuration.width, token_count, true, false, MatmulEpilogue::bias_gradient, parameter_gradients + parameter.mlp_output_bias});

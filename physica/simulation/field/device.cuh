@@ -1,9 +1,9 @@
 #ifndef PHYSICA_SIMULATION_FIELD_DEVICE_CUH
 #define PHYSICA_SIMULATION_FIELD_DEVICE_CUH
 
+#include <cstdint>
 #include <cuda_runtime.h>
 #include <math/math.h>
-#include <cstdint>
 #include <type_traits>
 #include <utility>
 
@@ -52,11 +52,9 @@ namespace physica::simulation {
 
         template <class Other>
             requires std::is_convertible_v<Other*, Value*>
-        constexpr Matrix3View(const Matrix3View<Other> other)
-            : c00(other.c00), c01(other.c01), c02(other.c02), c10(other.c10), c11(other.c11), c12(other.c12), c20(other.c20), c21(other.c21), c22(other.c22) {}
+        constexpr Matrix3View(const Matrix3View<Other> other) : c00(other.c00), c01(other.c01), c02(other.c02), c10(other.c10), c11(other.c11), c12(other.c12), c20(other.c20), c21(other.c21), c22(other.c22) {}
 
-        constexpr Matrix3View(Value* next_c00, Value* next_c01, Value* next_c02, Value* next_c10, Value* next_c11, Value* next_c12, Value* next_c20, Value* next_c21, Value* next_c22)
-            : c00(next_c00), c01(next_c01), c02(next_c02), c10(next_c10), c11(next_c11), c12(next_c12), c20(next_c20), c21(next_c21), c22(next_c22) {}
+        constexpr Matrix3View(Value* next_c00, Value* next_c01, Value* next_c02, Value* next_c10, Value* next_c11, Value* next_c12, Value* next_c20, Value* next_c21, Value* next_c22) : c00(next_c00), c01(next_c01), c02(next_c02), c10(next_c10), c11(next_c11), c12(next_c12), c20(next_c20), c21(next_c21), c22(next_c22) {}
     };
 
     template <class Value>
@@ -65,7 +63,7 @@ namespace physica::simulation {
     }
 
     template <class Value>
-        requires(!std::is_const_v<Value>)
+        requires (!std::is_const_v<Value>)
     __device__ inline void store(const VectorView<Value> field, const std::uint32_t index, const Vector3<Value> value) {
         field.x[index] = value.x;
         field.y[index] = value.y;
@@ -73,7 +71,7 @@ namespace physica::simulation {
     }
 
     template <class Value>
-        requires(!std::is_const_v<Value>)
+        requires (!std::is_const_v<Value>)
     __device__ inline void accumulate(const VectorView<Value> field, const std::uint32_t index, const Vector3<Value> value) {
         field.x[index] += value.x;
         field.y[index] += value.y;
@@ -110,6 +108,6 @@ namespace physica::simulation {
         return {field.c00.data(), field.c01.data(), field.c02.data(), field.c10.data(), field.c11.data(), field.c12.data(), field.c20.data(), field.c21.data(), field.c22.data()};
     }
 
-}
+} // namespace physica::simulation
 
 #endif

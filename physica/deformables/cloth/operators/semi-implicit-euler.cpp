@@ -1,8 +1,8 @@
 module;
 
-#include <simulation/field/device.cuh>
 #include "semi-implicit-euler-kernels.h"
 #include <physica/cuda.h>
+#include <simulation/field/device.cuh>
 
 module physica.deformables.cloth.operators.semi_implicit_euler;
 

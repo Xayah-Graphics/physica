@@ -1,8 +1,8 @@
 module;
 
-#include <simulation/field/device.cuh>
 #include "fixed-position-kernels.h"
 #include <physica/cuda.h>
+#include <simulation/field/device.cuh>
 
 module physica.deformables.cloth.operators.fixed_position;
 

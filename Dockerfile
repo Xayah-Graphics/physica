@@ -23,7 +23,9 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER=g++ \
         -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
+        -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
+        -DBUILD_TESTING=ON \
     && cmake --build cmake-build-release --parallel 30
 
 

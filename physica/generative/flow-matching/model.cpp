@@ -15,7 +15,7 @@ namespace physica::generative::flow_matching {
             return (value + 255uz) & ~255uz;
         }
 
-        template<class Type>
+        template <class Type>
         Type* workspace_pointer(std::uint8_t* const workspace, const std::size_t offset) {
             return reinterpret_cast<Type*>(workspace + offset);
         }
@@ -52,71 +52,69 @@ namespace physica::generative::flow_matching {
         offset += 2uz * width;
         velocity_weight = offset;
         offset += width * 12uz;
-        velocity_bias = offset;
+        velocity_bias   = offset;
         parameter_count = offset + 12uz;
     }
 
-    FlowDiTWorkspaceLayout::FlowDiTWorkspaceLayout(const std::uint32_t source_batch)
-        : batch{source_batch}, transformer_layout{flow_transformer_configuration, batch} {
+    FlowDiTWorkspaceLayout::FlowDiTWorkspaceLayout(const std::uint32_t source_batch) : batch{source_batch}, transformer_layout{flow_transformer_configuration, batch} {
         constexpr std::size_t sequence = flow_transformer_configuration.sequence;
-        constexpr std::size_t width = flow_transformer_configuration.width;
-        const std::size_t token_count = static_cast<std::size_t>(batch) * sequence;
+        constexpr std::size_t width    = flow_transformer_configuration.width;
+        const std::size_t token_count  = static_cast<std::size_t>(batch) * sequence;
         std::size_t offset{};
-        tokens = offset;
-        offset = align_workspace(offset + token_count * width * sizeof(float));
-        time_embedding = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        time_preactivation = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        time_hidden = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        condition = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        condition_activated = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        transformed = offset;
-        offset = align_workspace(offset + token_count * width * sizeof(float));
-        final_modulation = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * 2uz * width * sizeof(float));
-        final_normalized = offset;
-        offset = align_workspace(offset + token_count * width * sizeof(float));
-        final_means = offset;
-        offset = align_workspace(offset + token_count * sizeof(float));
+        tokens                            = offset;
+        offset                            = align_workspace(offset + token_count * width * sizeof(float));
+        time_embedding                    = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        time_preactivation                = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        time_hidden                       = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        condition                         = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        condition_activated               = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        transformed                       = offset;
+        offset                            = align_workspace(offset + token_count * width * sizeof(float));
+        final_modulation                  = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * 2uz * width * sizeof(float));
+        final_normalized                  = offset;
+        offset                            = align_workspace(offset + token_count * width * sizeof(float));
+        final_means                       = offset;
+        offset                            = align_workspace(offset + token_count * sizeof(float));
         final_inverse_standard_deviations = offset;
-        offset = align_workspace(offset + token_count * sizeof(float));
-        velocity = offset;
-        offset = align_workspace(offset + token_count * 12uz * sizeof(float));
-        velocity_gradient = offset;
-        offset = align_workspace(offset + token_count * 12uz * sizeof(float));
-        normalized_gradient = offset;
-        offset = align_workspace(offset + token_count * width * sizeof(float));
-        transformed_gradient = offset;
-        offset = align_workspace(offset + token_count * width * sizeof(float));
-        final_modulation_gradient = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * 2uz * width * sizeof(float));
-        condition_gradient = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        time_hidden_gradient = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        time_preactivation_gradient = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
-        sample_loss = offset;
-        offset = align_workspace(offset + static_cast<std::size_t>(batch) * sizeof(float));
-        transformer_workspace = offset;
-        byte_count = align_workspace(offset + transformer_layout.byte_count);
+        offset                            = align_workspace(offset + token_count * sizeof(float));
+        velocity                          = offset;
+        offset                            = align_workspace(offset + token_count * 12uz * sizeof(float));
+        velocity_gradient                 = offset;
+        offset                            = align_workspace(offset + token_count * 12uz * sizeof(float));
+        normalized_gradient               = offset;
+        offset                            = align_workspace(offset + token_count * width * sizeof(float));
+        transformed_gradient              = offset;
+        offset                            = align_workspace(offset + token_count * width * sizeof(float));
+        final_modulation_gradient         = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * 2uz * width * sizeof(float));
+        condition_gradient                = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        time_hidden_gradient              = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        time_preactivation_gradient       = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * width * sizeof(float));
+        sample_loss                       = offset;
+        offset                            = align_workspace(offset + static_cast<std::size_t>(batch) * sizeof(float));
+        transformer_workspace             = offset;
+        byte_count                        = align_workspace(offset + transformer_layout.byte_count);
     }
 
-    FlowDiT::FlowDiT(const ::cuda::stream_ref source_stream, neural::MatmulRuntime& source_matmul)
-        : stream{source_stream}, matmul{source_matmul}, transformer{matmul, flow_transformer_configuration}, position{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(flow_transformer_configuration.sequence) * flow_transformer_configuration.width, ::cuda::no_init} {
+    FlowDiT::FlowDiT(const ::cuda::stream_ref source_stream, neural::MatmulRuntime& source_matmul) : stream{source_stream}, matmul{source_matmul}, transformer{matmul, flow_transformer_configuration}, position{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(flow_transformer_configuration.sequence) * flow_transformer_configuration.width, ::cuda::no_init} {
         std::vector<float> host_position(position.size());
         constexpr std::uint32_t frequency_count = flow_transformer_configuration.width / 4u;
         for (std::uint32_t y = 0u; y < 16u; ++y)
             for (std::uint32_t x = 0u; x < 16u; ++x)
                 for (std::uint32_t frequency = 0u; frequency < frequency_count; ++frequency) {
-                    const float scale = std::exp(-std::log(10'000.0F) * static_cast<float>(frequency) / static_cast<float>(frequency_count));
-                    const std::size_t offset = static_cast<std::size_t>(y * 16u + x) * flow_transformer_configuration.width;
-                    host_position[offset + frequency] = std::sin(static_cast<float>(y) * scale);
-                    host_position[offset + frequency_count + frequency] = std::cos(static_cast<float>(y) * scale);
+                    const float scale                                         = std::exp(-std::log(10'000.0F) * static_cast<float>(frequency) / static_cast<float>(frequency_count));
+                    const std::size_t offset                                  = static_cast<std::size_t>(y * 16u + x) * flow_transformer_configuration.width;
+                    host_position[offset + frequency]                         = std::sin(static_cast<float>(y) * scale);
+                    host_position[offset + frequency_count + frequency]       = std::cos(static_cast<float>(y) * scale);
                     host_position[offset + 2uz * frequency_count + frequency] = std::sin(static_cast<float>(x) * scale);
                     host_position[offset + 3uz * frequency_count + frequency] = std::cos(static_cast<float>(x) * scale);
                 }
@@ -139,16 +137,16 @@ namespace physica::generative::flow_matching {
 
     void FlowDiT::forward(const float* const parameter_values, const float* const patches, const float* const times, const std::uint8_t* const labels, std::uint8_t* const workspace, const FlowDiTWorkspaceLayout& layout) {
         const std::uint32_t token_count = layout.batch * flow_transformer_configuration.sequence;
-        float* tokens = workspace_pointer<float>(workspace, layout.tokens);
-        float* time_embedding = workspace_pointer<float>(workspace, layout.time_embedding);
-        float* time_preactivation = workspace_pointer<float>(workspace, layout.time_preactivation);
-        float* time_hidden = workspace_pointer<float>(workspace, layout.time_hidden);
-        float* condition = workspace_pointer<float>(workspace, layout.condition);
-        float* condition_activated = workspace_pointer<float>(workspace, layout.condition_activated);
-        float* transformed = workspace_pointer<float>(workspace, layout.transformed);
-        float* final_modulation = workspace_pointer<float>(workspace, layout.final_modulation);
-        float* final_normalized = workspace_pointer<float>(workspace, layout.final_normalized);
-        float* velocity = workspace_pointer<float>(workspace, layout.velocity);
+        float* tokens                   = workspace_pointer<float>(workspace, layout.tokens);
+        float* time_embedding           = workspace_pointer<float>(workspace, layout.time_embedding);
+        float* time_preactivation       = workspace_pointer<float>(workspace, layout.time_preactivation);
+        float* time_hidden              = workspace_pointer<float>(workspace, layout.time_hidden);
+        float* condition                = workspace_pointer<float>(workspace, layout.condition);
+        float* condition_activated      = workspace_pointer<float>(workspace, layout.condition_activated);
+        float* transformed              = workspace_pointer<float>(workspace, layout.transformed);
+        float* final_modulation         = workspace_pointer<float>(workspace, layout.final_modulation);
+        float* final_normalized         = workspace_pointer<float>(workspace, layout.final_normalized);
+        float* velocity                 = workspace_pointer<float>(workspace, layout.velocity);
 
         matmul.execute({patches, parameter_values + parameters.patch_weight, tokens, token_count, flow_transformer_configuration.width, 12u, false, false, neural::MatmulEpilogue::bias, parameter_values + parameters.patch_bias});
         kernels::add_position(stream, tokens, position.data(), static_cast<std::size_t>(token_count) * flow_transformer_configuration.width);
@@ -169,22 +167,22 @@ namespace physica::generative::flow_matching {
     }
 
     void FlowDiT::backward(const float* const parameter_values, float* const parameter_gradients, const float* const patches, const float*, const std::uint8_t* const labels, float* const input_patch_gradient, std::uint8_t* const workspace, const FlowDiTWorkspaceLayout& layout) {
-        const std::uint32_t token_count = layout.batch * flow_transformer_configuration.sequence;
-        const float* tokens = workspace_pointer<float>(workspace, layout.tokens);
-        const float* time_embedding = workspace_pointer<float>(workspace, layout.time_embedding);
-        const float* time_preactivation = workspace_pointer<float>(workspace, layout.time_preactivation);
-        const float* time_hidden = workspace_pointer<float>(workspace, layout.time_hidden);
-        const float* condition = workspace_pointer<float>(workspace, layout.condition);
-        const float* condition_activated = workspace_pointer<float>(workspace, layout.condition_activated);
-        const float* transformed = workspace_pointer<float>(workspace, layout.transformed);
-        const float* final_modulation = workspace_pointer<float>(workspace, layout.final_modulation);
-        const float* final_normalized = workspace_pointer<float>(workspace, layout.final_normalized);
-        const float* velocity_gradient = workspace_pointer<float>(workspace, layout.velocity_gradient);
-        float* normalized_gradient = workspace_pointer<float>(workspace, layout.normalized_gradient);
-        float* transformed_gradient = workspace_pointer<float>(workspace, layout.transformed_gradient);
-        float* final_modulation_gradient = workspace_pointer<float>(workspace, layout.final_modulation_gradient);
-        float* condition_gradient = workspace_pointer<float>(workspace, layout.condition_gradient);
-        float* time_hidden_gradient = workspace_pointer<float>(workspace, layout.time_hidden_gradient);
+        const std::uint32_t token_count    = layout.batch * flow_transformer_configuration.sequence;
+        const float* tokens                = workspace_pointer<float>(workspace, layout.tokens);
+        const float* time_embedding        = workspace_pointer<float>(workspace, layout.time_embedding);
+        const float* time_preactivation    = workspace_pointer<float>(workspace, layout.time_preactivation);
+        const float* time_hidden           = workspace_pointer<float>(workspace, layout.time_hidden);
+        const float* condition             = workspace_pointer<float>(workspace, layout.condition);
+        const float* condition_activated   = workspace_pointer<float>(workspace, layout.condition_activated);
+        const float* transformed           = workspace_pointer<float>(workspace, layout.transformed);
+        const float* final_modulation      = workspace_pointer<float>(workspace, layout.final_modulation);
+        const float* final_normalized      = workspace_pointer<float>(workspace, layout.final_normalized);
+        const float* velocity_gradient     = workspace_pointer<float>(workspace, layout.velocity_gradient);
+        float* normalized_gradient         = workspace_pointer<float>(workspace, layout.normalized_gradient);
+        float* transformed_gradient        = workspace_pointer<float>(workspace, layout.transformed_gradient);
+        float* final_modulation_gradient   = workspace_pointer<float>(workspace, layout.final_modulation_gradient);
+        float* condition_gradient          = workspace_pointer<float>(workspace, layout.condition_gradient);
+        float* time_hidden_gradient        = workspace_pointer<float>(workspace, layout.time_hidden_gradient);
         float* time_preactivation_gradient = workspace_pointer<float>(workspace, layout.time_preactivation_gradient);
         ::cuda::fill_bytes(stream, ::cuda::std::span<float>{condition_gradient, static_cast<std::size_t>(layout.batch) * flow_transformer_configuration.width}, 0u);
 

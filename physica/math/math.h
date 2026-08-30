@@ -159,7 +159,7 @@ namespace physica {
     static_assert(sizeof(Matrix4<float>) == 16U * sizeof(float));
     static_assert(std::is_trivially_copyable_v<Vector3<float>>);
     static_assert(std::is_trivially_copyable_v<Matrix4<float>>);
-}
+} // namespace physica
 
 #undef PHYSICA_HOST_DEVICE
 

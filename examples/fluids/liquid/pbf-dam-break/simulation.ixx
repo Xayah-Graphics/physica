@@ -116,10 +116,11 @@ export namespace physica::examples::pbf_dam_break {
             .particle_radius = particle_radius,
             .boundary =
                 {
-                    .bounds = {
-                        .minimum = {.x = 0.0F, .y = 0.0F, .z = 0.0F},
-                        .maximum = {.x = 0.8F, .y = 1.1F, .z = 0.5F},
-                    },
+                    .bounds =
+                        {
+                            .minimum = {.x = 0.0F, .y = 0.0F, .z = 0.0F},
+                            .maximum = {.x = 0.8F, .y = 1.1F, .z = 0.5F},
+                        },
                     .velocity = {},
                     .no_slip  = true,
                 },

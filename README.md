@@ -7,18 +7,20 @@
 [![Docker](https://github.com/Xayah-Graphics/physica/actions/workflows/docker.yml/badge.svg)](https://github.com/Xayah-Graphics/physica/actions/workflows/docker.yml)
 [![License](https://img.shields.io/github/license/Xayah-Graphics/physica)](LICENSE)
 
-Physica is a C++23 and CUDA computer graphics research workspace for modern implementations of classic reconstruction,
-simulation, and differentiable graphics algorithms. Core algorithms are organized as reusable C++ modules, while
-standalone examples can expose live visualization providers to [Spectra](https://github.com/Xayah-Graphics/spectra).
+Physica is a C++23 and CUDA computer graphics research workspace for modern implementations of reconstruction,
+simulation, differentiable graphics, and generative modeling algorithms. Core algorithms are organized as reusable
+C++ modules, while standalone examples can expose live visualization providers to
+[Spectra](https://github.com/Xayah-Graphics/spectra).
 
 ## Algorithms
 
-- Reconstruction: Instant Neural Graphics Primitives and shared multi-view datasets
-- Gas simulation: differentiable smoke simulation
-- Particle liquids: WCSPH, PCISPH, IISPH, DFSPH, and PBF
+- Reconstruction: Instant Neural Graphics Primitives, PINFS, and shared multi-view datasets
+- Gas simulation: smoke, keyframe control, and differentiable adjoint control
+- Liquids: PIC, FLIP, APIC, WCSPH, PCISPH, IISPH, DFSPH, and PBF
 - Deformables: differentiable cloth simulation
+- Generative modeling: class-conditioned Flow Matching with FlowDiT
 
-## Build Instruction
+## Build Instructions
 
 ### Requirements
 
@@ -31,21 +33,6 @@ standalone examples can expose live visualization providers to [Spectra](https:/
 ### Build
 
 ```bash
-cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build cmake-build-release --parallel 30
-```
-
-All core algorithms are always built. Examples and Spectra providers are controlled independently:
-
-```bash
-cmake -S . -B cmake-build-release -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DPHYSICA_EXAMPLES=ON \
-    -DPHYSICA_BUILD_SPECTRA=OFF
-```
-
-Build the Linux CUDA image locally with Docker:
-
-```bash
-docker build -t physica .
+cmake -S . -B build -G Ninja
+cmake --build build --parallel 30
 ```

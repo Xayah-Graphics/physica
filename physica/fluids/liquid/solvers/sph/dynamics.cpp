@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/liquid/interop.h>
 #include "dynamics-kernels.h"
+#include <fluids/liquid/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.liquid.solvers.sph.dynamics;
@@ -712,9 +712,9 @@ namespace physica::fluids::liquid::solvers::sph {
                 const PressureIterationCache& last  = checkpoints[checkpoint];
                 copy_iteration(model, first, workspace.recomputed_iterations[0]);
                 for (std::uint32_t iteration = first.iteration + 1u; iteration <= last.iteration; ++iteration) {
-                    PressureIterationCache& previous              = workspace.recomputed_iterations[iteration - first.iteration - 1u];
-                    PressureIterationCache& current               = workspace.recomputed_iterations[iteration - first.iteration];
-                    current.iteration                             = iteration;
+                    PressureIterationCache& previous                          = workspace.recomputed_iterations[iteration - first.iteration - 1u];
+                    PressureIterationCache& current                           = workspace.recomputed_iterations[iteration - first.iteration];
+                    current.iteration                                         = iteration;
                     const simulation::VectorField<float>* prediction_pressure = &previous.pressure_accelerations;
                     if (base_pressure_accelerations != nullptr) {
                         add(model, *base_pressure_accelerations, previous.pressure_accelerations, workspace.total_pressure_accelerations);

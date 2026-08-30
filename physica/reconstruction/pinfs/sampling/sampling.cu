@@ -33,7 +33,7 @@ namespace physica::reconstruction::pinfs::kernels {
                 const float upper    = sample + 1u == sample_count ? nominal : 0.5F * (nominal + next);
                 sample_z             = lower + (upper - lower) * random_uniform(seed, SamplingRandomSequence::coarse, step, random_offset + flat_sample);
             }
-            z[flat_sample] = sample_z;
+            z[flat_sample]               = sample_z;
             const Ray3<float> source_ray = rays[ray];
             for (std::uint32_t component = 0u; component < 3u; ++component) {
                 const float position                                                   = fmaf(source_ray.direction[component], sample_z, source_ray.origin[component]);

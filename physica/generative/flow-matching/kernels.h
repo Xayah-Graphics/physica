@@ -1,10 +1,9 @@
 #ifndef PHYSICA_GENERATIVE_FLOW_MATCHING_KERNELS_H
 #define PHYSICA_GENERATIVE_FLOW_MATCHING_KERNELS_H
 
-#include <physica/cuda_stream.h>
-
 #include <cstddef>
 #include <cstdint>
+#include <physica/cuda_stream.h>
 
 namespace physica::generative::flow_matching::kernels {
     void make_training_batch(::cuda::stream_ref stream, const std::uint8_t* images, const std::uint8_t* dataset_labels, float* path, float* target, float* times, std::uint8_t* labels, const std::uint64_t* step, const std::uint64_t* seed, std::uint32_t batch);

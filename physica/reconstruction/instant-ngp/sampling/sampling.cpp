@@ -1,8 +1,8 @@
 module;
 
 #include "kernels.h"
-#include <physica/cuda.h>
 #include <cuda/cmath>
+#include <physica/cuda.h>
 
 module physica.reconstruction.instant_ngp.sampling;
 

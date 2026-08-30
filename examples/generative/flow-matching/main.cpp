@@ -1,7 +1,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-
 #include <physica/cuda.h>
+#include <stb_image_write.h>
 
 import std;
 import physica.generative.dataset.cifar10;
@@ -18,9 +17,9 @@ namespace {
 
     std::string_view solver_name(const physica::generative::flow_matching::SamplingSolver solver) {
         switch (solver) {
-            case physica::generative::flow_matching::SamplingSolver::euler: return "euler";
-            case physica::generative::flow_matching::SamplingSolver::heun: return "heun";
-            case physica::generative::flow_matching::SamplingSolver::rk4: return "rk4";
+        case physica::generative::flow_matching::SamplingSolver::euler: return "euler";
+        case physica::generative::flow_matching::SamplingSolver::heun: return "heun";
+        case physica::generative::flow_matching::SamplingSolver::rk4: return "rk4";
         }
         std::unreachable();
     }
@@ -52,24 +51,24 @@ namespace {
 
     int train(const int count, char** const arguments) {
         const std::chrono::steady_clock::time_point command_begin = std::chrono::steady_clock::now();
-        const std::filesystem::path dataset_directory = arguments[2];
-        const std::filesystem::path output_directory = arguments[3];
-        const std::uint64_t end_step = count > 4 ? std::stoull(arguments[4]) : 400'000u;
-        const bool resume = count > 5 && std::string_view{arguments[5]} == "resume";
-        constexpr int device_ordinal = 0;
-        constexpr std::uint64_t seed = 42u;
-        std::cout << std::format(
-            "Physica / Flow Matching\n\n"
-            "  mode       train\n"
-            "  dataset    {}\n"
-            "  device     cuda:{}\n"
-            "  target     {} steps\n"
-            "  batch      256\n"
-            "  ema        500000-sample half-life, 0.05 ramp\n"
-            "  seed       {}\n"
-            "  resume     {}\n"
-            "  output     {}\n\n",
-            dataset_directory.string(), device_ordinal, end_step, seed, resume ? "yes" : "no", output_directory.string()) << std::flush;
+        const std::filesystem::path dataset_directory             = arguments[2];
+        const std::filesystem::path output_directory              = arguments[3];
+        const std::uint64_t end_step                              = count > 4 ? std::stoull(arguments[4]) : 400'000u;
+        const bool resume                                         = count > 5 && std::string_view{arguments[5]} == "resume";
+        constexpr int device_ordinal                              = 0;
+        constexpr std::uint64_t seed                              = 42u;
+        std::cout << std::format("Physica / Flow Matching\n\n"
+                                 "  mode       train\n"
+                                 "  dataset    {}\n"
+                                 "  device     cuda:{}\n"
+                                 "  target     {} steps\n"
+                                 "  batch      256\n"
+                                 "  ema        500000-sample half-life, 0.05 ramp\n"
+                                 "  seed       {}\n"
+                                 "  resume     {}\n"
+                                 "  output     {}\n\n",
+            dataset_directory.string(), device_ordinal, end_step, seed, resume ? "yes" : "no", output_directory.string())
+                  << std::flush;
         std::cout << std::format("{}  {:<10} initializing CUDA training runtime\n", format_duration(0.0), "START") << std::flush;
         std::filesystem::create_directories(output_directory / "checkpoints");
         std::filesystem::create_directories(output_directory / "samples");
@@ -87,25 +86,25 @@ namespace {
         double previous_elapsed_seconds = trainer.state.elapsed_seconds;
         double smoothed_seconds_per_step{};
         while (trainer.state.step < end_step) {
-            const std::uint64_t iteration_count = std::min<std::uint64_t>(100u, end_step - trainer.state.step);
+            const std::uint64_t iteration_count                                     = std::min<std::uint64_t>(100u, end_step - trainer.state.step);
             const physica::generative::flow_matching::TrainingStatistics statistics = trainer.optimize(iteration_count);
-            const std::uint64_t step = statistics.step;
-            const float loss = statistics.average_loss;
-            const double samples_per_second = statistics.samples_per_second;
-            const double elapsed_seconds = trainer.state.elapsed_seconds;
-            const double seconds_per_step = (elapsed_seconds - previous_elapsed_seconds) / static_cast<double>(iteration_count);
-            smoothed_seconds_per_step = smoothed_seconds_per_step == 0.0 ? seconds_per_step : std::lerp(smoothed_seconds_per_step, seconds_per_step, 0.2);
-            const double eta_seconds = smoothed_seconds_per_step * static_cast<double>(end_step - step);
-            previous_elapsed_seconds = elapsed_seconds;
+            const std::uint64_t step                                                = statistics.step;
+            const float loss                                                        = statistics.average_loss;
+            const double samples_per_second                                         = statistics.samples_per_second;
+            const double elapsed_seconds                                            = trainer.state.elapsed_seconds;
+            const double seconds_per_step                                           = (elapsed_seconds - previous_elapsed_seconds) / static_cast<double>(iteration_count);
+            smoothed_seconds_per_step                                               = smoothed_seconds_per_step == 0.0 ? seconds_per_step : std::lerp(smoothed_seconds_per_step, seconds_per_step, 0.2);
+            const double eta_seconds                                                = smoothed_seconds_per_step * static_cast<double>(end_step - step);
+            previous_elapsed_seconds                                                = elapsed_seconds;
             csv << step << ',' << loss << ',' << samples_per_second << ',' << elapsed_seconds << '\n';
             csv.flush();
             std::cout << std::format("{}  {:<10} {:>7} / {:>7}  {:>6.2f}%  loss {:.6f}  {:>6.1f} samples/s  eta {}\n", elapsed_since(command_begin), "TRAIN", step, end_step, static_cast<double>(step) * 100.0 / static_cast<double>(end_step), loss, samples_per_second, format_duration(eta_seconds)) << std::flush;
             if (step % 1'000u == 0u) {
                 const physica::generative::flow_matching::SamplingRequest request;
-                const physica::generative::flow_matching::SamplingResult parameter_result = trainer.sample(request, physica::generative::flow_matching::ParameterSource::parameters);
+                const physica::generative::flow_matching::SamplingResult parameter_result           = trainer.sample(request, physica::generative::flow_matching::ParameterSource::parameters);
                 const physica::generative::flow_matching::SamplingResult exponential_average_result = trainer.sample(request, physica::generative::flow_matching::ParameterSource::exponential_average);
-                const std::filesystem::path parameter_preview_path = output_directory / "samples" / std::format("step-{:06}-parameters.png", step);
-                const std::filesystem::path exponential_average_preview_path = output_directory / "samples" / std::format("step-{:06}-ema.png", step);
+                const std::filesystem::path parameter_preview_path                                  = output_directory / "samples" / std::format("step-{:06}-parameters.png", step);
+                const std::filesystem::path exponential_average_preview_path                        = output_directory / "samples" / std::format("step-{:06}-ema.png", step);
                 write_png(parameter_preview_path, parameter_result);
                 write_png(exponential_average_preview_path, exponential_average_result);
                 std::cout << std::format("{}  {:<10} step {}  parameters + ema  {} {}  {} NFE\n", elapsed_since(command_begin), "SAMPLE", step, solver_name(request.solver), request.step_count, parameter_result.nfe) << std::flush;
@@ -135,18 +134,18 @@ namespace {
         if (count > 7) request.guidance = std::stof(arguments[7]);
         if (count > 8) request.seed = std::stoull(arguments[8]);
         const std::string class_name = request.class_index ? std::to_string(*request.class_index) : "all";
-        std::cout << std::format(
-            "Physica / Flow Matching\n\n"
-            "  mode       sample\n"
-            "  checkpoint {}\n"
-            "  device     cuda:0\n"
-            "  class      {}\n"
-            "  solver     {}\n"
-            "  steps      {}\n"
-            "  guidance   {:.1f}\n"
-            "  seed       {}\n"
-            "  output     {}\n\n",
-            arguments[2], class_name, solver_name(request.solver), request.step_count, request.guidance, request.seed, arguments[3]) << std::flush;
+        std::cout << std::format("Physica / Flow Matching\n\n"
+                                 "  mode       sample\n"
+                                 "  checkpoint {}\n"
+                                 "  device     cuda:0\n"
+                                 "  class      {}\n"
+                                 "  solver     {}\n"
+                                 "  steps      {}\n"
+                                 "  guidance   {:.1f}\n"
+                                 "  seed       {}\n"
+                                 "  output     {}\n\n",
+            arguments[2], class_name, solver_name(request.solver), request.step_count, request.guidance, request.seed, arguments[3])
+                  << std::flush;
         std::cout << std::format("{}  {:<10} loading EMA checkpoint\n", format_duration(0.0), "START") << std::flush;
         physica::generative::flow_matching::Sampler sampler{arguments[2], 0};
         std::cout << std::format("{}  {:<10} checkpoint loaded\n", elapsed_since(command_begin), "READY") << std::flush;
@@ -161,7 +160,7 @@ namespace {
 
     int sample_fid(const int count, char** const arguments) {
         const std::chrono::steady_clock::time_point command_begin = std::chrono::steady_clock::now();
-        const std::filesystem::path output_directory = arguments[3];
+        const std::filesystem::path output_directory              = arguments[3];
         std::filesystem::create_directories(output_directory);
         physica::generative::flow_matching::SamplingRequest request;
         if (count > 4) request.solver = parse_solver(arguments[4]);
@@ -169,18 +168,18 @@ namespace {
         if (count > 6) request.guidance = std::stof(arguments[6]);
         if (count > 7) request.seed = std::stoull(arguments[7]);
         const std::uint64_t base_seed = request.seed;
-        std::cout << std::format(
-            "Physica / Flow Matching\n\n"
-            "  mode       sample-fid\n"
-            "  checkpoint {}\n"
-            "  device     cuda:0\n"
-            "  images     50000\n"
-            "  solver     {}\n"
-            "  steps      {}\n"
-            "  guidance   {:.1f}\n"
-            "  seed       {}\n"
-            "  output     {}\n\n",
-            arguments[2], solver_name(request.solver), request.step_count, request.guidance, request.seed, output_directory.string()) << std::flush;
+        std::cout << std::format("Physica / Flow Matching\n\n"
+                                 "  mode       sample-fid\n"
+                                 "  checkpoint {}\n"
+                                 "  device     cuda:0\n"
+                                 "  images     50000\n"
+                                 "  solver     {}\n"
+                                 "  steps      {}\n"
+                                 "  guidance   {:.1f}\n"
+                                 "  seed       {}\n"
+                                 "  output     {}\n\n",
+            arguments[2], solver_name(request.solver), request.step_count, request.guidance, request.seed, output_directory.string())
+                  << std::flush;
         std::cout << std::format("{}  {:<10} loading EMA checkpoint\n", format_duration(0.0), "START") << std::flush;
         physica::generative::flow_matching::Sampler sampler{arguments[2], 0};
         std::cout << std::format("{}  {:<10} checkpoint loaded\n", elapsed_since(command_begin), "READY") << std::flush;
@@ -189,7 +188,7 @@ namespace {
         const std::chrono::steady_clock::time_point generation_begin = std::chrono::steady_clock::now();
         std::cout << std::format("{}  {:<10} generating 50000 images\n", elapsed_since(command_begin), "START") << std::flush;
         for (std::uint32_t batch = 0u; batch < 500u; ++batch) {
-            request.seed = base_seed + batch;
+            request.seed                                                    = base_seed + batch;
             const physica::generative::flow_matching::SamplingResult result = sampler.sample(request);
             for (std::uint32_t image = 0u; image < 100u; ++image) {
                 std::array<std::uint8_t, 32uz * 32uz * 4uz> pixels{};
@@ -199,7 +198,7 @@ namespace {
                     const std::size_t source = (static_cast<std::size_t>(grid_y * 32u + y) * result.width + grid_x * 32u) * 4uz;
                     std::ranges::copy_n(result.rgba.begin() + static_cast<std::ptrdiff_t>(source), 32uz * 4uz, pixels.begin() + static_cast<std::ptrdiff_t>(y * 32u * 4u));
                 }
-                const std::uint32_t index = batch * 100u + image;
+                const std::uint32_t index            = batch * 100u + image;
                 const std::filesystem::path filename = std::format("{:05}.png", index);
                 write_png(output_directory / filename, 32u, 32u, pixels);
                 manifest << index << ',' << static_cast<std::uint32_t>(result.labels[image]) << ',' << request.seed << ',' << solver_name(request.solver) << ',' << request.step_count << ',' << result.nfe << ',' << request.guidance << '\n';
@@ -208,9 +207,9 @@ namespace {
             const std::uint32_t completed_batches = batch + 1u;
             if (completed_batches % 10u == 0u) {
                 const std::uint32_t completed_images = completed_batches * 100u;
-                const double generation_seconds = std::chrono::duration<double>{std::chrono::steady_clock::now() - generation_begin}.count();
-                const double images_per_second = static_cast<double>(completed_images) / generation_seconds;
-                const double eta_seconds = static_cast<double>(50'000u - completed_images) / images_per_second;
+                const double generation_seconds      = std::chrono::duration<double>{std::chrono::steady_clock::now() - generation_begin}.count();
+                const double images_per_second       = static_cast<double>(completed_images) / generation_seconds;
+                const double eta_seconds             = static_cast<double>(50'000u - completed_images) / images_per_second;
                 std::cout << std::format("{}  {:<10} {:>5} / 50000  {:>6.2f}%  {:>6.1f} images/s  eta {}\n", elapsed_since(command_begin), "FID", completed_images, static_cast<double>(completed_images) / 500.0, images_per_second, format_duration(eta_seconds)) << std::flush;
             }
         }

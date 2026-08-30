@@ -19,6 +19,6 @@ namespace physica::fluids::grid::device {
             .velocity_z = configuration.velocity.z,
         };
     }
-}
+} // namespace physica::fluids::grid::device
 
 #endif

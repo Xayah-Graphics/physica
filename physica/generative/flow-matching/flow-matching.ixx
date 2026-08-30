@@ -38,10 +38,10 @@ export namespace physica::generative::flow_matching {
         Trainer(const Cifar10TrainingSet& training_set, int device_ordinal, std::uint64_t seed);
         ~Trainer() noexcept;
 
-        Trainer(const Trainer&) = delete;
+        Trainer(const Trainer&)            = delete;
         Trainer& operator=(const Trainer&) = delete;
-        Trainer(Trainer&&) = delete;
-        Trainer& operator=(Trainer&&) = delete;
+        Trainer(Trainer&&)                 = delete;
+        Trainer& operator=(Trainer&&)      = delete;
 
         TrainingStatistics optimize(std::uint64_t iterations);
         SamplingResult sample(const SamplingRequest& request, ParameterSource source = ParameterSource::exponential_average);
@@ -49,7 +49,7 @@ export namespace physica::generative::flow_matching {
         void load(const std::filesystem::path& path);
 
     private:
-        inline static constexpr std::uint32_t batch = 256u;
+        inline static constexpr std::uint32_t batch     = 256u;
         inline static constexpr std::size_t value_count = static_cast<std::size_t>(batch) * 256uz * 12uz;
 
         ::cuda::stream stream;

@@ -58,7 +58,7 @@ namespace physica::examples::adjoint_control {
 
             [[nodiscard]] DirectionalDerivativeCheck directional(const std::span<const double> parameters, const std::span<const double> direction, const double epsilon) {
                 fluids::gas::solvers::adjoint_control::EvaluationTrace analytic = evaluate(parameters, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient_jvp, direction);
-                const std::vector<double> analytic_gradient            = download_gradient(analytic);
+                const std::vector<double> analytic_gradient                     = download_gradient(analytic);
                 double gradient_dot_direction{};
                 for (std::size_t parameter = 0u; parameter < direction.size(); ++parameter) gradient_dot_direction += analytic_gradient[parameter] * direction[parameter];
                 std::vector<double> positive(parameters.begin(), parameters.end());
@@ -84,7 +84,7 @@ namespace physica::examples::adjoint_control {
 
             [[nodiscard]] std::vector<ComponentDerivativeCheck> components(const std::span<const double> parameters, const std::span<const std::size_t> parameter_indices, const double epsilon) {
                 fluids::gas::solvers::adjoint_control::EvaluationTrace analytic = evaluate(parameters, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
-                const std::vector<double> analytic_gradient            = download_gradient(analytic);
+                const std::vector<double> analytic_gradient                     = download_gradient(analytic);
                 std::vector<ComponentDerivativeCheck> result;
                 result.reserve(parameter_indices.size());
                 for (const std::size_t parameter : parameter_indices) {
@@ -186,7 +186,7 @@ namespace physica::examples::adjoint_control {
         }
         DerivativeChecker checker{domain, evaluator, parameters.size()};
         const fluids::gas::solvers::adjoint_control::EvaluationTrace analytic = checker.evaluate(parameters, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
-        const std::vector<double> analytic_gradient                  = checker.download_gradient(analytic);
+        const std::vector<double> analytic_gradient                           = checker.download_gradient(analytic);
         for (std::size_t parameter = 0u; parameter < direction.size(); ++parameter) {
             direction[parameter] = analytic_gradient[parameter];
             direction_squared += direction[parameter] * direction[parameter];
@@ -199,10 +199,10 @@ namespace physica::examples::adjoint_control {
         std::iota(ranked_components.begin(), ranked_components.end(), 0u);
         std::ranges::partial_sort(ranked_components, ranked_components.begin() + 3, [&analytic_gradient](const std::size_t left, const std::size_t right) { return std::abs(analytic_gradient[left]) > std::abs(analytic_gradient[right]); });
         const std::array<std::size_t, 3> components{ranked_components[0], ranked_components[1], ranked_components[2]};
-        const std::vector<ComponentDerivativeCheck> component_checks = checker.components(parameters, components, 5.0e-2);
-        const fluids::gas::solvers::adjoint_control::EvaluationTrace trace    = checker.evaluate(parameters, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
-        double maximum_mass_relative_error                           = 0.0;
-        const double initial_mass                                    = std::ranges::fold_left(initial_density, 0.0, std::plus{});
+        const std::vector<ComponentDerivativeCheck> component_checks       = checker.components(parameters, components, 5.0e-2);
+        const fluids::gas::solvers::adjoint_control::EvaluationTrace trace = checker.evaluate(parameters, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
+        double maximum_mass_relative_error                                 = 0.0;
+        const double initial_mass                                          = std::ranges::fold_left(initial_density, 0.0, std::plus{});
         for (const fluids::gas::solvers::adjoint_control::State& state : trace.state) maximum_mass_relative_error = std::max(maximum_mass_relative_error, std::abs(std::ranges::fold_left(download_density(state), 0.0, std::plus{}) - initial_mass) / initial_mass);
 
         const std::array<double, 4> quadratic_target{2.0, -3.0, 0.5, 1.5};
@@ -268,7 +268,7 @@ namespace physica::examples::adjoint_control {
         ::cuda::device_buffer<double> uncontrolled_parameters(stream, ::cuda::device_default_memory_pool(stream.device()), control.parameter_values.size(), ::cuda::no_init);
         ::cuda::copy_bytes(stream, control.parameter_values, uncontrolled_parameters);
         const fluids::gas::solvers::adjoint_control::EvaluationTrace uncontrolled = evaluator.evaluate({uncontrolled_parameters.data(), uncontrolled_parameters.size()}, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
-        const std::vector<std::uint8_t> active_parameters                = control.active_parameters(0u, configuration.step_count);
+        const std::vector<std::uint8_t> active_parameters                         = control.active_parameters(0u, configuration.step_count);
         fluids::gas::solvers::adjoint_control::OptimizationRunner runner{
             .domain    = domain,
             .evaluator = evaluator,
@@ -283,9 +283,9 @@ namespace physica::examples::adjoint_control {
                     .relative_objective_tolerance    = 1.0e-10,
                 },
         };
-        const auto begin                                        = std::chrono::steady_clock::now();
+        const auto begin                                                 = std::chrono::steady_clock::now();
         fluids::gas::solvers::adjoint_control::OptimizationResult result = runner.run(control.parameter_values, active_parameters);
-        const double optimization_seconds                       = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+        const double optimization_seconds                                = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
 
         for (const fluids::gas::solvers::adjoint_control::OptimizationEvaluation& evaluation : result.evaluations) std::println("Evaluation {} iteration {} line {}: objective={:.9e}, density={:.9e}, control={:.9e}, |pg|={:.6e}", evaluation.coordinates.objective_evaluation, evaluation.coordinates.optimizer_iteration, evaluation.coordinates.line_search_evaluation, evaluation.summary.objective, evaluation.summary.density_loss, evaluation.summary.control_effort, evaluation.projected_gradient_norm);
 
@@ -304,8 +304,8 @@ namespace physica::examples::adjoint_control {
         fluids::gas::solvers::adjoint_control::State current              = solver.allocate_state(domain);
         fluids::gas::solvers::adjoint_control::State next                 = solver.allocate_state(domain);
         fluids::gas::solvers::adjoint_control::DenseControl dense_control = solver.allocate_control(domain);
-        decltype(solver)::StepCache cache                        = solver.allocate_step_cache(domain);
-        decltype(solver)::Workspace workspace                    = solver.allocate_workspace(domain);
+        decltype(solver)::StepCache cache                                 = solver.allocate_step_cache(domain);
+        decltype(solver)::Workspace workspace                             = solver.allocate_workspace(domain);
         domain.grid.copy(result.final_trace->state.back().density, current.density);
         domain.grid.copy(result.final_trace->state.back().velocity, current.velocity);
         ::cuda::copy_bytes(stream, result.parameters, uncontrolled_parameters);
@@ -324,9 +324,9 @@ namespace physica::examples::adjoint_control {
         std::vector<float> residual(final_density.size());
         for (std::size_t index = 0u; index < residual.size(); ++index) residual[index] = std::abs(final_density[index] - target_density[index]);
         write_density(output_directory / "residual.png", residual);
-        const ShapeMetrics metrics                                           = shape_metrics(final_density, target_density, result.final_trace->state.back());
+        const ShapeMetrics metrics                                                    = shape_metrics(final_density, target_density, result.final_trace->state.back());
         const fluids::gas::solvers::adjoint_control::EvaluationSummary& final_summary = result.final_trace->summary;
-        const double objective_reduction                                     = 1.0 - final_summary.objective / uncontrolled.summary.objective;
+        const double objective_reduction                                              = 1.0 - final_summary.objective / uncontrolled.summary.objective;
 
         std::ofstream summary(output_directory / "summary.json");
         summary << std::setprecision(17) << "{\n"
@@ -380,7 +380,7 @@ namespace physica::examples::adjoint_control {
     std::pair<std::size_t, double> Experiment::measure_gradient() {
         ::cuda::device_buffer<double> parameters(stream, ::cuda::device_default_memory_pool(stream.device()), control.parameter_values.size(), ::cuda::no_init);
         ::cuda::copy_bytes(stream, control.parameter_values, parameters);
-        const auto begin                                          = std::chrono::steady_clock::now();
+        const auto begin                                                   = std::chrono::steady_clock::now();
         const fluids::gas::solvers::adjoint_control::EvaluationTrace trace = evaluator.evaluate({parameters.data(), parameters.size()}, fluids::gas::solvers::adjoint_control::EvaluationMode::objective_gradient);
         stream.sync();
         return {trace.reverse->parameter_gradient.size(), std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count()};

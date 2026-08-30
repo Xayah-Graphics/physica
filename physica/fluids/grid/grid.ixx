@@ -22,12 +22,11 @@ export namespace physica::fluids::grid {
         const std::array<std::size_t, 3u> face_counts;
 
         Grid(Configuration next_configuration, const ::cuda::stream_ref stream)
-            : configuration(std::move(next_configuration)), stream(stream), cell_count(static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * configuration.resolution[2]),
-              face_counts{
-                  static_cast<std::size_t>(configuration.resolution[0] + 1u) * configuration.resolution[1] * configuration.resolution[2],
-                  static_cast<std::size_t>(configuration.resolution[0]) * (configuration.resolution[1] + 1u) * configuration.resolution[2],
-                  static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * (configuration.resolution[2] + 1u),
-              } {}
+            : configuration(std::move(next_configuration)), stream(stream), cell_count(static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * configuration.resolution[2]), face_counts{
+                                                                                                                                                                                                               static_cast<std::size_t>(configuration.resolution[0] + 1u) * configuration.resolution[1] * configuration.resolution[2],
+                                                                                                                                                                                                               static_cast<std::size_t>(configuration.resolution[0]) * (configuration.resolution[1] + 1u) * configuration.resolution[2],
+                                                                                                                                                                                                               static_cast<std::size_t>(configuration.resolution[0]) * configuration.resolution[1] * (configuration.resolution[2] + 1u),
+                                                                                                                                                                                                           } {}
 
         Grid(const Grid&)            = delete;
         Grid& operator=(const Grid&) = delete;

@@ -3,8 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <physica/cuda_stream.h>
 #include <math/math.h>
+#include <physica/cuda_stream.h>
 
 namespace physica::reconstruction::pinfs::kernels {
     void extract_density(::cuda::stream_ref stream, const float* field, float* density, std::uint32_t sample_count);

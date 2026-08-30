@@ -9,10 +9,10 @@ import std;
 namespace physica::fluids::liquid::meshfree {
     Model::Model(Configuration next_configuration, const ::cuda::stream_ref source_stream)
         : configuration(std::move(next_configuration)), stream(source_stream), boundary{
-            .positions  = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
-            .velocities = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
-            .volumes    = simulation::ScalarField<float>{stream, configuration.boundary_particles.size()},
-        } {
+                                                                                   .positions  = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
+                                                                                   .velocities = simulation::VectorField<float>{stream, configuration.boundary_particles.size()},
+                                                                                   .volumes    = simulation::ScalarField<float>{stream, configuration.boundary_particles.size()},
+                                                                               } {
         std::vector<Vector3<float>> positions(configuration.boundary_particles.size());
         std::vector<Vector3<float>> velocities(configuration.boundary_particles.size());
         std::vector<float> volumes(configuration.boundary_particles.size());
@@ -26,4 +26,4 @@ namespace physica::fluids::liquid::meshfree {
         ::cuda::copy_bytes(stream, volumes, boundary.volumes.values);
         stream.sync();
     }
-}
+} // namespace physica::fluids::liquid::meshfree

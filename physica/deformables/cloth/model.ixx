@@ -31,4 +31,4 @@ export namespace physica::deformables::cloth {
         Model(Model&&)                 = delete;
         Model& operator=(Model&&)      = delete;
     };
-}
+} // namespace physica::deformables::cloth

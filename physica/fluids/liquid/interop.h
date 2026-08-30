@@ -1,32 +1,36 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_INTEROP_H
 #define PHYSICA_FLUIDS_LIQUID_INTEROP_H
 
+#include <cstdint>
 #include <fluids/liquid/device.cuh>
 #include <simulation/field/device.cuh>
-#include <cstdint>
 
 namespace physica::fluids::liquid::device {
     template <class Configuration>
     CollisionBox collision_box(const Configuration& configuration, const std::uint64_t step_index) {
         const float time = static_cast<float>(step_index) * configuration.time_step;
         return {
-            .bounds = {
-                .minimum = {
-                    configuration.boundary.bounds.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
-                    configuration.boundary.bounds.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
-                    configuration.boundary.bounds.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
+            .bounds =
+                {
+                    .minimum =
+                        {
+                            configuration.boundary.bounds.minimum.x + time * configuration.boundary.velocity.x + configuration.particle_radius,
+                            configuration.boundary.bounds.minimum.y + time * configuration.boundary.velocity.y + configuration.particle_radius,
+                            configuration.boundary.bounds.minimum.z + time * configuration.boundary.velocity.z + configuration.particle_radius,
+                        },
+                    .maximum =
+                        {
+                            configuration.boundary.bounds.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
+                            configuration.boundary.bounds.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
+                            configuration.boundary.bounds.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
+                        },
                 },
-                .maximum = {
-                    configuration.boundary.bounds.maximum.x + time * configuration.boundary.velocity.x - configuration.particle_radius,
-                    configuration.boundary.bounds.maximum.y + time * configuration.boundary.velocity.y - configuration.particle_radius,
-                    configuration.boundary.bounds.maximum.z + time * configuration.boundary.velocity.z - configuration.particle_radius,
+            .velocity =
+                {
+                    configuration.boundary.velocity.x,
+                    configuration.boundary.velocity.y,
+                    configuration.boundary.velocity.z,
                 },
-            },
-            .velocity = {
-                configuration.boundary.velocity.x,
-                configuration.boundary.velocity.y,
-                configuration.boundary.velocity.z,
-            },
             .no_slip = configuration.boundary.no_slip ? 1u : 0u,
         };
     }
@@ -77,6 +81,6 @@ namespace physica::fluids::liquid::device {
             .time       = neighborhood.boundary_time,
         };
     }
-}
+} // namespace physica::fluids::liquid::device
 
 #endif

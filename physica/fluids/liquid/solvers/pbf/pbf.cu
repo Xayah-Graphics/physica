@@ -1,10 +1,10 @@
-#include <fluids/liquid/device.cuh>
 #include "pbf-kernels.h"
 #include <cstdint>
 #include <cuda/cmath>
 #include <cuda/std/cmath>
 #include <cuda/std/numbers>
 #include <cuda_runtime.h>
+#include <fluids/liquid/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pbf::kernels {
 
@@ -31,10 +31,10 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const float distance = length(displacement);
             if (distance == 0.0F || distance >= support_radius) return {};
             const Vector3<float> direction         = (displacement * 1.0F / distance);
-            const float radial_tangent     = dot(direction, displacement_tangent);
+            const float radial_tangent             = dot(direction, displacement_tangent);
             const Vector3<float> direction_tangent = ((displacement_tangent + (direction * -radial_tangent)) * 1.0F / distance);
-            const float difference         = support_radius - distance;
-            const float coefficient        = -45.0F / (::cuda::std::numbers::pi_v<float> * ::cuda::std::pow(support_radius, 6.0F));
+            const float difference                 = support_radius - distance;
+            const float coefficient                = -45.0F / (::cuda::std::numbers::pi_v<float> * ::cuda::std::pow(support_radius, 6.0F));
             return (((direction * -2.0F * difference * radial_tangent) + (direction_tangent * difference * difference)) * coefficient);
         }
 
@@ -42,10 +42,10 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const double distance = ::cuda::std::sqrt(static_cast<double>(dot(displacement, displacement)));
             if (distance == 0.0 || distance >= support_radius) return {};
             const Vector3<double> direction         = (displacement * 1.0 / distance);
-            const double projection         = dot(direction, vector);
+            const double projection                 = dot(direction, vector);
             const Vector3<double> direction_tangent = ((vector - (direction * projection)) * 1.0 / distance);
-            const double difference         = support_radius - distance;
-            const double coefficient        = -45.0 / (::cuda::std::numbers::pi_v<double> * ::cuda::std::pow(static_cast<double>(support_radius), 6.0));
+            const double difference                 = support_radius - distance;
+            const double coefficient                = -45.0 / (::cuda::std::numbers::pi_v<double> * ::cuda::std::pow(static_cast<double>(support_radius), 6.0));
             return (((direction * -2.0 * difference * projection) + (direction_tangent * difference * difference)) * coefficient);
         }
 
@@ -93,7 +93,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
             const Vector3<float> position          = load(positions, particle);
-            const float rest_density       = particles.rest_densities[particle];
+            const float rest_density               = particles.rest_densities[particle];
             Vector3<float> self_gradient{};
             float denominator = relaxation[particle];
             int cell_x, cell_y, cell_z;
@@ -106,9 +106,9 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
                             const std::uint32_t neighbor = neighborhood.sorted_particle_indices[sorted];
                             if (neighbor == particle) continue;
-                            const Vector3<float> gradient   = spiky_gradient((position - load(positions, neighbor)), support_radius);
-                            const float coefficient = particles.masses[neighbor] / rest_density;
-                            self_gradient           = (self_gradient + (gradient * coefficient));
+                            const Vector3<float> gradient = spiky_gradient((position - load(positions, neighbor)), support_radius);
+                            const float coefficient       = particles.masses[neighbor] / rest_density;
+                            self_gradient                 = (self_gradient + (gradient * coefficient));
                             denominator += coefficient * coefficient * dot(gradient, gradient);
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
@@ -128,8 +128,8 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const Vector3<float> topology_position = load(topology_positions, particle);
             const Vector3<float> position          = load(positions, particle);
             const Vector3<float> position_dot      = load(position_tangent, particle);
-            const float rest_density       = particles.rest_densities[particle];
-            const float rest_density_dot   = particle_tangent.rest_densities[particle];
+            const float rest_density               = particles.rest_densities[particle];
+            const float rest_density_dot           = particle_tangent.rest_densities[particle];
             Vector3<float> self_gradient{};
             Vector3<float> self_gradient_dot{};
             float denominator     = relaxation[particle];
@@ -148,20 +148,20 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             const Vector3<float> displacement_dot      = (position_dot - load(position_tangent, neighbor));
                             const Vector3<float> gradient              = spiky_gradient(displacement, support_radius);
                             const Vector3<float> gradient_dot          = spiky_gradient_tangent(displacement, displacement_dot, support_radius);
-                            const float coefficient            = particles.masses[neighbor] / rest_density;
-                            const float coefficient_dot        = particle_tangent.masses[neighbor] / rest_density - particles.masses[neighbor] * rest_density_dot / (rest_density * rest_density);
+                            const float coefficient                    = particles.masses[neighbor] / rest_density;
+                            const float coefficient_dot                = particle_tangent.masses[neighbor] / rest_density - particles.masses[neighbor] * rest_density_dot / (rest_density * rest_density);
                             const Vector3<float> neighbor_gradient     = (gradient * coefficient);
                             const Vector3<float> neighbor_gradient_dot = ((gradient * coefficient_dot) + (gradient_dot * coefficient));
-                            self_gradient                      = (self_gradient + neighbor_gradient);
-                            self_gradient_dot                  = (self_gradient_dot + neighbor_gradient_dot);
+                            self_gradient                              = (self_gradient + neighbor_gradient);
+                            self_gradient_dot                          = (self_gradient_dot + neighbor_gradient_dot);
                             denominator += dot(neighbor_gradient, neighbor_gradient);
                             denominator_dot += 2.0F * dot(neighbor_gradient, neighbor_gradient_dot);
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            self_gradient                = (self_gradient + (spiky_gradient(displacement, support_radius) * boundary.volumes[neighbor]));
-                            self_gradient_dot            = (self_gradient_dot + (spiky_gradient_tangent(displacement, position_dot, support_radius) * boundary.volumes[neighbor]));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            self_gradient                     = (self_gradient + (spiky_gradient(displacement, support_radius) * boundary.volumes[neighbor]));
+                            self_gradient_dot                 = (self_gradient_dot + (spiky_gradient_tangent(displacement, position_dot, support_radius) * boundary.volumes[neighbor]));
                         }
                     }
             denominator += dot(self_gradient, self_gradient);
@@ -178,10 +178,10 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             if (particle >= particle_count) return;
             const Vector3<float> topology_position            = load(topology_positions, particle);
             const Vector3<float> position                     = load(positions, particle);
-            const float rest_density                  = particles.rest_densities[particle];
-            const double local_lambda_adjoint         = lambda_adjoint[particle];
-            const double local_constraint             = static_cast<double>(densities[particle]) / rest_density - 1.0;
-            const double local_denominator_adjoint    = local_lambda_adjoint * local_constraint / (static_cast<double>(denominators[particle]) * denominators[particle]);
+            const float rest_density                          = particles.rest_densities[particle];
+            const double local_lambda_adjoint                 = lambda_adjoint[particle];
+            const double local_constraint                     = static_cast<double>(densities[particle]) / rest_density - 1.0;
+            const double local_denominator_adjoint            = local_lambda_adjoint * local_constraint / (static_cast<double>(denominators[particle]) * denominators[particle]);
             const Vector3<double> local_self_gradient_adjoint = (load(gradient_sums, particle) * 2.0 * local_denominator_adjoint);
             Vector3<double> position_contribution{};
             double mass_contribution         = 0.0;
@@ -199,30 +199,30 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement               = (position - load(positions, neighbor));
                             const Vector3<float> gradient                   = spiky_gradient(displacement, support_radius);
-                            const float coefficient                 = particles.masses[neighbor] / rest_density;
+                            const float coefficient                         = particles.masses[neighbor] / rest_density;
                             const Vector3<float> neighbor_gradient          = (gradient * -coefficient);
                             const Vector3<double> neighbor_gradient_adjoint = (neighbor_gradient * 2.0 * local_denominator_adjoint);
                             const Vector3<double> gradient_adjoint          = ((local_self_gradient_adjoint - neighbor_gradient_adjoint) * coefficient);
-                            position_contribution                   = (position_contribution + spiky_hessian_product(displacement, gradient_adjoint, support_radius));
-                            particle_self_gradient                  = (particle_self_gradient + (gradient * coefficient));
+                            position_contribution                           = (position_contribution + spiky_hessian_product(displacement, gradient_adjoint, support_radius));
+                            particle_self_gradient                          = (particle_self_gradient + (gradient * coefficient));
 
-                            const float neighbor_rest_density               = particles.rest_densities[neighbor];
-                            const double neighbor_constraint                = static_cast<double>(densities[neighbor]) / neighbor_rest_density - 1.0;
-                            const double neighbor_denominator_adjoint       = lambda_adjoint[neighbor] * neighbor_constraint / (static_cast<double>(denominators[neighbor]) * denominators[neighbor]);
+                            const float neighbor_rest_density                       = particles.rest_densities[neighbor];
+                            const double neighbor_constraint                        = static_cast<double>(densities[neighbor]) / neighbor_rest_density - 1.0;
+                            const double neighbor_denominator_adjoint               = lambda_adjoint[neighbor] * neighbor_constraint / (static_cast<double>(denominators[neighbor]) * denominators[neighbor]);
                             const Vector3<double> neighbor_self_gradient_adjoint    = (load(gradient_sums, neighbor) * 2.0 * neighbor_denominator_adjoint);
                             const Vector3<float> reverse_displacement               = (displacement * -1.0F);
                             const Vector3<float> reverse_gradient                   = spiky_gradient(reverse_displacement, support_radius);
-                            const float reverse_coefficient                 = particles.masses[particle] / neighbor_rest_density;
+                            const float reverse_coefficient                         = particles.masses[particle] / neighbor_rest_density;
                             const Vector3<float> reverse_neighbor_gradient          = (reverse_gradient * -reverse_coefficient);
                             const Vector3<double> reverse_neighbor_gradient_adjoint = (reverse_neighbor_gradient * 2.0 * neighbor_denominator_adjoint);
                             const Vector3<double> reverse_gradient_adjoint          = ((neighbor_self_gradient_adjoint - reverse_neighbor_gradient_adjoint) * reverse_coefficient);
-                            position_contribution                           = (position_contribution + (spiky_hessian_product(reverse_displacement, reverse_gradient_adjoint, support_radius) * -1.0));
+                            position_contribution                                   = (position_contribution + (spiky_hessian_product(reverse_displacement, reverse_gradient_adjoint, support_radius) * -1.0));
                             mass_contribution += dot((neighbor_self_gradient_adjoint - reverse_neighbor_gradient_adjoint), reverse_gradient) / neighbor_rest_density;
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            position_contribution        = (position_contribution + spiky_hessian_product(displacement, (local_self_gradient_adjoint * boundary.volumes[neighbor]), support_radius));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            position_contribution             = (position_contribution + spiky_hessian_product(displacement, (local_self_gradient_adjoint * boundary.volumes[neighbor]), support_radius));
                         }
                     }
             rest_density_contribution -= dot(local_self_gradient_adjoint, particle_self_gradient) / rest_density;
@@ -252,7 +252,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             if (particle >= particle_count) return;
             const Vector3<float> topology_position = load(topology_positions, particle);
             const Vector3<float> position          = load(positions, particle);
-            const float rest_density       = particles.rest_densities[particle];
+            const float rest_density               = particles.rest_densities[particle];
             Vector3<float> correction{};
             int cell_x, cell_y, cell_z;
             device::particle_cell(neighborhood, topology_position, cell_x, cell_y, cell_z);
@@ -272,8 +272,8 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             correction              = (correction + (spiky_gradient(displacement, support_radius) * coefficient * (lambdas[particle] + lambdas[neighbor] + artificial)));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
                             float artificial, strength_derivative, exponent_derivative, radius_derivative;
                             Vector3<float> artificial_gradient;
                             artificial_pressure(displacement, support_radius, strength[particle], exponent[particle], radius[particle], artificial, artificial_gradient, strength_derivative, exponent_derivative, radius_derivative);
@@ -289,8 +289,8 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const Vector3<float> topology_position = load(topology_positions, particle);
             const Vector3<float> position          = load(positions, particle);
             const Vector3<float> position_dot      = load(position_tangent, particle);
-            const float rest_density       = particles.rest_densities[particle];
-            const float rest_density_dot   = particle_tangent.rest_densities[particle];
+            const float rest_density               = particles.rest_densities[particle];
+            const float rest_density_dot           = particle_tangent.rest_densities[particle];
             Vector3<float> result{};
             int cell_x, cell_y, cell_z;
             device::particle_cell(neighborhood, topology_position, cell_x, cell_y, cell_z);
@@ -315,8 +315,8 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             result                      = result + spiky_gradient(displacement, support_radius) * (coefficient_dot * multiplier + coefficient * multiplier_dot) + spiky_gradient_tangent(displacement, displacement_dot, support_radius) * (coefficient * multiplier);
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
                             float artificial, strength_derivative, exponent_derivative, radius_derivative;
                             Vector3<float> artificial_gradient;
                             artificial_pressure(displacement, support_radius, strength[particle], exponent[particle], radius[particle], artificial, artificial_gradient, strength_derivative, exponent_derivative, radius_derivative);
@@ -333,7 +333,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             if (particle >= particle_count) return;
             const Vector3<float> topology_position     = load(topology_positions, particle);
             const Vector3<float> position              = load(positions, particle);
-            const float rest_density           = particles.rest_densities[particle];
+            const float rest_density                   = particles.rest_densities[particle];
             const Vector3<double> local_output_adjoint = load(correction_adjoint, particle);
             Vector3<double> position_contribution{};
             double lambda_contribution       = 0.0;
@@ -373,20 +373,20 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             float reverse_artificial, reverse_strength_derivative, reverse_exponent_derivative, reverse_radius_derivative;
                             Vector3<float> reverse_artificial_gradient;
                             artificial_pressure(reverse_displacement, support_radius, strength[neighbor], exponent[neighbor], radius[neighbor], reverse_artificial, reverse_artificial_gradient, reverse_strength_derivative, reverse_exponent_derivative, reverse_radius_derivative);
-                            const float reverse_rest_density     = particles.rest_densities[neighbor];
-                            const float reverse_coefficient      = particles.masses[particle] / reverse_rest_density;
-                            const float reverse_multiplier       = lambdas[neighbor] + lambdas[particle] + reverse_artificial;
+                            const float reverse_rest_density             = particles.rest_densities[neighbor];
+                            const float reverse_coefficient              = particles.masses[particle] / reverse_rest_density;
+                            const float reverse_multiplier               = lambdas[neighbor] + lambdas[particle] + reverse_artificial;
                             const Vector3<double> reverse_output_adjoint = load(correction_adjoint, neighbor);
-                            const double reverse_scalar_adjoint  = reverse_coefficient * dot(reverse_output_adjoint, reverse_gradient);
-                            position_contribution                = (position_contribution + (spiky_hessian_product(reverse_displacement, (reverse_output_adjoint * reverse_coefficient * reverse_multiplier), support_radius) * -1.0));
-                            position_contribution                = (position_contribution + (reverse_artificial_gradient * -reverse_scalar_adjoint));
+                            const double reverse_scalar_adjoint          = reverse_coefficient * dot(reverse_output_adjoint, reverse_gradient);
+                            position_contribution                        = (position_contribution + (spiky_hessian_product(reverse_displacement, (reverse_output_adjoint * reverse_coefficient * reverse_multiplier), support_radius) * -1.0));
+                            position_contribution                        = (position_contribution + (reverse_artificial_gradient * -reverse_scalar_adjoint));
                             lambda_contribution += reverse_scalar_adjoint;
                             mass_contribution += dot(reverse_output_adjoint, (reverse_gradient * reverse_multiplier / reverse_rest_density));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            const Vector3<float> gradient        = spiky_gradient(displacement, support_radius);
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            const Vector3<float> gradient     = spiky_gradient(displacement, support_radius);
                             float artificial, strength_derivative, exponent_derivative, radius_derivative;
                             Vector3<float> artificial_gradient;
                             artificial_pressure(displacement, support_radius, strength[particle], exponent[particle], radius[particle], artificial, artificial_gradient, strength_derivative, exponent_derivative, radius_derivative);
@@ -414,7 +414,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
             const Vector3<float> candidate = (load(positions, particle) + load(corrections, particle));
-            std::uint32_t mask     = 0u;
+            std::uint32_t mask             = 0u;
             if (candidate.x < collision_box.bounds.minimum.x || candidate.x > collision_box.bounds.maximum.x) mask |= 1u;
             if (candidate.y < collision_box.bounds.minimum.y || candidate.y > collision_box.bounds.maximum.y) mask |= 2u;
             if (candidate.z < collision_box.bounds.minimum.z || candidate.z > collision_box.bounds.maximum.z) mask |= 4u;
@@ -430,7 +430,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
         __global__ void project_jvp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const float> position_tangent, const simulation::VectorView<const float> correction_tangent, const simulation::VectorView<float> projected_position_tangent) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            Vector3<float> result            = (load(position_tangent, particle) + load(correction_tangent, particle));
+            Vector3<float> result    = (load(position_tangent, particle) + load(correction_tangent, particle));
             const std::uint32_t mask = collision_masks[particle];
             if ((mask & 1u) != 0u) result.x = 0.0F;
             if ((mask & 2u) != 0u) result.y = 0.0F;
@@ -441,7 +441,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
         __global__ void project_vjp_kernel(const std::uint32_t particle_count, const std::uint32_t* collision_masks, const simulation::VectorView<const double> projected_position_adjoint, const simulation::VectorView<double> position_adjoint, const simulation::VectorView<double> correction_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            Vector3<double> result           = load(projected_position_adjoint, particle);
+            Vector3<double> result   = load(projected_position_adjoint, particle);
             const std::uint32_t mask = collision_masks[particle];
             if ((mask & 1u) != 0u) result.x = 0.0;
             if ((mask & 2u) != 0u) result.y = 0.0;
@@ -516,7 +516,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             const Vector3<float> displacement_dot = (position_dot - load(position_tangent, neighbor));
                             const Vector3<float> difference       = (load(velocities, neighbor) - velocity);
                             const Vector3<float> difference_dot   = (load(velocity_tangent, neighbor) - velocity_dot);
-                            result                        = (result + (cross(difference_dot, spiky_gradient(displacement, support_radius)) + cross(difference, spiky_gradient_tangent(displacement, displacement_dot, support_radius))));
+                            result                                = (result + (cross(difference_dot, spiky_gradient(displacement, support_radius)) + cross(difference, spiky_gradient_tangent(displacement, displacement_dot, support_radius))));
                         }
                     }
             store(vorticity_tangent, particle, result);
@@ -544,15 +544,15 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             const Vector3<float> displacement = (position - load(positions, neighbor));
                             const Vector3<float> gradient     = spiky_gradient(displacement, support_radius);
                             const Vector3<float> difference   = (load(velocities, neighbor) - velocity);
-                            velocity_contribution     = (velocity_contribution + cross(local_output_adjoint, gradient));
-                            position_contribution     = (position_contribution + spiky_hessian_product(displacement, cross(local_output_adjoint, difference), support_radius));
+                            velocity_contribution             = (velocity_contribution + cross(local_output_adjoint, gradient));
+                            position_contribution             = (position_contribution + spiky_hessian_product(displacement, cross(local_output_adjoint, difference), support_radius));
 
                             const Vector3<double> reverse_output_adjoint = load(vorticity_adjoint, neighbor);
                             const Vector3<float> reverse_displacement    = (displacement * -1.0F);
                             const Vector3<float> reverse_gradient        = spiky_gradient(reverse_displacement, support_radius);
                             const Vector3<float> reverse_difference      = (velocity - load(velocities, neighbor));
-                            velocity_contribution                = (velocity_contribution + cross(reverse_gradient, reverse_output_adjoint));
-                            position_contribution                = (position_contribution + (spiky_hessian_product(reverse_displacement, cross(reverse_output_adjoint, reverse_difference), support_radius) * -1.0));
+                            velocity_contribution                        = (velocity_contribution + cross(reverse_gradient, reverse_output_adjoint));
+                            position_contribution                        = (position_contribution + (spiky_hessian_product(reverse_displacement, cross(reverse_output_adjoint, reverse_difference), support_radius) * -1.0));
                         }
                     }
             accumulate(position_adjoint, particle, position_contribution);
@@ -614,9 +614,9 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement     = (position - load(positions, neighbor));
                             const Vector3<float> displacement_dot = (position_dot - load(position_tangent, neighbor));
-                            const float difference        = magnitudes[neighbor] - magnitudes[particle];
-                            const float difference_dot    = magnitude_tangent[neighbor] - magnitude_tangent[particle];
-                            gradient_dot                  = (gradient_dot + ((spiky_gradient(displacement, support_radius) * difference_dot) + (spiky_gradient_tangent(displacement, displacement_dot, support_radius) * difference)));
+                            const float difference                = magnitudes[neighbor] - magnitudes[particle];
+                            const float difference_dot            = magnitude_tangent[neighbor] - magnitude_tangent[particle];
+                            gradient_dot                          = (gradient_dot + ((spiky_gradient(displacement, support_radius) * difference_dot) + (spiky_gradient_tangent(displacement, displacement_dot, support_radius) * difference)));
                         }
                     }
             if (normalizers[particle] == 0.0F) {
@@ -652,15 +652,15 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement = (position - load(positions, neighbor));
                             const Vector3<float> gradient     = spiky_gradient(displacement, support_radius);
-                            const float difference    = magnitudes[neighbor] - magnitudes[particle];
-                            position_contribution     = (position_contribution + spiky_hessian_product(displacement, (local_gradient_adjoint * difference), support_radius));
+                            const float difference            = magnitudes[neighbor] - magnitudes[particle];
+                            position_contribution             = (position_contribution + spiky_hessian_product(displacement, (local_gradient_adjoint * difference), support_radius));
                             magnitude_contribution -= dot(local_gradient_adjoint, gradient);
 
                             const Vector3<float> reverse_displacement      = (displacement * -1.0F);
                             const Vector3<float> reverse_gradient          = spiky_gradient(reverse_displacement, support_radius);
                             const Vector3<double> reverse_gradient_adjoint = normalized_input_adjoint(load(normals, neighbor), normalizers[neighbor], load(normal_adjoint, neighbor));
-                            const float reverse_difference         = magnitudes[particle] - magnitudes[neighbor];
-                            position_contribution                  = (position_contribution + (spiky_hessian_product(reverse_displacement, (reverse_gradient_adjoint * reverse_difference), support_radius) * -1.0));
+                            const float reverse_difference                 = magnitudes[particle] - magnitudes[neighbor];
+                            position_contribution                          = (position_contribution + (spiky_hessian_product(reverse_displacement, (reverse_gradient_adjoint * reverse_difference), support_radius) * -1.0));
                             magnitude_contribution += dot(reverse_gradient_adjoint, reverse_gradient);
                         }
                     }
@@ -741,10 +741,10 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             const Vector3<float> displacement_dot = (position_dot - load(position_tangent, neighbor));
                             const Vector3<float> difference       = (load(velocities, neighbor) - velocity);
                             const Vector3<float> difference_dot   = (load(velocity_tangent, neighbor) - velocity_dot);
-                            const float weight            = device::poly6(displacement, support_radius);
-                            const float weight_dot        = dot(device::poly6_gradient(displacement, support_radius), displacement_dot);
-                            smoothing                     = (smoothing + (difference * weight));
-                            smoothing_dot                 = (smoothing_dot + ((difference_dot * weight) + (difference * weight_dot)));
+                            const float weight                    = device::poly6(displacement, support_radius);
+                            const float weight_dot                = dot(device::poly6_gradient(displacement, support_radius), displacement_dot);
+                            smoothing                             = (smoothing + (difference * weight));
+                            smoothing_dot                         = (smoothing_dot + ((difference_dot * weight) + (difference * weight_dot)));
                         }
                     }
             store(output_velocity_tangent, particle, (velocity_dot + ((smoothing * viscosity_tangent[particle]) + (smoothing_dot * viscosity[particle]))));
@@ -759,7 +759,7 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
             const Vector3<double> local_output_adjoint = load(output_velocity_adjoint, particle);
             Vector3<double> position_contribution{};
             Vector3<double> velocity_contribution = local_output_adjoint;
-            double viscosity_contribution = 0.0;
+            double viscosity_contribution         = 0.0;
             int cell_x, cell_y, cell_z;
             device::particle_cell(neighborhood, topology_position, cell_x, cell_y, cell_z);
             for (int offset_x = -1; offset_x <= 1; ++offset_x)
@@ -772,17 +772,17 @@ namespace physica::fluids::liquid::solvers::pbf::kernels {
                             if (neighbor == particle) continue;
                             const Vector3<float> displacement = (position - load(positions, neighbor));
                             const Vector3<float> difference   = (load(velocities, neighbor) - velocity);
-                            const float weight        = device::poly6(displacement, support_radius);
-                            velocity_contribution     = (velocity_contribution + (local_output_adjoint * -viscosity[particle] * weight));
-                            position_contribution     = (position_contribution + (device::poly6_gradient(displacement, support_radius) * viscosity[particle] * dot(local_output_adjoint, difference)));
+                            const float weight                = device::poly6(displacement, support_radius);
+                            velocity_contribution             = (velocity_contribution + (local_output_adjoint * -viscosity[particle] * weight));
+                            position_contribution             = (position_contribution + (device::poly6_gradient(displacement, support_radius) * viscosity[particle] * dot(local_output_adjoint, difference)));
                             viscosity_contribution += weight * dot(local_output_adjoint, difference);
 
                             const Vector3<float> reverse_displacement    = (displacement * -1.0F);
                             const Vector3<double> reverse_output_adjoint = load(output_velocity_adjoint, neighbor);
                             const Vector3<float> reverse_difference      = (velocity - load(velocities, neighbor));
-                            const float reverse_weight           = device::poly6(reverse_displacement, support_radius);
-                            velocity_contribution                = (velocity_contribution + (reverse_output_adjoint * viscosity[neighbor] * reverse_weight));
-                            position_contribution                = (position_contribution + (device::poly6_gradient(reverse_displacement, support_radius) * -viscosity[neighbor] * dot(reverse_output_adjoint, reverse_difference)));
+                            const float reverse_weight                   = device::poly6(reverse_displacement, support_radius);
+                            velocity_contribution                        = (velocity_contribution + (reverse_output_adjoint * viscosity[neighbor] * reverse_weight));
+                            position_contribution                        = (position_contribution + (device::poly6_gradient(reverse_displacement, support_radius) * -viscosity[neighbor] * dot(reverse_output_adjoint, reverse_difference)));
                         }
                     }
             accumulate(position_adjoint, particle, position_contribution);

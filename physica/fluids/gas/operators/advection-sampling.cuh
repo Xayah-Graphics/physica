@@ -1,9 +1,9 @@
 #ifndef PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_SAMPLING_CUH
 #define PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_SAMPLING_CUH
 
-#include <fluids/gas/device.cuh>
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
+#include <fluids/gas/device.cuh>
 
 namespace physica::fluids::gas::operators::kernels {
     namespace {

@@ -1,8 +1,8 @@
 #ifndef PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_KERNELS_H
 #define PHYSICA_FLUIDS_GAS_OPERATORS_ADVECTION_KERNELS_H
 
-#include <fluids/gas/device.cuh>
 #include <cstdint>
+#include <fluids/gas/device.cuh>
 #include <physica/cuda_stream.h>
 
 namespace physica::fluids::gas::operators::kernels {

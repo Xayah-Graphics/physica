@@ -7,9 +7,9 @@ import physica.reconstruction.dataset.pinf;
 import physica.reconstruction.pinfs;
 
 int main(const int argc, char** argv) {
-    constexpr std::uint32_t report_interval  = 1'000u;
+    constexpr std::uint32_t report_interval   = 1'000u;
     constexpr std::uint32_t evaluation_stride = 20u;
-    constexpr std::uint32_t seed             = 42u;
+    constexpr std::uint32_t seed              = 42u;
 
     struct Experiment final {
         std::string_view name;
@@ -26,19 +26,19 @@ int main(const int argc, char** argv) {
         Experiment{"game-neus", "data/pinf/Game", "output/pinfs/game-neus", physica::reconstruction::dataset::pinf::Resolution::half, physica::reconstruction::pinfs::game_neus_configuration, 200'000u, true},
         Experiment{"scalar-real", "data/pinf/ScalarReal", "output/pinfs/scalar-real", physica::reconstruction::dataset::pinf::Resolution::half, physica::reconstruction::pinfs::scalar_real_configuration, 600'000u, false},
     };
-    const std::string_view experiment_name = argc > 1 ? argv[1] : "sphere-neus";
-    const Experiment& experiment = *std::ranges::find_if(experiments, [&](const Experiment& candidate) { return candidate.name == experiment_name; });
-    const std::uint32_t training_steps = argc > 2 ? static_cast<std::uint32_t>(std::stoul(argv[2])) : experiment.training_steps;
+    const std::string_view experiment_name  = argc > 1 ? argv[1] : "sphere-neus";
+    const Experiment& experiment            = *std::ranges::find_if(experiments, [&](const Experiment& candidate) { return candidate.name == experiment_name; });
+    const std::uint32_t training_steps      = argc > 2 ? static_cast<std::uint32_t>(std::stoul(argv[2])) : experiment.training_steps;
     const std::filesystem::path output_path = argc > 4 ? argv[4] : experiment.output_path;
     std::filesystem::create_directories(output_path);
 
-    const std::vector<std::string> frame_sets = experiment.evaluate ? std::vector<std::string>{"train", "test"} : std::vector<std::string>{"train"};
+    const std::vector<std::string> frame_sets                     = experiment.evaluate ? std::vector<std::string>{"train", "test"} : std::vector<std::string>{"train"};
     const physica::reconstruction::dataset::pinf::Dataset dataset = physica::reconstruction::dataset::pinf::load(experiment.dataset_path, {.frame_sets = frame_sets, .resolution = experiment.resolution});
     physica::reconstruction::pinfs::PINFS pinfs{dataset, experiment.configuration, "data/pinf/vgg19-features.bin", 0u, seed};
     if (argc > 3) pinfs.load(argv[3]);
 
     while (pinfs.state.step < training_steps) {
-        const std::uint32_t iterations = std::min(report_interval, training_steps - pinfs.state.step);
+        const std::uint32_t iterations                                   = std::min(report_interval, training_steps - pinfs.state.step);
         const physica::reconstruction::pinfs::OptimizationStats training = pinfs.optimize(iterations);
         std::println("train step={:>6} loss={:.7f} image={:.7f} coarse={:.7f} vgg={:.7f} ghost={:.7f} overlay={:.7f} eikonal={:.7f} physics={:.7f} neumann={:.7f} psnr={:.3f}dB time={:.2f}ms", training.end_step, training.loss, training.image_loss, training.coarse_image_loss, training.perceptual_loss, training.ghost_loss, training.overlay_loss, training.eikonal_loss, training.physics_loss, training.neumann_loss, training.psnr, training.elapsed_ms);
         std::cout.flush();

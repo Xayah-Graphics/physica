@@ -63,8 +63,7 @@ export namespace physica::fluids::liquid::solvers::pic {
             typename Transfer::Workspace transfer;
         };
 
-        explicit Solver(Configuration configuration)
-            : transfer(std::move(configuration.transfer)), grid_step(std::move(configuration.grid_step)), particle_step(std::move(configuration.particle_step)), projection(std::move(configuration.projection)), maximum_time_step(configuration.maximum_time_step), cfl_number(configuration.cfl_number) {}
+        explicit Solver(Configuration configuration) : transfer(std::move(configuration.transfer)), grid_step(std::move(configuration.grid_step)), particle_step(std::move(configuration.particle_step)), projection(std::move(configuration.projection)), maximum_time_step(configuration.maximum_time_step), cfl_number(configuration.cfl_number) {}
 
         Solver(const Solver&)            = delete;
         Solver& operator=(const Solver&) = delete;
@@ -100,16 +99,16 @@ export namespace physica::fluids::liquid::solvers::pic {
         }
 
         [[nodiscard]] float stable_time_step(const Model& model, const State& state, Workspace& workspace) const {
-            const float particle_speed = particle_step.maximum_speed(model, state.particle_count, state.velocities, workspace.particle_step);
+            const float particle_speed         = particle_step.maximum_speed(model, state.particle_count, state.velocities, workspace.particle_step);
             const Vector3<float> grid_velocity = model.grid.configuration.velocity;
-            const float boundary_speed = std::sqrt(grid_velocity.x * grid_velocity.x + grid_velocity.y * grid_velocity.y + grid_velocity.z * grid_velocity.z);
-            const float maximum_speed = std::max(particle_speed, boundary_speed);
+            const float boundary_speed         = std::sqrt(grid_velocity.x * grid_velocity.x + grid_velocity.y * grid_velocity.y + grid_velocity.z * grid_velocity.z);
+            const float maximum_speed          = std::max(particle_speed, boundary_speed);
             if (maximum_speed == 0.0F) return maximum_time_step;
             return std::min(maximum_time_step, cfl_number * model.grid.configuration.cell_size / maximum_speed);
         }
 
         [[nodiscard]] ParticleStep::Diagnostics particle_diagnostics(const Model& model, const float time, const State& state, Workspace& workspace) const {
-            const float cell_size = model.grid.configuration.cell_size;
+            const float cell_size     = model.grid.configuration.cell_size;
             const float particle_mass = projection.configuration.density * cell_size * cell_size * cell_size / static_cast<float>(particle_step.configuration.target_per_cell);
             return particle_step.diagnostics(model, time, state.particle_count, particle_mass, state.positions, state.velocities, workspace.particle_step);
         }
@@ -122,7 +121,7 @@ export namespace physica::fluids::liquid::solvers::pic {
             model.grid.copy(cache.grid.velocity_before_projection, workspace.grid_step.projection_input_velocity);
             grid_step.apply_force_and_constrain(model, time, time_step, cache.grid.cell_types, workspace.grid_step.projection_input_velocity);
             cache.diagnostics.divergence_before_projection = grid_step.divergence(model, time, cache.grid.cell_types, workspace.grid_step.projection_input_velocity, cache.grid.divergence, workspace.grid_step);
-            cache.diagnostics.projection = projection.forward(model, time, time_step, cache.grid.cell_types, cache.grid.level_set, workspace.grid_step.projection_input_velocity, cache.grid.velocity, cache.grid.pressure, cache.projection);
+            cache.diagnostics.projection                   = projection.forward(model, time, time_step, cache.grid.cell_types, cache.grid.level_set, workspace.grid_step.projection_input_velocity, cache.grid.velocity, cache.grid.pressure, cache.projection);
             grid_step.apply_force_and_constrain(model, time, 0.0F, cache.grid.cell_types, cache.grid.velocity);
             grid_step.prepare_after_projection(model, time, cache.grid, workspace.grid_step);
             cache.diagnostics.divergence_after_projection = grid_step.divergence(model, time, cache.grid.cell_types, cache.grid.velocity, cache.grid.divergence, workspace.grid_step);
@@ -135,7 +134,7 @@ export namespace physica::fluids::liquid::solvers::pic {
             std::swap(next_state.positions, workspace.particle_step.compacted_positions);
             std::swap(next_state.velocities, workspace.particle_step.compacted_velocities);
             transfer.commit_compaction(next_state.transfer, workspace.transfer);
-            next_state.particle_count = maintenance.particle_count();
+            next_state.particle_count               = maintenance.particle_count();
             cache.diagnostics.particle_count_before = state.particle_count;
             cache.diagnostics.particle_count_after  = next_state.particle_count;
             cache.diagnostics.time_step             = time_step;

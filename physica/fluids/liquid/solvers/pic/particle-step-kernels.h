@@ -1,11 +1,11 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_HYBRID_PARTICLES_KERNELS_H
 #define PHYSICA_FLUIDS_LIQUID_HYBRID_PARTICLES_KERNELS_H
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/device.cuh>
 #include <cstddef>
 #include <cstdint>
+#include <fluids/grid/device.cuh>
 #include <physica/cuda_stream.h>
+#include <simulation/field/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
     [[nodiscard]] std::size_t scan_storage_size(std::size_t count);

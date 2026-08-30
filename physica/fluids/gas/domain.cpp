@@ -17,8 +17,7 @@ namespace physica::fluids::gas {
 
     } // namespace
 
-    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream)
-        : configuration(std::move(next_configuration)), grid(configuration.grid, source_stream), collider_ids(grid.allocate_cell_field<std::uint32_t>()), collider_velocity(grid.allocate_mac_field<float>()), collider_indices(grid.cell_count) {
+    Domain::Domain(DomainConfiguration next_configuration, const ::cuda::stream_ref source_stream) : configuration(std::move(next_configuration)), grid(configuration.grid, source_stream), collider_ids(grid.allocate_cell_field<std::uint32_t>()), collider_velocity(grid.allocate_mac_field<float>()), collider_indices(grid.cell_count) {
         std::vector<Vector3<float>> collider_cell_velocity(grid.cell_count);
         const std::uint32_t nx = configuration.grid.resolution[0];
         const std::uint32_t ny = configuration.grid.resolution[1];

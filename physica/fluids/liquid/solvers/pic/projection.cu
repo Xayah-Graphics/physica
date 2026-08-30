@@ -44,18 +44,8 @@ namespace physica::fluids::liquid::solvers::pic::kernels::projection {
             }
             int x, y, z;
             grid::device::decode(index, static_cast<int>(grid.nx), static_cast<int>(grid.ny), x, y, z);
-            const float divergence = (
-                velocity.x[grid::device::face_index(grid, 0, x + 1, y, z)] - velocity.x[grid::device::face_index(grid, 0, x, y, z)] +
-                velocity.y[grid::device::face_index(grid, 1, x, y + 1, z)] - velocity.y[grid::device::face_index(grid, 1, x, y, z)] +
-                velocity.z[grid::device::face_index(grid, 2, x, y, z + 1)] - velocity.z[grid::device::face_index(grid, 2, x, y, z)]) /
-                grid.cell_size;
-            const float value_diagonal =
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x - 1, y, z) +
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x + 1, y, z) +
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y - 1, z) +
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y + 1, z) +
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y, z - 1) +
-                neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y, z + 1);
+            const float divergence         = (velocity.x[grid::device::face_index(grid, 0, x + 1, y, z)] - velocity.x[grid::device::face_index(grid, 0, x, y, z)] + velocity.y[grid::device::face_index(grid, 1, x, y + 1, z)] - velocity.y[grid::device::face_index(grid, 1, x, y, z)] + velocity.z[grid::device::face_index(grid, 2, x, y, z + 1)] - velocity.z[grid::device::face_index(grid, 2, x, y, z)]) / grid.cell_size;
+            const float value_diagonal     = neighbor_coefficient(grid, cell_types, level_set, x, y, z, x - 1, y, z) + neighbor_coefficient(grid, cell_types, level_set, x, y, z, x + 1, y, z) + neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y - 1, z) + neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y + 1, z) + neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y, z - 1) + neighbor_coefficient(grid, cell_types, level_set, x, y, z, x, y, z + 1);
             rhs[index]                     = -density * divergence / time_step;
             diagonal[index]                = value_diagonal;
             residual[index]                = rhs[index];
@@ -69,9 +59,9 @@ namespace physica::fluids::liquid::solvers::pic::kernels::projection {
             float result{};
             constexpr int offsets[6][3]{{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
             for (int neighbor = 0; neighbor < 6; ++neighbor) {
-                const int nx = x + offsets[neighbor][0];
-                const int ny = y + offsets[neighbor][1];
-                const int nz = z + offsets[neighbor][2];
+                const int nx            = x + offsets[neighbor][0];
+                const int ny            = y + offsets[neighbor][1];
+                const int nz            = z + offsets[neighbor][2];
                 const float coefficient = neighbor_coefficient(grid, cell_types, level_set, x, y, z, nx, ny, nz);
                 if (coefficient == 0.0F) continue;
                 result += coefficient * values[center];
@@ -149,12 +139,12 @@ namespace physica::fluids::liquid::solvers::pic::kernels::projection {
             if (index >= grid::device::face_count(grid, axis)) return;
             int x, y, z;
             grid::device::decode(index, grid::device::extent(grid, axis, 0), grid::device::extent(grid, axis, 1), x, y, z);
-            const int negative_x = x - (axis == 0 ? 1 : 0);
-            const int negative_y = y - (axis == 1 ? 1 : 0);
-            const int negative_z = z - (axis == 2 ? 1 : 0);
-            const int positive_x = x;
-            const int positive_y = y;
-            const int positive_z = z;
+            const int negative_x              = x - (axis == 0 ? 1 : 0);
+            const int negative_y              = y - (axis == 1 ? 1 : 0);
+            const int negative_z              = z - (axis == 2 ? 1 : 0);
+            const int positive_x              = x;
+            const int positive_y              = y;
+            const int positive_z              = z;
             const std::uint32_t negative_type = cell_type(grid, cell_types, negative_x, negative_y, negative_z);
             const std::uint32_t positive_type = cell_type(grid, cell_types, positive_x, positive_y, positive_z);
             if (negative_type == solid || positive_type == solid) {
@@ -171,12 +161,12 @@ namespace physica::fluids::liquid::solvers::pic::kernels::projection {
             if (negative_type == fluid) negative_pressure = pressure[grid::device::cell_index(grid, negative_x, negative_y, negative_z)];
             if (positive_type == fluid) positive_pressure = pressure[grid::device::cell_index(grid, positive_x, positive_y, positive_z)];
             if (negative_type != positive_type) {
-                const int fluid_x = negative_type == fluid ? negative_x : positive_x;
-                const int fluid_y = negative_type == fluid ? negative_y : positive_y;
-                const int fluid_z = negative_type == fluid ? negative_z : positive_z;
-                const int air_x   = negative_type == air ? negative_x : positive_x;
-                const int air_y   = negative_type == air ? negative_y : positive_y;
-                const int air_z   = negative_type == air ? negative_z : positive_z;
+                const int fluid_x     = negative_type == fluid ? negative_x : positive_x;
+                const int fluid_y     = negative_type == fluid ? negative_y : positive_y;
+                const int fluid_z     = negative_type == fluid ? negative_z : positive_z;
+                const int air_x       = negative_type == air ? negative_x : positive_x;
+                const int air_y       = negative_type == air ? negative_y : positive_y;
+                const int air_z       = negative_type == air ? negative_z : positive_z;
                 const float fluid_phi = level_set[grid::device::cell_index(grid, fluid_x, fluid_y, fluid_z)];
                 const float air_phi   = level_set[grid::device::cell_index(grid, air_x, air_y, air_z)];
                 distance *= interface_fraction(fluid_phi, air_phi);
@@ -208,4 +198,3 @@ namespace physica::fluids::liquid::solvers::pic::kernels::projection {
         for (int axis = 0; axis < 3; ++axis) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(grid::device::face_count(grid, axis)), project_velocity_kernel, grid, time_step, density, axis, cell_types, level_set, grid::device::component(input_velocity, axis), pressure, grid::device::component(output_velocity, axis));
     }
 } // namespace physica::fluids::liquid::solvers::pic::kernels::projection
-

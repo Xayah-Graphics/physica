@@ -20,11 +20,11 @@ namespace physica::reconstruction::instant_ngp {
             for (const dataset::multiview::Frame& frame : frame_set.frames) {
                 std::ranges::copy(frame.rgba, pixels.data() + frame_index * first.rgba.size());
                 const Matrix4<float>& transform = frame.world_from_camera;
-                cameras.data()[frame_index]      = {
-                         .x      = {transform(1uz, 0uz), transform(2uz, 0uz), transform(0uz, 0uz)},
-                         .y      = {-transform(1uz, 1uz), -transform(2uz, 1uz), -transform(0uz, 1uz)},
-                         .z      = {-transform(1uz, 2uz), -transform(2uz, 2uz), -transform(0uz, 2uz)},
-                         .origin = {transform(1uz, 3uz) * scale + scene_offset, transform(2uz, 3uz) * scale + scene_offset, transform(0uz, 3uz) * scale + scene_offset},
+                cameras.data()[frame_index]     = {
+                        .x      = {transform(1uz, 0uz), transform(2uz, 0uz), transform(0uz, 0uz)},
+                        .y      = {-transform(1uz, 1uz), -transform(2uz, 1uz), -transform(0uz, 1uz)},
+                        .z      = {-transform(1uz, 2uz), -transform(2uz, 2uz), -transform(0uz, 2uz)},
+                        .origin = {transform(1uz, 3uz) * scale + scene_offset, transform(2uz, 3uz) * scale + scene_offset, transform(0uz, 3uz) * scale + scene_offset},
                 };
                 ++frame_index;
             }

@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/gas/interop.h>
 #include "advection-kernels.h"
+#include <fluids/gas/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.gas.operators.advection;

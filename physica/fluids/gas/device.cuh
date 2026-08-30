@@ -1,8 +1,8 @@
 #ifndef PHYSICA_FLUIDS_GAS_DEVICE_CUH
 #define PHYSICA_FLUIDS_GAS_DEVICE_CUH
 
-#include <fluids/grid/device.cuh>
 #include <cstdint>
+#include <fluids/grid/device.cuh>
 
 namespace physica::fluids::gas::device {
     struct Discretization final {
@@ -67,6 +67,6 @@ namespace physica::fluids::gas::device {
         }
         return values[mapped_face_index(x, y, z, discretization, axis, boundary)];
     }
-}
+} // namespace physica::fluids::gas::device
 
 #endif

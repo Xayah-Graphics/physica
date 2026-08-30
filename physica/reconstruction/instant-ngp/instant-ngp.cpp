@@ -109,7 +109,7 @@ namespace physica::reconstruction::instant_ngp {
     template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
     void InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::load(const std::filesystem::path& path) {
         const serialization::safetensors::File file = serialization::safetensors::read(path);
-        const auto read_tensor = [&](const std::string_view name, auto& destination) {
+        const auto read_tensor                      = [&](const std::string_view name, auto& destination) {
             const serialization::safetensors::Tensor& tensor = *std::ranges::find(file.tensors, name, &serialization::safetensors::Tensor::name);
             destination.resize(tensor.data.size() / sizeof(typename std::remove_reference_t<decltype(destination)>::value_type));
             std::memcpy(destination.data(), tensor.data.data(), tensor.data.size());

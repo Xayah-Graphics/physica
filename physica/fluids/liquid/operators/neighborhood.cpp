@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/liquid/interop.h>
 #include "neighborhood-kernels.h"
+#include <fluids/liquid/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.liquid.operators.neighborhood;
@@ -45,10 +45,11 @@ namespace physica::fluids::liquid::operators {
         const meshfree::Configuration& configuration = model.configuration;
         kernels::neighborhood::build_neighborhood(model.stream, configuration.particle_count, static_cast<std::uint32_t>(configuration.boundary_particles.size()), configuration.support_radius, configuration.time_step, step_index,
             {
-                .bounds = {
-                    .minimum = {configuration.boundary.bounds.minimum.x, configuration.boundary.bounds.minimum.y, configuration.boundary.bounds.minimum.z},
-                    .maximum = {configuration.boundary.bounds.maximum.x, configuration.boundary.bounds.maximum.y, configuration.boundary.bounds.maximum.z},
-                },
+                .bounds =
+                    {
+                        .minimum = {configuration.boundary.bounds.minimum.x, configuration.boundary.bounds.minimum.y, configuration.boundary.bounds.minimum.z},
+                        .maximum = {configuration.boundary.bounds.maximum.x, configuration.boundary.bounds.maximum.y, configuration.boundary.bounds.maximum.z},
+                    },
                 .velocity = {configuration.boundary.velocity.x, configuration.boundary.velocity.y, configuration.boundary.velocity.z},
                 .no_slip  = configuration.boundary.no_slip ? 1u : 0u,
             },

@@ -13,18 +13,18 @@ namespace physica::reconstruction::pinfs {
     namespace {
         kernels::RenderViews render_views(auto& storage) {
             return {
-                .rgb                  = reinterpret_cast<float*>(storage.rgb.data()),
-                .accumulation         = storage.accumulation.data(),
-                .dynamic_rgb          = reinterpret_cast<float*>(storage.dynamic_rgb.data()),
-                .dynamic_accumulation = storage.dynamic_accumulation.data(),
-                .static_rgb           = reinterpret_cast<float*>(storage.static_rgb.data()),
-                .static_accumulation  = storage.static_accumulation.data(),
-                .weights              = storage.weights.data(),
-                .dynamic_alpha        = storage.dynamic_alpha.data(),
-                .static_alpha         = storage.static_alpha.data(),
-                .shared_transmittance = storage.shared_transmittance.data(),
+                .rgb                   = reinterpret_cast<float*>(storage.rgb.data()),
+                .accumulation          = storage.accumulation.data(),
+                .dynamic_rgb           = reinterpret_cast<float*>(storage.dynamic_rgb.data()),
+                .dynamic_accumulation  = storage.dynamic_accumulation.data(),
+                .static_rgb            = reinterpret_cast<float*>(storage.static_rgb.data()),
+                .static_accumulation   = storage.static_accumulation.data(),
+                .weights               = storage.weights.data(),
+                .dynamic_alpha         = storage.dynamic_alpha.data(),
+                .static_alpha          = storage.static_alpha.data(),
+                .shared_transmittance  = storage.shared_transmittance.data(),
                 .dynamic_transmittance = storage.dynamic_transmittance.data(),
-                .static_transmittance = storage.static_transmittance.data(),
+                .static_transmittance  = storage.static_transmittance.data(),
             };
         }
 
@@ -93,6 +93,7 @@ namespace physica::reconstruction::pinfs {
     }
 
     Rendering::Storage::Storage(const ::cuda::stream_ref stream, const std::uint32_t maximum_ray_count, const std::uint32_t maximum_samples_per_ray)
-        : rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, dynamic_rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, dynamic_accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, static_rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, static_accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, weights{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(maximum_ray_count) * maximum_samples_per_ray, ::cuda::no_init},
-          dynamic_alpha{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, static_alpha{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, shared_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, dynamic_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, static_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), rgb.size(), ::cuda::no_init}, accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), accumulation.size(), ::cuda::no_init}, dynamic_rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), dynamic_rgb.size(), ::cuda::no_init}, dynamic_accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), dynamic_accumulation.size(), ::cuda::no_init}, static_rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), static_rgb.size(), ::cuda::no_init}, static_accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), static_accumulation.size(), ::cuda::no_init} {}
+        : rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, dynamic_rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, dynamic_accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, static_rgb{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, static_accumulation{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_ray_count, ::cuda::no_init}, weights{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(maximum_ray_count) * maximum_samples_per_ray, ::cuda::no_init}, dynamic_alpha{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init},
+          static_alpha{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, shared_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, dynamic_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, static_transmittance{stream, ::cuda::device_default_memory_pool(stream.device()), weights.size(), ::cuda::no_init}, rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), rgb.size(), ::cuda::no_init}, accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), accumulation.size(), ::cuda::no_init}, dynamic_rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), dynamic_rgb.size(), ::cuda::no_init}, dynamic_accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), dynamic_accumulation.size(), ::cuda::no_init},
+          static_rgb_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), static_rgb.size(), ::cuda::no_init}, static_accumulation_adjoints{stream, ::cuda::device_default_memory_pool(stream.device()), static_accumulation.size(), ::cuda::no_init} {}
 } // namespace physica::reconstruction::pinfs

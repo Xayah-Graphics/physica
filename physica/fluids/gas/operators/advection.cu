@@ -18,7 +18,7 @@ namespace physica::fluids::gas::operators::kernels {
             if (index >= fluids::grid::device::face_count(grid.grid, axis)) return;
             int x, y, z;
             fluids::grid::device::decode(index, fluids::grid::device::extent(grid.grid, axis, 0), fluids::grid::device::extent(grid.grid, axis, 1), x, y, z);
-            const Vector3<float> start                    = fluids::grid::device::face_position(grid.grid, axis, x, y, z);
+            const Vector3<float> start                = fluids::grid::device::face_position(grid.grid, axis, x, y, z);
             device::VelocityBoundary tangent_boundary = boundary;
             for (device::VelocityBoundaryFace& face : tangent_boundary.faces) face.value = {};
             const Vector3<float> value0   = sample_velocity_value(velocity, start, grid, boundary);
@@ -86,7 +86,7 @@ namespace physica::fluids::gas::operators::kernels {
             }
             int x, y, z;
             fluids::grid::device::decode(index, grid.grid.nx, grid.grid.ny, x, y, z);
-            const Vector3<float> start                         = fluids::grid::device::cell_position(grid.grid, x, y, z);
+            const Vector3<float> start                     = fluids::grid::device::cell_position(grid.grid, x, y, z);
             device::ScalarBoundary scalar_tangent_boundary = scalar_boundary;
             for (device::ScalarBoundaryFace& face : scalar_tangent_boundary.faces) face.value = 0.0F;
             device::VelocityBoundary velocity_tangent_boundary = velocity_boundary;

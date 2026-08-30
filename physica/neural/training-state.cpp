@@ -8,8 +8,7 @@ module physica.neural.training_state;
 import std;
 
 namespace physica::neural {
-    ParameterBuffer::ParameterBuffer(const ::cuda::stream_ref source_stream, const std::size_t count)
-        : stream{source_stream}, parameters{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, gradients{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, first_moments{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, second_moments{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, ema{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, step_scalars{stream, ::cuda::device_default_memory_pool(stream.device()), 3uz, ::cuda::no_init} {}
+    ParameterBuffer::ParameterBuffer(const ::cuda::stream_ref source_stream, const std::size_t count) : stream{source_stream}, parameters{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, gradients{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, first_moments{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, second_moments{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, ema{stream, ::cuda::device_default_memory_pool(stream.device()), count, ::cuda::no_init}, step_scalars{stream, ::cuda::device_default_memory_pool(stream.device()), 3uz, ::cuda::no_init} {}
 
     void ParameterBuffer::initialize(const std::span<const float> values) {
         ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{values.data(), values.size()}, parameters);
@@ -25,9 +24,9 @@ namespace physica::neural {
     }
 
     void ParameterBuffer::step(const TrainingConfiguration& configuration, const std::uint64_t step, const std::uint64_t processed_samples, const std::uint32_t samples_per_step) {
-        const float first_correction  = 1.0F - std::pow(configuration.first_decay, static_cast<float>(step));
-        const float second_correction = 1.0F - std::pow(configuration.second_decay, static_cast<float>(step));
-        const float half_life = std::min(static_cast<float>(configuration.exponential_average.half_life_samples), static_cast<float>(processed_samples) * configuration.exponential_average.ramp_up_ratio);
+        const float first_correction          = 1.0F - std::pow(configuration.first_decay, static_cast<float>(step));
+        const float second_correction         = 1.0F - std::pow(configuration.second_decay, static_cast<float>(step));
+        const float half_life                 = std::min(static_cast<float>(configuration.exponential_average.half_life_samples), static_cast<float>(processed_samples) * configuration.exponential_average.ramp_up_ratio);
         const float exponential_average_decay = processed_samples == 0u ? 0.0F : std::exp2(-static_cast<float>(samples_per_step) / half_life);
         kernels::optimize(stream, parameters.data(), gradients.data(), first_moments.data(), second_moments.data(), ema.data(), parameters.size(), configuration.learning_rate, configuration.first_decay, configuration.second_decay, first_correction, second_correction, configuration.epsilon, configuration.weight_decay, exponential_average_decay);
     }
@@ -60,8 +59,7 @@ namespace physica::neural {
         stream.sync();
     }
 
-    InferenceParameterBuffer::InferenceParameterBuffer(const ::cuda::stream_ref source_stream, const std::span<const float> values)
-        : stream{source_stream}, parameters{stream, ::cuda::device_default_memory_pool(stream.device()), values.size(), ::cuda::no_init} {
+    InferenceParameterBuffer::InferenceParameterBuffer(const ::cuda::stream_ref source_stream, const std::span<const float> values) : stream{source_stream}, parameters{stream, ::cuda::device_default_memory_pool(stream.device()), values.size(), ::cuda::no_init} {
         ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{values.data(), values.size()}, parameters);
     }
 } // namespace physica::neural

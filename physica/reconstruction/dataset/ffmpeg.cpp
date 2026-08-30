@@ -17,8 +17,7 @@ extern "C" {
 #endif
 
 namespace physica::reconstruction::dataset {
-    VideoDecoder::VideoDecoder(const char* path, const unsigned resolution_divisor)
-        : packet{av_packet_alloc()}, decoded{av_frame_alloc()} {
+    VideoDecoder::VideoDecoder(const char* path, const unsigned resolution_divisor) : packet{av_packet_alloc()}, decoded{av_frame_alloc()} {
         avformat_open_input(&format, path, nullptr, nullptr);
         avformat_find_stream_info(format, nullptr);
         while (format->streams[stream_index]->codecpar->codec_type != AVMEDIA_TYPE_VIDEO) ++stream_index;

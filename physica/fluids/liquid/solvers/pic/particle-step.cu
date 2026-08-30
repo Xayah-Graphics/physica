@@ -1,10 +1,10 @@
-#include <fluids/grid/device.cuh>
 #include "particle-step-kernels.h"
 #include <cub/device/device_reduce.cuh>
 #include <cub/device/device_scan.cuh>
 #include <cuda/launch>
 #include <cuda/std/algorithm>
 #include <cuda_runtime_api.h>
+#include <fluids/grid/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
     namespace {
@@ -21,8 +21,8 @@ namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
             const Vector3<float> position = simulation::load(positions, particle);
             const Vector3<float> velocity = simulation::load(velocities, particle);
             const Vector3<float> relative_position{position.x - grid.origin_x, position.y - grid.origin_y, position.z - grid.origin_z};
-            values[particle]              = 0.5F * particle_mass * dot(velocity, velocity);
-            values[stride + particle]     = particle_mass * velocity.x;
+            values[particle]               = 0.5F * particle_mass * dot(velocity, velocity);
+            values[stride + particle]      = particle_mass * velocity.x;
             values[2u * stride + particle] = particle_mass * velocity.y;
             values[3u * stride + particle] = particle_mass * velocity.z;
             values[4u * stride + particle] = particle_mass * (relative_position.y * velocity.z - relative_position.z * velocity.y);
@@ -46,12 +46,12 @@ namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
         __global__ void advect_kernel(const grid::device::Grid grid, const float particle_radius, const bool no_slip, const float time_step, const std::uint32_t particle_count, const simulation::VectorView<const float> grid_velocity, const simulation::VectorView<float> positions, const simulation::VectorView<float> velocities) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position = simulation::load(positions, particle);
-            const Vector3<float> first_velocity = grid::device::sample_velocity(grid, position, grid_velocity);
-            const Vector3<float> midpoint       = (position + (first_velocity * 0.5F * time_step));
+            const Vector3<float> position        = simulation::load(positions, particle);
+            const Vector3<float> first_velocity  = grid::device::sample_velocity(grid, position, grid_velocity);
+            const Vector3<float> midpoint        = (position + (first_velocity * 0.5F * time_step));
             const Vector3<float> second_velocity = grid::device::sample_velocity(grid, midpoint, grid_velocity);
-            Vector3<float> next_position        = (position + (second_velocity * time_step));
-            Vector3<float> next_velocity        = simulation::load(velocities, particle);
+            Vector3<float> next_position         = (position + (second_velocity * time_step));
+            Vector3<float> next_velocity         = simulation::load(velocities, particle);
             bool collided{};
             collide_axis(grid.origin_x + grid.cell_size + particle_radius, grid.origin_x + (static_cast<float>(grid.nx) - 1.0F) * grid.cell_size - particle_radius, grid.velocity_x, next_position.x, next_velocity.x, collided);
             collide_axis(grid.origin_y + grid.cell_size + particle_radius, grid.origin_y + (static_cast<float>(grid.ny) - 1.0F) * grid.cell_size - particle_radius, grid.velocity_y, next_position.y, next_velocity.y, collided);
@@ -66,9 +66,9 @@ namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
             if (particle >= particle_count) return;
             int x, y, z;
             grid::device::interior_cell(grid, simulation::load(positions, particle), x, y, z);
-            const std::size_t cell = grid::device::cell_index(grid, x, y, z);
+            const std::size_t cell   = grid::device::cell_index(grid, x, y, z);
             const std::uint32_t rank = atomicAdd(raw_counts + cell, 1u);
-            keep_flags[particle] = rank < maximum_particles_per_cell ? 1u : 0u;
+            keep_flags[particle]     = rank < maximum_particles_per_cell ? 1u : 0u;
             if (rank < maximum_particles_per_cell) atomicAdd(survivor_counts + cell, 1u);
         }
 
@@ -81,13 +81,13 @@ namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
             const std::size_t cell = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
             if (cell >= grid::device::cell_count(grid)) return;
             const bool interior_liquid = cell_types[cell] == fluid && level_set[cell] < -0.25F * grid.cell_size;
-            seed_counts[cell] = interior_liquid && survivor_counts[cell] < minimum_particles_per_cell ? target_particles_per_cell - survivor_counts[cell] : 0u;
+            seed_counts[cell]          = interior_liquid && survivor_counts[cell] < minimum_particles_per_cell ? target_particles_per_cell - survivor_counts[cell] : 0u;
         }
 
         __global__ void seed_total_kernel(const std::size_t cell_count, const std::uint32_t particle_count, const std::uint32_t* seed_counts, const std::uint32_t* seed_offsets, std::uint32_t* totals) {
             if (threadIdx.x != 0u || blockIdx.x != 0u) return;
             const std::uint32_t requested = cell_count == 0u ? 0u : seed_offsets[cell_count - 1u] + seed_counts[cell_count - 1u];
-            totals[1] = ::cuda::std::min(requested, particle_count - totals[0]);
+            totals[1]                     = ::cuda::std::min(requested, particle_count - totals[0]);
         }
 
         __global__ void compact_kernel(const std::uint32_t particle_count, const simulation::VectorView<const float> source_positions, const simulation::VectorView<const float> source_velocities, const std::uint32_t* keep_flags, const std::uint32_t* destinations, const simulation::VectorView<float> output_positions, const simulation::VectorView<float> output_velocities) {

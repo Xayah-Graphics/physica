@@ -1,9 +1,9 @@
 #ifndef PHYSICA_DEFORMABLES_CLOTH_OPERATORS_MASS_SPRING_KERNELS_H
 #define PHYSICA_DEFORMABLES_CLOTH_OPERATORS_MASS_SPRING_KERNELS_H
 
-#include <simulation/field/device.cuh>
 #include <cstdint>
 #include <physica/cuda_stream.h>
+#include <simulation/field/device.cuh>
 
 namespace physica::deformables::cloth::kernels {
     struct SpringTopologyView final {

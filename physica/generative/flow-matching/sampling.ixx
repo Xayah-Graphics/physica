@@ -36,7 +36,7 @@ export namespace physica::generative::flow_matching {
         SamplingResult sample(const float* parameters, const SamplingRequest& request);
 
     private:
-        inline static constexpr std::uint32_t batch = 100u;
+        inline static constexpr std::uint32_t batch     = 100u;
         inline static constexpr std::size_t value_count = static_cast<std::size_t>(batch) * 256uz * 12uz;
 
         ::cuda::stream_ref stream;

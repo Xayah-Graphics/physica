@@ -1,6 +1,6 @@
-#include <fluids/liquid/device.cuh>
 #include "density-kernels.h"
 #include <cuda/launch>
+#include <fluids/liquid/device.cuh>
 
 namespace physica::fluids::liquid::operators::kernels::density {
     namespace {
@@ -58,13 +58,13 @@ namespace physica::fluids::liquid::operators::kernels::density {
                         const device::CellRange range = device::cell_range(neighborhood, cell_x + offset_x, cell_y + offset_y, cell_z + offset_z);
                         if (!range.valid) continue;
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_particle_indices[sorted];
-                            const Vector3<float> displacement    = (position - load(positions, neighbor));
+                            const std::uint32_t neighbor      = neighborhood.sorted_particle_indices[sorted];
+                            const Vector3<float> displacement = (position - load(positions, neighbor));
                             result += parameter_tangent.masses[neighbor] * density_kernel<Poly6>(displacement, support_radius) + parameters.masses[neighbor] * dot(density_kernel_gradient<Poly6>(displacement, support_radius), (tangent - load(position_tangent, neighbor)));
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
                             result += boundary.volumes[neighbor] * (parameter_tangent.rest_densities[particle] * density_kernel<Poly6>(displacement, support_radius) + parameters.rest_densities[particle] * dot(density_kernel_gradient<Poly6>(displacement, support_radius), tangent));
                         }
                     }
@@ -75,8 +75,8 @@ namespace physica::fluids::liquid::operators::kernels::density {
         __global__ void density_vjp_kernel(const std::uint32_t particle_count, const float support_radius, const simulation::VectorView<const float> topology_positions, const simulation::VectorView<const float> positions, const device::ParticleParameterView parameters, const device::NeighborhoodView neighborhood, const device::BoundaryView boundary, const double* density_adjoint, const simulation::VectorView<double> position_adjoint, const device::ParticleParameterAdjointView parameter_adjoint) {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count) return;
-            const Vector3<float> position       = load(positions, particle);
-            const double output_adjoint = density_adjoint[particle];
+            const Vector3<float> position = load(positions, particle);
+            const double output_adjoint   = density_adjoint[particle];
             Vector3<double> position_contribution{};
             double mass_contribution         = 0.0;
             double rest_density_contribution = 0.0;
@@ -88,17 +88,17 @@ namespace physica::fluids::liquid::operators::kernels::density {
                         const device::CellRange range = device::cell_range(neighborhood, cell_x + offset_x, cell_y + offset_y, cell_z + offset_z);
                         if (!range.valid) continue;
                         for (std::uint32_t sorted = range.first; sorted < range.last; ++sorted) {
-                            const std::uint32_t other = neighborhood.sorted_particle_indices[sorted];
+                            const std::uint32_t other         = neighborhood.sorted_particle_indices[sorted];
                             const Vector3<float> displacement = (position - load(positions, other));
                             const Vector3<float> gradient     = density_kernel_gradient<Poly6>(displacement, support_radius);
-                            position_contribution     = position_contribution + gradient * (output_adjoint * parameters.masses[other] + density_adjoint[other] * parameters.masses[particle]);
+                            position_contribution             = position_contribution + gradient * (output_adjoint * parameters.masses[other] + density_adjoint[other] * parameters.masses[particle]);
                             mass_contribution += density_adjoint[other] * density_kernel<Poly6>(displacement, support_radius);
                         }
                         for (std::uint32_t sorted = range.boundary_first; sorted < range.boundary_last; ++sorted) {
-                            const std::uint32_t neighbor = neighborhood.sorted_boundary_indices[sorted];
-                            const Vector3<float> displacement    = (position - device::boundary_position(boundary, neighbor));
-                            const float volume           = boundary.volumes[neighbor];
-                            position_contribution        = (position_contribution + (density_kernel_gradient<Poly6>(displacement, support_radius) * output_adjoint * parameters.rest_densities[particle] * volume));
+                            const std::uint32_t neighbor      = neighborhood.sorted_boundary_indices[sorted];
+                            const Vector3<float> displacement = (position - device::boundary_position(boundary, neighbor));
+                            const float volume                = boundary.volumes[neighbor];
+                            position_contribution             = (position_contribution + (density_kernel_gradient<Poly6>(displacement, support_radius) * output_adjoint * parameters.rest_densities[particle] * volume));
                             rest_density_contribution += output_adjoint * volume * density_kernel<Poly6>(displacement, support_radius);
                         }
                     }

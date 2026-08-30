@@ -1,9 +1,9 @@
 module;
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/interop.h>
 #include "particle-step-kernels.h"
+#include <fluids/grid/interop.h>
 #include <physica/cuda.h>
+#include <simulation/field/device.cuh>
 
 module physica.fluids.liquid.solvers.pic.particle_step;
 
@@ -13,25 +13,25 @@ namespace physica::fluids::liquid::solvers::pic {
     ParticleStep::ParticleStep(Configuration next_configuration) : configuration(std::move(next_configuration)) {}
 
     ParticleStep::Workspace ParticleStep::allocate_workspace(const Model& model) const {
-        const ::cuda::stream_ref stream = model.grid.stream;
+        const ::cuda::stream_ref stream          = model.grid.stream;
         const std::size_t maximum_particle_count = model.maximum_particle_count;
-        const std::size_t reduction_count = std::max(model.grid.cell_count, maximum_particle_count);
+        const std::size_t reduction_count        = std::max(model.grid.cell_count, maximum_particle_count);
         return {
-            .raw_counts               = model.grid.allocate_cell_field<std::uint32_t>(),
-            .survivor_counts          = model.grid.allocate_cell_field<std::uint32_t>(),
-            .keep_flags               = simulation::ScalarField<std::uint32_t>(model.grid.stream, maximum_particle_count),
-            .destinations             = simulation::ScalarField<std::uint32_t>(model.grid.stream, maximum_particle_count),
-            .seed_counts              = model.grid.allocate_cell_field<std::uint32_t>(),
-            .seed_offsets             = model.grid.allocate_cell_field<std::uint32_t>(),
-            .compacted_positions      = simulation::VectorField<float>(model.grid.stream, maximum_particle_count),
-            .compacted_velocities     = simulation::VectorField<float>(model.grid.stream, maximum_particle_count),
-            .speeds                   = simulation::ScalarField<float>(model.grid.stream, maximum_particle_count),
-            .diagnostic_values        = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_particle_count * 7u, ::cuda::no_init},
-            .diagnostic_output        = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 7u, ::cuda::no_init},
-            .reduction_output         = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 1u, ::cuda::no_init},
-            .maintenance_totals       = ::cuda::device_buffer<std::uint32_t>{stream, ::cuda::device_default_memory_pool(stream.device()), 2u, ::cuda::no_init},
-            .reduction_scratch        = ::cuda::device_buffer<std::byte>{stream, ::cuda::device_default_memory_pool(stream.device()), kernels::particle_step::reduction_storage_size(reduction_count), ::cuda::no_init},
-            .scan_scratch             = ::cuda::device_buffer<std::byte>{stream, ::cuda::device_default_memory_pool(stream.device()), kernels::particle_step::scan_storage_size(reduction_count), ::cuda::no_init},
+            .raw_counts           = model.grid.allocate_cell_field<std::uint32_t>(),
+            .survivor_counts      = model.grid.allocate_cell_field<std::uint32_t>(),
+            .keep_flags           = simulation::ScalarField<std::uint32_t>(model.grid.stream, maximum_particle_count),
+            .destinations         = simulation::ScalarField<std::uint32_t>(model.grid.stream, maximum_particle_count),
+            .seed_counts          = model.grid.allocate_cell_field<std::uint32_t>(),
+            .seed_offsets         = model.grid.allocate_cell_field<std::uint32_t>(),
+            .compacted_positions  = simulation::VectorField<float>(model.grid.stream, maximum_particle_count),
+            .compacted_velocities = simulation::VectorField<float>(model.grid.stream, maximum_particle_count),
+            .speeds               = simulation::ScalarField<float>(model.grid.stream, maximum_particle_count),
+            .diagnostic_values    = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), maximum_particle_count * 7u, ::cuda::no_init},
+            .diagnostic_output    = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 7u, ::cuda::no_init},
+            .reduction_output     = ::cuda::device_buffer<float>{stream, ::cuda::device_default_memory_pool(stream.device()), 1u, ::cuda::no_init},
+            .maintenance_totals   = ::cuda::device_buffer<std::uint32_t>{stream, ::cuda::device_default_memory_pool(stream.device()), 2u, ::cuda::no_init},
+            .reduction_scratch    = ::cuda::device_buffer<std::byte>{stream, ::cuda::device_default_memory_pool(stream.device()), kernels::particle_step::reduction_storage_size(reduction_count), ::cuda::no_init},
+            .scan_scratch         = ::cuda::device_buffer<std::byte>{stream, ::cuda::device_default_memory_pool(stream.device()), kernels::particle_step::scan_storage_size(reduction_count), ::cuda::no_init},
         };
     }
 

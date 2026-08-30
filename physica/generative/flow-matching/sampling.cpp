@@ -10,7 +10,8 @@ import physica.generative.flow_matching.model;
 
 namespace physica::generative::flow_matching {
     SamplingRuntime::SamplingRuntime(const ::cuda::stream_ref source_stream, FlowDiT& source_model)
-        : stream{source_stream}, model{source_model}, model_workspace_layout{batch}, model_workspace{stream, ::cuda::device_default_memory_pool(stream.device()), model_workspace_layout.byte_count, ::cuda::no_init}, state{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, times{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, null_labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, conditional_velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, unconditional_velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, intermediate{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, first{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, second{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, third{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, fourth{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, image_rgba{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(batch) * 32uz * 32uz * 4uz, ::cuda::no_init} {
+        : stream{source_stream}, model{source_model}, model_workspace_layout{batch}, model_workspace{stream, ::cuda::device_default_memory_pool(stream.device()), model_workspace_layout.byte_count, ::cuda::no_init}, state{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, times{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, null_labels{stream, ::cuda::device_default_memory_pool(stream.device()), batch, ::cuda::no_init}, conditional_velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, unconditional_velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, velocity{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init},
+          intermediate{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, first{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, second{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, third{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, fourth{stream, ::cuda::device_default_memory_pool(stream.device()), value_count, ::cuda::no_init}, image_rgba{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(batch) * 32uz * 32uz * 4uz, ::cuda::no_init} {
         ::cuda::fill_bytes(stream, null_labels, 10u);
     }
 
@@ -59,9 +60,9 @@ namespace physica::generative::flow_matching {
         };
         for (std::uint32_t image = 0u; image < batch; ++image)
             for (std::uint32_t y = 0u; y < 32u; ++y) {
-                const std::uint32_t grid_x = image % 10u;
-                const std::uint32_t grid_y = image / 10u;
-                const std::size_t source = (static_cast<std::size_t>(image) * 32uz * 32uz + static_cast<std::size_t>(y) * 32uz) * 4uz;
+                const std::uint32_t grid_x    = image % 10u;
+                const std::uint32_t grid_y    = image / 10u;
+                const std::size_t source      = (static_cast<std::size_t>(image) * 32uz * 32uz + static_cast<std::size_t>(y) * 32uz) * 4uz;
                 const std::size_t destination = (static_cast<std::size_t>(grid_y * 32u + y) * result.width + grid_x * 32u) * 4uz;
                 std::ranges::copy_n(image_pixels.begin() + static_cast<std::ptrdiff_t>(source), 32uz * 4uz, result.rgba.begin() + static_cast<std::ptrdiff_t>(destination));
             }

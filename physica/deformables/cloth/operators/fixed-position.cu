@@ -1,6 +1,6 @@
-#include <simulation/field/device.cuh>
 #include "fixed-position-kernels.h"
 #include <cuda/launch>
+#include <simulation/field/device.cuh>
 
 namespace physica::deformables::cloth::kernels {
     namespace {

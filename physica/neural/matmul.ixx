@@ -64,10 +64,10 @@ export namespace physica::neural {
             Plan(cublasLtHandle_t handle, const PlanKey& key, const void* bias, const void* auxiliary, std::size_t workspace_byte_count);
             ~Plan() noexcept;
 
-            Plan(const Plan&) = delete;
+            Plan(const Plan&)            = delete;
             Plan& operator=(const Plan&) = delete;
-            Plan(Plan&&) = delete;
-            Plan& operator=(Plan&&) = delete;
+            Plan(Plan&&)                 = delete;
+            Plan& operator=(Plan&&)      = delete;
         };
 
         ::cuda::stream_ref stream;
@@ -82,10 +82,10 @@ export namespace physica::neural {
         MatmulRuntime(::cuda::stream_ref stream, MatmulRuntimeConfiguration configuration);
         ~MatmulRuntime() noexcept;
 
-        MatmulRuntime(const MatmulRuntime&) = delete;
+        MatmulRuntime(const MatmulRuntime&)            = delete;
         MatmulRuntime& operator=(const MatmulRuntime&) = delete;
-        MatmulRuntime(MatmulRuntime&&) = delete;
-        MatmulRuntime& operator=(MatmulRuntime&&) = delete;
+        MatmulRuntime(MatmulRuntime&&)                 = delete;
+        MatmulRuntime& operator=(MatmulRuntime&&)      = delete;
 
         void execute(const MatmulRequest& request);
     };

@@ -1,10 +1,10 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_HYBRID_FREE_SURFACE_KERNELS_H
 #define PHYSICA_FLUIDS_LIQUID_HYBRID_FREE_SURFACE_KERNELS_H
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/device.cuh>
 #include <cstdint>
+#include <fluids/grid/device.cuh>
 #include <physica/cuda_stream.h>
+#include <simulation/field/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pic::kernels::grid_step {
     void classify(::cuda::stream_ref stream, grid::device::Grid grid, std::uint32_t particle_count, float level_set_radius, simulation::VectorView<const float> positions, std::uint32_t* particle_counts, std::uint32_t* cell_types, float* level_set);

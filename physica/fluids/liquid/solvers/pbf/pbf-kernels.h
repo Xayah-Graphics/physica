@@ -1,8 +1,8 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_SOLVERS_PBF_KERNELS_H
 #define PHYSICA_FLUIDS_LIQUID_SOLVERS_PBF_KERNELS_H
 
-#include <fluids/liquid/device.cuh>
 #include <cstdint>
+#include <fluids/liquid/device.cuh>
 #include <physica/cuda_stream.h>
 
 namespace physica::fluids::liquid::solvers::pbf::kernels {

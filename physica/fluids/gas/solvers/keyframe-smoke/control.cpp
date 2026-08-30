@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/gas/interop.h>
 #include "control-kernels.h"
+#include <fluids/gas/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.gas.solvers.keyframe_smoke.control;

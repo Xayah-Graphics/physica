@@ -1,9 +1,9 @@
 module;
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/interop.h>
 #include "transfer-kernels.h"
+#include <fluids/grid/interop.h>
 #include <physica/cuda.h>
+#include <simulation/field/device.cuh>
 
 module physica.fluids.liquid.solvers.pic.transfer;
 

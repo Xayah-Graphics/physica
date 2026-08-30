@@ -1,9 +1,9 @@
 #ifndef PHYSICA_DEFORMABLES_CLOTH_OPERATORS_FIXED_POSITION_KERNELS_H
 #define PHYSICA_DEFORMABLES_CLOTH_OPERATORS_FIXED_POSITION_KERNELS_H
 
-#include <simulation/field/device.cuh>
 #include <cstdint>
 #include <physica/cuda_stream.h>
+#include <simulation/field/device.cuh>
 
 namespace physica::deformables::cloth::kernels {
     void fixed_position_forward(::cuda::stream_ref stream, std::uint32_t particle_count, const std::uint32_t* anchor_mask, simulation::VectorView<const float> anchor_positions, simulation::VectorView<const float> positions, simulation::VectorView<const float> velocities, simulation::VectorView<float> constrained_positions, simulation::VectorView<float> constrained_velocities);

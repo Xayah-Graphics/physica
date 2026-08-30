@@ -1,7 +1,7 @@
 module;
 
-#include "kernels.h"
 #include "../network/kernels.h"
+#include "kernels.h"
 #include <physica/cuda.h>
 
 module physica.reconstruction.pinfs.field;

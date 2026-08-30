@@ -144,11 +144,7 @@ namespace physica::fluids::liquid::solvers::pic::kernels::grid_step {
             }
             int x, y, z;
             grid::device::decode(index, static_cast<int>(grid.nx), static_cast<int>(grid.ny), x, y, z);
-            const float value = (
-                velocity.x[grid::device::face_index(grid, 0, x + 1, y, z)] - velocity.x[grid::device::face_index(grid, 0, x, y, z)] +
-                velocity.y[grid::device::face_index(grid, 1, x, y + 1, z)] - velocity.y[grid::device::face_index(grid, 1, x, y, z)] +
-                velocity.z[grid::device::face_index(grid, 2, x, y, z + 1)] - velocity.z[grid::device::face_index(grid, 2, x, y, z)]) /
-                grid.cell_size;
+            const float value = (velocity.x[grid::device::face_index(grid, 0, x + 1, y, z)] - velocity.x[grid::device::face_index(grid, 0, x, y, z)] + velocity.y[grid::device::face_index(grid, 1, x, y + 1, z)] - velocity.y[grid::device::face_index(grid, 1, x, y, z)] + velocity.z[grid::device::face_index(grid, 2, x, y, z + 1)] - velocity.z[grid::device::face_index(grid, 2, x, y, z)]) / grid.cell_size;
             divergence[index] = value;
             atomicAdd(metrics, value * value);
             atomicMax(reinterpret_cast<unsigned int*>(metrics + 1u), ::cuda::std::bit_cast<unsigned int>(::cuda::std::abs(value)));

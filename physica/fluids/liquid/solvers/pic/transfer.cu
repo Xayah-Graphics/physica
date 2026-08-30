@@ -1,6 +1,6 @@
-#include <fluids/grid/device.cuh>
 #include "transfer-kernels.h"
 #include <cuda/launch>
+#include <fluids/grid/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
     namespace {
@@ -20,7 +20,7 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
                             const int y = base_y + oy;
                             const int z = base_z + oz;
                             if (!grid::device::valid_face(grid, axis, x, y, z)) continue;
-                            const float weight      = weights_x[ox] * weights_y[oy] * weights_z[oz];
+                            const float weight     = weights_x[ox] * weights_y[oy] * weights_z[oz];
                             const std::size_t face = grid::device::face_index(grid, axis, x, y, z);
                             atomicAdd(grid::device::component(mass, axis) + face, weight);
                             atomicAdd(grid::device::component(momentum, axis) + face, weight * velocity[axis]);
@@ -84,7 +84,7 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
                         const int y = base_y + oy;
                         const int z = base_z + oz;
                         if (!grid::device::valid_face(grid, axis, x, y, z)) continue;
-                        const float weight = weights_x[ox] * weights_y[oy] * weights_z[oz] / weight_sum;
+                        const float weight                = weights_x[ox] * weights_y[oy] * weights_z[oz] / weight_sum;
                         const Vector3<float> displacement = (grid::device::face_position(grid, axis, x, y, z) - position);
                         covariance.m00 += weight * displacement.x * displacement.x;
                         covariance.m01 += weight * displacement.x * displacement.y;
@@ -98,15 +98,15 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
                         moment.z += weight * velocity * displacement.z;
                     }
             const float determinant = covariance.m00 * (covariance.m11 * covariance.m22 - covariance.m12 * covariance.m12) - covariance.m01 * (covariance.m01 * covariance.m22 - covariance.m12 * covariance.m02) + covariance.m02 * (covariance.m01 * covariance.m12 - covariance.m11 * covariance.m02);
-            const float inverse00 = (covariance.m11 * covariance.m22 - covariance.m12 * covariance.m12) / determinant;
-            const float inverse01 = (covariance.m02 * covariance.m12 - covariance.m01 * covariance.m22) / determinant;
-            const float inverse02 = (covariance.m01 * covariance.m12 - covariance.m02 * covariance.m11) / determinant;
-            const float inverse11 = (covariance.m00 * covariance.m22 - covariance.m02 * covariance.m02) / determinant;
-            const float inverse12 = (covariance.m01 * covariance.m02 - covariance.m00 * covariance.m12) / determinant;
-            const float inverse22 = (covariance.m00 * covariance.m11 - covariance.m01 * covariance.m01) / determinant;
-            c0 = ratio * (moment.x * inverse00 + moment.y * inverse01 + moment.z * inverse02);
-            c1 = ratio * (moment.x * inverse01 + moment.y * inverse11 + moment.z * inverse12);
-            c2 = ratio * (moment.x * inverse02 + moment.y * inverse12 + moment.z * inverse22);
+            const float inverse00   = (covariance.m11 * covariance.m22 - covariance.m12 * covariance.m12) / determinant;
+            const float inverse01   = (covariance.m02 * covariance.m12 - covariance.m01 * covariance.m22) / determinant;
+            const float inverse02   = (covariance.m01 * covariance.m12 - covariance.m02 * covariance.m11) / determinant;
+            const float inverse11   = (covariance.m00 * covariance.m22 - covariance.m02 * covariance.m02) / determinant;
+            const float inverse12   = (covariance.m01 * covariance.m02 - covariance.m00 * covariance.m12) / determinant;
+            const float inverse22   = (covariance.m00 * covariance.m11 - covariance.m01 * covariance.m01) / determinant;
+            c0                      = ratio * (moment.x * inverse00 + moment.y * inverse01 + moment.z * inverse02);
+            c1                      = ratio * (moment.x * inverse01 + moment.y * inverse11 + moment.z * inverse12);
+            c2                      = ratio * (moment.x * inverse02 + moment.y * inverse12 + moment.z * inverse22);
         }
 
         __device__ void reconstruct_affine(const grid::device::Grid grid, const Vector3<float> position, const simulation::VectorView<const float> velocity, const float ratio, const std::uint32_t particle, const simulation::Matrix3View<float> affine) {
@@ -131,10 +131,10 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
                             const int y = base_y + oy;
                             const int z = base_z + oz;
                             if (!grid::device::valid_face(grid, axis, x, y, z)) continue;
-                            const float weight = weights_x[ox] * weights_y[oy] * weights_z[oz];
+                            const float weight                = weights_x[ox] * weights_y[oy] * weights_z[oz];
                             const Vector3<float> displacement = (grid::device::face_position(grid, axis, x, y, z) - position);
-                            const float face_velocity = velocity[axis] + affine_component(affine, particle, axis, displacement);
-                            const std::size_t face = grid::device::face_index(grid, axis, x, y, z);
+                            const float face_velocity         = velocity[axis] + affine_component(affine, particle, axis, displacement);
+                            const std::size_t face            = grid::device::face_index(grid, axis, x, y, z);
                             atomicAdd(grid::device::component(mass, axis) + face, weight);
                             atomicAdd(grid::device::component(momentum, axis) + face, weight * face_velocity);
                         }
@@ -153,15 +153,15 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
             const std::uint32_t particle = blockIdx.x * blockDim.x + threadIdx.x;
             if (particle >= particle_count || keep_flags[particle] == 0u) return;
             const std::uint32_t destination = destinations[particle];
-            output.c00[destination] = source.c00[particle];
-            output.c01[destination] = source.c01[particle];
-            output.c02[destination] = source.c02[particle];
-            output.c10[destination] = source.c10[particle];
-            output.c11[destination] = source.c11[particle];
-            output.c12[destination] = source.c12[particle];
-            output.c20[destination] = source.c20[particle];
-            output.c21[destination] = source.c21[particle];
-            output.c22[destination] = source.c22[particle];
+            output.c00[destination]         = source.c00[particle];
+            output.c01[destination]         = source.c01[particle];
+            output.c02[destination]         = source.c02[particle];
+            output.c10[destination]         = source.c10[particle];
+            output.c11[destination]         = source.c11[particle];
+            output.c12[destination]         = source.c12[particle];
+            output.c20[destination]         = source.c20[particle];
+            output.c21[destination]         = source.c21[particle];
+            output.c22[destination]         = source.c22[particle];
         }
 
         __global__ void seed_affine_kernel(const grid::device::Grid grid, const std::uint32_t survivor_count, const std::uint32_t seed_count, const float affine_ratio, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> grid_velocity, const simulation::Matrix3View<float> output) {
@@ -185,4 +185,3 @@ namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
         if (seed_count > 0u) ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(seed_count), seed_affine_kernel, grid, survivor_count, seed_count, affine_ratio, compacted_positions, grid_velocity, output_affine);
     }
 } // namespace physica::fluids::liquid::solvers::pic::kernels::transfer
-

@@ -42,10 +42,10 @@ export namespace physica::reconstruction::pinfs {
 
     private:
         ::cuda::stream_ref stream;
-        std::uint32_t rays_per_step = 0u;
-        std::uint32_t perceptual_stride = 0u;
+        std::uint32_t rays_per_step      = 0u;
+        std::uint32_t perceptual_stride  = 0u;
         std::uint32_t central_crop_steps = 0u;
-        float central_crop_fraction = 0.0F;
+        float central_crop_fraction      = 0.0F;
         Matrix4<float> world_from_voxel;
         ::cuda::host_buffer<Ray3<float>> host_rays;
         ::cuda::host_buffer<Vector3<float>> host_targets;

@@ -1,10 +1,10 @@
 #ifndef PHYSICA_FLUIDS_LIQUID_HYBRID_TRANSFER_KERNELS_H
 #define PHYSICA_FLUIDS_LIQUID_HYBRID_TRANSFER_KERNELS_H
 
-#include <simulation/field/device.cuh>
-#include <fluids/grid/device.cuh>
 #include <cstdint>
+#include <fluids/grid/device.cuh>
 #include <physica/cuda_stream.h>
+#include <simulation/field/device.cuh>
 
 namespace physica::fluids::liquid::solvers::pic::kernels::transfer {
     void flip_particle_to_grid(::cuda::stream_ref stream, grid::device::Grid grid, std::uint32_t particle_count, simulation::VectorView<const float> positions, simulation::VectorView<const float> velocities, simulation::VectorView<float> momentum, simulation::VectorView<float> mass);

@@ -28,22 +28,21 @@ namespace physica::neural {
         }
     } // namespace
 
-    MatmulRuntime::Plan::Plan(const cublasLtHandle_t handle, const PlanKey& source_key, const void* const bias, const void* const auxiliary, const std::size_t workspace_byte_count)
-        : key{source_key} {
-        const cublasOperation_t transpose_a = key.transpose_b ? CUBLAS_OP_T : CUBLAS_OP_N;
-        const cublasOperation_t transpose_b = key.transpose_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-        const cublasLtEpilogue_t epilogue  = epilogue_type(key.epilogue);
-        const std::uint64_t logical_a_rows  = key.transpose_a ? key.reduction : key.rows;
+    MatmulRuntime::Plan::Plan(const cublasLtHandle_t handle, const PlanKey& source_key, const void* const bias, const void* const auxiliary, const std::size_t workspace_byte_count) : key{source_key} {
+        const cublasOperation_t transpose_a   = key.transpose_b ? CUBLAS_OP_T : CUBLAS_OP_N;
+        const cublasOperation_t transpose_b   = key.transpose_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+        const cublasLtEpilogue_t epilogue     = epilogue_type(key.epilogue);
+        const std::uint64_t logical_a_rows    = key.transpose_a ? key.reduction : key.rows;
         const std::uint64_t logical_a_columns = key.transpose_a ? key.rows : key.reduction;
-        const std::uint64_t logical_b_rows  = key.transpose_b ? key.columns : key.reduction;
+        const std::uint64_t logical_b_rows    = key.transpose_b ? key.columns : key.reduction;
         const std::uint64_t logical_b_columns = key.transpose_b ? key.reduction : key.columns;
-        const std::uint64_t a_rows          = logical_b_columns;
-        const std::uint64_t a_columns       = logical_b_rows;
-        const std::uint64_t b_rows          = logical_a_columns;
-        const std::uint64_t b_columns       = logical_a_rows;
-        const std::int64_t a_leading        = static_cast<std::int64_t>(a_rows);
-        const std::int64_t b_leading        = static_cast<std::int64_t>(b_rows);
-        const std::int64_t output_leading   = static_cast<std::int64_t>(key.columns);
+        const std::uint64_t a_rows            = logical_b_columns;
+        const std::uint64_t a_columns         = logical_b_rows;
+        const std::uint64_t b_rows            = logical_a_columns;
+        const std::uint64_t b_columns         = logical_a_rows;
+        const std::int64_t a_leading          = static_cast<std::int64_t>(a_rows);
+        const std::int64_t b_leading          = static_cast<std::int64_t>(b_rows);
+        const std::int64_t output_leading     = static_cast<std::int64_t>(key.columns);
         cublasLtMatmulPreference_t preference{};
         std::array<cublasLtMatmulHeuristicResult_t, 32u> heuristics{};
         int returned_algorithm_count{};
@@ -94,8 +93,7 @@ namespace physica::neural {
         if (operation != nullptr) cublasLtMatmulDescDestroy(operation);
     }
 
-    MatmulRuntime::MatmulRuntime(const ::cuda::stream_ref source_stream, const MatmulRuntimeConfiguration source_configuration)
-        : stream{source_stream}, configuration{source_configuration}, workspace{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.workspace_byte_count, ::cuda::no_init}, tuning_output{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_byte_count, ::cuda::no_init}, tuning_auxiliary{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_byte_count, ::cuda::no_init}, tuning_bias{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_bias_byte_count, ::cuda::no_init} {
+    MatmulRuntime::MatmulRuntime(const ::cuda::stream_ref source_stream, const MatmulRuntimeConfiguration source_configuration) : stream{source_stream}, configuration{source_configuration}, workspace{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.workspace_byte_count, ::cuda::no_init}, tuning_output{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_byte_count, ::cuda::no_init}, tuning_auxiliary{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_byte_count, ::cuda::no_init}, tuning_bias{stream, ::cuda::device_default_memory_pool(stream.device()), configuration.tuning_bias_byte_count, ::cuda::no_init} {
         if (const cublasStatus_t status = cublasLtCreate(&handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{"cuBLASLt handle: "} + cublasGetStatusString(status)};
     }
 
@@ -106,17 +104,17 @@ namespace physica::neural {
 
     void MatmulRuntime::execute(const MatmulRequest& request) {
         const PlanKey key{
-            .rows          = request.rows,
-            .columns       = request.columns,
-            .reduction     = request.reduction,
-            .transpose_a   = request.transpose_a,
-            .transpose_b   = request.transpose_b,
-            .epilogue      = request.epilogue,
+            .rows        = request.rows,
+            .columns     = request.columns,
+            .reduction   = request.reduction,
+            .transpose_a = request.transpose_a,
+            .transpose_b = request.transpose_b,
+            .epilogue    = request.epilogue,
         };
         auto plan = std::ranges::find(plans, key, &Plan::key);
         if (plan == plans.end()) plan = plans.emplace(plans.end(), handle, key, request.bias, request.auxiliary, configuration.workspace_byte_count);
         if (!plan->tuned) {
-            const void* const tuning_bias_pointer = tuning_bias.data();
+            const void* const tuning_bias_pointer      = tuning_bias.data();
             const void* const tuning_auxiliary_pointer = tuning_auxiliary.data();
             if (uses_bias(key.epilogue))
                 if (const cublasStatus_t status = cublasLtMatmulDescSetAttribute(plan->operation, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &tuning_bias_pointer, sizeof(tuning_bias_pointer)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{"cuBLASLt tuning bias pointer: "} + cublasGetStatusString(status)};
@@ -127,8 +125,8 @@ namespace physica::neural {
             if (const cudaError_t status = cudaEventCreate(&begin); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA tuning begin event: "} + cudaGetErrorString(status)};
             if (const cudaError_t status = cudaEventCreate(&end); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA tuning end event: "} + cudaGetErrorString(status)};
             constexpr float alpha = 1.0F;
-            constexpr float beta = 0.0F;
-            float shortest = std::numeric_limits<float>::infinity();
+            constexpr float beta  = 0.0F;
+            float shortest        = std::numeric_limits<float>::infinity();
             for (const cublasLtMatmulAlgo_t& candidate : plan->candidates) {
                 if (const cublasStatus_t status = cublasLtMatmul(handle, plan->operation, &alpha, request.b, plan->a_layout, request.a, plan->b_layout, &beta, tuning_output.data(), plan->output_layout, tuning_output.data(), plan->output_layout, &candidate, workspace.data(), workspace.size(), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{"cuBLASLt tuning warmup: "} + cublasGetStatusString(status)};
                 if (const cudaError_t status = cudaEventRecord(begin, stream.get()); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA tuning begin record: "} + cudaGetErrorString(status)};
@@ -139,7 +137,7 @@ namespace physica::neural {
                 float milliseconds{};
                 if (const cudaError_t status = cudaEventElapsedTime(&milliseconds, begin, end); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA tuning elapsed time: "} + cudaGetErrorString(status)};
                 if (milliseconds < shortest) {
-                    shortest = milliseconds;
+                    shortest        = milliseconds;
                     plan->algorithm = candidate;
                 }
             }
@@ -153,7 +151,7 @@ namespace physica::neural {
         if (uses_auxiliary(key.epilogue))
             if (const cublasStatus_t status = cublasLtMatmulDescSetAttribute(plan->operation, CUBLASLT_MATMUL_DESC_EPILOGUE_AUX_POINTER, &request.auxiliary, sizeof(request.auxiliary)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{"cuBLASLt auxiliary pointer: "} + cublasGetStatusString(status)};
 
-        constexpr float alpha = 1.0F;
+        constexpr float alpha       = 1.0F;
         const cublasStatus_t status = cublasLtMatmul(handle, plan->operation, &alpha, request.b, plan->a_layout, request.a, plan->b_layout, &request.beta, request.output, plan->output_layout, request.output, plan->output_layout, &plan->algorithm, workspace.data(), workspace.size(), stream.get());
         if (status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{"cuBLASLt matmul: "} + cublasGetStatusString(status)};
     }

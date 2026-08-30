@@ -1,10 +1,10 @@
 #ifndef PHYSICA_FLUIDS_GRID_DEVICE_CUH
 #define PHYSICA_FLUIDS_GRID_DEVICE_CUH
 
-#include <simulation/field/device.cuh>
 #include <cstdint>
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
+#include <simulation/field/device.cuh>
 
 namespace physica::fluids::grid::device {
     struct Grid final {
@@ -96,11 +96,11 @@ namespace physica::fluids::grid::device {
     }
 
     __host__ __device__ inline void quadratic_weights(const float coordinate, int& base, float weights[3]) {
-        base             = static_cast<int>(::cuda::std::floor(coordinate - 0.5F));
+        base              = static_cast<int>(::cuda::std::floor(coordinate - 0.5F));
         const float local = coordinate - static_cast<float>(base);
-        weights[0]       = 0.5F * (1.5F - local) * (1.5F - local);
-        weights[1]       = 0.75F - (local - 1.0F) * (local - 1.0F);
-        weights[2]       = 0.5F * (local - 0.5F) * (local - 0.5F);
+        weights[0]        = 0.5F * (1.5F - local) * (1.5F - local);
+        weights[1]        = 0.75F - (local - 1.0F) * (local - 1.0F);
+        weights[2]        = 0.5F * (local - 0.5F) * (local - 0.5F);
     }
 
     __host__ __device__ inline void face_stencil(const Grid grid, const Vector3<float> position, const int axis, int& base_x, int& base_y, int& base_z, float weights_x[3], float weights_y[3], float weights_z[3]) {
@@ -136,6 +136,6 @@ namespace physica::fluids::grid::device {
     __device__ inline Vector3<float> sample_velocity(const Grid grid, const Vector3<float> position, const simulation::VectorView<const float> velocity) {
         return {sample_face(grid, 0, position, velocity.x), sample_face(grid, 1, position, velocity.y), sample_face(grid, 2, position, velocity.z)};
     }
-}
+} // namespace physica::fluids::grid::device
 
 #endif

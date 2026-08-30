@@ -1,7 +1,7 @@
 module;
 
-#include <fluids/grid/interop.h>
 #include "projection-kernels.h"
+#include <fluids/grid/interop.h>
 #include <physica/cuda.h>
 
 module physica.fluids.liquid.solvers.pic.projection;

@@ -1,7 +1,7 @@
 module;
 
-#include <physica/cuda.h>
 #include <cuda/std/random>
+#include <physica/cuda.h>
 
 module physica.reconstruction.pinfs.scene;
 
@@ -66,7 +66,8 @@ namespace physica::reconstruction::pinfs {
     } // namespace
 
     Scene::Scene(const dataset::pinf::Dataset& source_dataset, const ::cuda::stream_ref source_stream, const std::uint32_t source_rays_per_step, const std::uint32_t inference_batch_size, const std::uint32_t volume_width, const std::uint32_t source_perceptual_stride, const std::uint32_t source_central_crop_steps, const float source_central_crop_fraction, const std::optional<AxisAlignedBox3<float>> normalized_bounds)
-        : dataset{source_dataset}, training{find_training_frame_set(dataset)}, voxel_positions{}, background{source_stream, ::cuda::device_default_memory_pool(source_stream.device()), 1uz, ::cuda::no_init}, bounds{source_stream, ::cuda::device_default_memory_pool(source_stream.device()), 1uz, ::cuda::no_init}, stream{source_stream}, rays_per_step{source_rays_per_step}, perceptual_stride{source_perceptual_stride}, central_crop_steps{source_central_crop_steps}, central_crop_fraction{source_central_crop_fraction}, world_from_voxel{make_world_from_voxel(dataset)}, host_rays{stream, ::cuda::pinned_default_memory_pool(), rays_per_step, ::cuda::no_init}, host_targets{stream, ::cuda::pinned_default_memory_pool(), rays_per_step, ::cuda::no_init}, host_volume_points{stream, ::cuda::pinned_default_memory_pool(), inference_batch_size, ::cuda::no_init}, device_rays{stream, ::cuda::device_default_memory_pool(stream.device()), rays_per_step, ::cuda::no_init}, device_targets{stream, ::cuda::device_default_memory_pool(stream.device()), rays_per_step, ::cuda::no_init}, device_volume_points{stream, ::cuda::device_default_memory_pool(stream.device()), inference_batch_size, ::cuda::no_init}, pixels(rays_per_step), candidates(maximum_training_pixel_count(training)) {
+        : dataset{source_dataset}, training{find_training_frame_set(dataset)}, voxel_positions{}, background{source_stream, ::cuda::device_default_memory_pool(source_stream.device()), 1uz, ::cuda::no_init}, bounds{source_stream, ::cuda::device_default_memory_pool(source_stream.device()), 1uz, ::cuda::no_init}, stream{source_stream}, rays_per_step{source_rays_per_step}, perceptual_stride{source_perceptual_stride}, central_crop_steps{source_central_crop_steps}, central_crop_fraction{source_central_crop_fraction}, world_from_voxel{make_world_from_voxel(dataset)}, host_rays{stream, ::cuda::pinned_default_memory_pool(), rays_per_step, ::cuda::no_init}, host_targets{stream, ::cuda::pinned_default_memory_pool(), rays_per_step, ::cuda::no_init}, host_volume_points{stream, ::cuda::pinned_default_memory_pool(), inference_batch_size, ::cuda::no_init}, device_rays{stream, ::cuda::device_default_memory_pool(stream.device()), rays_per_step, ::cuda::no_init},
+          device_targets{stream, ::cuda::device_default_memory_pool(stream.device()), rays_per_step, ::cuda::no_init}, device_volume_points{stream, ::cuda::device_default_memory_pool(stream.device()), inference_batch_size, ::cuda::no_init}, pixels(rays_per_step), candidates(maximum_training_pixel_count(training)) {
         voxel_positions = make_voxel_positions(dataset, world_from_voxel, volume_width);
         ::cuda::copy_bytes(stream, ::cuda::std::span<const Vector3<float>>{&dataset.background, 1uz}, background);
 
@@ -112,21 +113,21 @@ namespace physica::reconstruction::pinfs {
             }
             ::cuda::std::philox4x32 random{seed};
             random.set_counter({scene_random_domain, static_cast<std::uint32_t>(SceneRandomSequence::perceptual_patch), step, 0u});
-            const float uniform_x = std::max(static_cast<float>(random() >> 8u) * 0x1.0p-24F, (std::numeric_limits<float>::min)());
-            const float uniform_y = static_cast<float>(random() >> 8u) * 0x1.0p-24F;
-            const float magnitude = std::sqrt(-2.0F * std::log(uniform_x));
-            const float normal_x  = magnitude * std::cos(2.0F * std::numbers::pi_v<float> * uniform_y);
-            const float normal_y  = magnitude * std::sin(2.0F * std::numbers::pi_v<float> * uniform_y);
-            const float radius    = static_cast<float>(patch_width * stride) * 0.5F;
+            const float uniform_x        = std::max(static_cast<float>(random() >> 8u) * 0x1.0p-24F, (std::numeric_limits<float>::min)());
+            const float uniform_y        = static_cast<float>(random() >> 8u) * 0x1.0p-24F;
+            const float magnitude        = std::sqrt(-2.0F * std::log(uniform_x));
+            const float normal_x         = magnitude * std::cos(2.0F * std::numbers::pi_v<float> * uniform_y);
+            const float normal_y         = magnitude * std::sin(2.0F * std::numbers::pi_v<float> * uniform_y);
+            const float radius           = static_cast<float>(patch_width * stride) * 0.5F;
             const std::uint32_t offset_x = static_cast<std::uint32_t>(std::clamp(static_cast<float>(center_x / total_weight) + radius / 3.0F * normal_x - radius, 10.0F, static_cast<float>(frame.extent.width - patch_width * stride - 10u)));
             const std::uint32_t offset_y = static_cast<std::uint32_t>(std::clamp(static_cast<float>(center_y / total_weight) + radius / 3.0F * normal_y - radius, 10.0F, static_cast<float>(frame.extent.height - patch_width * stride - 10u)));
             for (const std::uint32_t y : std::views::iota(0u, patch_width))
                 for (const std::uint32_t x : std::views::iota(0u, patch_width)) pixels[static_cast<std::size_t>(y) * patch_width + x] = (offset_y + y * stride) * frame.extent.width + offset_x + x * stride;
         } else {
-            const std::uint32_t half_width  = step + 1u < central_crop_steps ? static_cast<std::uint32_t>(static_cast<float>(frame.extent.width / 2u) * central_crop_fraction) : frame.extent.width / 2u;
-            const std::uint32_t half_height = step + 1u < central_crop_steps ? static_cast<std::uint32_t>(static_cast<float>(frame.extent.height / 2u) * central_crop_fraction) : frame.extent.height / 2u;
-            const std::uint32_t begin_x     = frame.extent.width / 2u - half_width;
-            const std::uint32_t begin_y     = frame.extent.height / 2u - half_height;
+            const std::uint32_t half_width      = step + 1u < central_crop_steps ? static_cast<std::uint32_t>(static_cast<float>(frame.extent.width / 2u) * central_crop_fraction) : frame.extent.width / 2u;
+            const std::uint32_t half_height     = step + 1u < central_crop_steps ? static_cast<std::uint32_t>(static_cast<float>(frame.extent.height / 2u) * central_crop_fraction) : frame.extent.height / 2u;
+            const std::uint32_t begin_x         = frame.extent.width / 2u - half_width;
+            const std::uint32_t begin_y         = frame.extent.height / 2u - half_height;
             const std::uint32_t candidate_count = half_width * 2u * half_height * 2u;
             for (const std::uint32_t index : std::views::iota(0u, candidate_count)) candidates[index] = (begin_y + index / (half_width * 2u)) * frame.extent.width + begin_x + index % (half_width * 2u);
             for (const std::uint32_t ray : std::views::iota(0u, rays_per_step)) {
@@ -140,8 +141,8 @@ namespace physica::reconstruction::pinfs {
 
         for (const std::uint32_t ray : std::views::iota(0u, rays_per_step)) {
             const std::uint32_t pixel = pixels[ray];
-            host_rays.data()[ray] = make_ray(frame, pixel);
-            host_targets.data()[ray] = {
+            host_rays.data()[ray]     = make_ray(frame, pixel);
+            host_targets.data()[ray]  = {
                 static_cast<float>(frame.rgba[static_cast<std::size_t>(pixel) * 4uz]) / 255.0F,
                 static_cast<float>(frame.rgba[static_cast<std::size_t>(pixel) * 4uz + 1uz]) / 255.0F,
                 static_cast<float>(frame.rgba[static_cast<std::size_t>(pixel) * 4uz + 2uz]) / 255.0F,
@@ -160,10 +161,10 @@ namespace physica::reconstruction::pinfs {
 
     const SpacetimePoint* Scene::prepare_volume_points(const float time, const Vector3<std::uint32_t> resolution, const std::size_t offset, const std::uint32_t count) {
         for (const std::uint32_t local : std::views::iota(0u, count)) {
-            const std::size_t index = offset + local;
-            const std::uint32_t x   = static_cast<std::uint32_t>(index % resolution.x);
-            const std::uint32_t y   = static_cast<std::uint32_t>(index / resolution.x % resolution.y);
-            const std::uint32_t z   = static_cast<std::uint32_t>(index / resolution.x / resolution.y);
+            const std::size_t index          = offset + local;
+            const std::uint32_t x            = static_cast<std::uint32_t>(index % resolution.x);
+            const std::uint32_t y            = static_cast<std::uint32_t>(index / resolution.x % resolution.y);
+            const std::uint32_t z            = static_cast<std::uint32_t>(index / resolution.x / resolution.y);
             host_volume_points.data()[local] = {
                 .position = transform_point(world_from_voxel, {(static_cast<float>(x) + 0.5F) / static_cast<float>(resolution.x), (static_cast<float>(y) + 0.5F) / static_cast<float>(resolution.y), (static_cast<float>(z) + 0.5F) / static_cast<float>(resolution.z)}),
                 .time     = time,
