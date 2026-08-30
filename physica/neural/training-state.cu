@@ -44,7 +44,7 @@ namespace physica::neural::kernels {
     }
 
     void optimize(const ::cuda::stream_ref stream, float* const parameters, float* const gradients, float* const first_moments, float* const second_moments, float* const ema, const std::size_t count, const float learning_rate, const float first_decay, const float second_decay, const std::uint64_t* const step, const std::uint64_t* const processed_samples, float* const step_scalars, const float epsilon, const float weight_decay, const std::uint32_t samples_per_step, const std::uint64_t half_life_samples, const float ramp_up_ratio) {
-        step_scalars_kernel<<<1u, 1u, 0u, stream.get()>>>(step, processed_samples, step_scalars, first_decay, second_decay, samples_per_step, half_life_samples, ramp_up_ratio);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(1u))), step_scalars_kernel, step, processed_samples, step_scalars, first_decay, second_decay, samples_per_step, half_life_samples, ramp_up_ratio);
         ::cuda::launch(stream, ::cuda::distribute<256u>(count), optimize_device_kernel, parameters, gradients, first_moments, second_moments, ema, count, learning_rate, first_decay, second_decay, step_scalars, epsilon, weight_decay);
     }
 

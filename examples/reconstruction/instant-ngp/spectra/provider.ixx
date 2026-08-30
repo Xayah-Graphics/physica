@@ -32,18 +32,21 @@ export namespace physica::examples::instant_ngp {
 
     private:
         inline static constexpr float scene_scale = 0.33F;
+        static void destroy_instant_ngp(void* instant_ngp) noexcept;
 
         reconstruction::dataset::multiview::Dataset dataset;
-        reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>* instant_ngp{};
+        std::unique_ptr<void, decltype(&destroy_instant_ngp)> instant_ngp{nullptr, destroy_instant_ngp};
         reconstruction::instant_ngp::OptimizationStats training{};
         float psnr = std::numeric_limits<float>::quiet_NaN();
     };
 
+    void Provider::destroy_instant_ngp(void* const source) noexcept {
+        delete static_cast<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>*>(source);
+    }
+
     Provider::Provider(const Settings source, const std::filesystem::path& assets) : settings(source), dataset(reconstruction::dataset::nerf_synthetic::load(assets / "../../../data/nerf-synthetic/lego", {.frame_sets = {"train"}})) {}
 
-    Provider::~Provider() noexcept {
-        delete instant_ngp;
-    }
+    Provider::~Provider() noexcept {}
 
     void Provider::setup(spectra::sdk::cuda::Setup& setup) {
         const reconstruction::dataset::multiview::FrameSet& training_frames = dataset.frame_sets[0];
@@ -72,34 +75,30 @@ export namespace physica::examples::instant_ngp {
     }
 
     void Provider::reset(const std::uint64_t seed) {
-        auto* replacement = new reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>(dataset, 0u, 0u, scene_scale, static_cast<std::uint32_t>(seed));
-        delete instant_ngp;
-        instant_ngp = replacement;
-        training    = {};
-        psnr        = std::numeric_limits<float>::quiet_NaN();
+        auto replacement = std::make_unique<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>>(dataset, 0u, 0u, scene_scale, static_cast<std::uint32_t>(seed));
+        instant_ngp.reset(replacement.release());
+        training = {};
+        psnr     = std::numeric_limits<float>::quiet_NaN();
     }
 
     void Provider::step(double) {
-        training = instant_ngp->optimize(1u);
+        training = static_cast<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>*>(instant_ngp.get())->optimize(1u);
         psnr     = -10.0F * std::log10(training.loss);
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
-        const reconstruction::instant_ngp::InstantNGPDeviceState state = instant_ngp->device_state();
-        spectra::sdk::cuda::Frame frame                                = output.begin(state.stream);
+        const reconstruction::instant_ngp::InstantNGPDeviceState state = static_cast<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>*>(instant_ngp.get())->device_state();
+        spectra::sdk::cuda::Frame frame                                = output.begin(state.stream.get());
         const spectra::sdk::cuda::HashGridRadianceField field          = frame.hash_grid_radiance_field<"field">();
-        const cudaStream_t stream                                      = static_cast<cudaStream_t>(state.stream);
-        const auto copy                                                = [stream](const auto destination, const void* source) {
-            if (cudaMemcpyAsync(destination.data(), source, destination.size_bytes(), cudaMemcpyDeviceToDevice, stream) != cudaSuccess) throw std::runtime_error("CUDA neural-field publish failed");
-        };
+        const auto copy                                                = [stream = state.stream](const auto destination, const auto source) { ::cuda::copy_bytes(stream, source, ::cuda::std::span{destination.data(), destination.size()}); };
 
-        copy(field.density_input, state.network.density_input.data());
-        copy(field.density_output, state.network.density_output.data());
-        copy(field.rgb_input, state.network.color_input.data());
-        copy(field.rgb_hidden, state.network.color_hidden.data());
-        copy(field.rgb_output, state.network.color_output.data());
-        copy(field.hash_grid, state.network.hash_grid.data());
-        copy(field.occupancy, state.sampling.occupancy.data());
+        copy(field.density_input, state.network.density_input);
+        copy(field.density_output, state.network.density_output);
+        copy(field.rgb_input, state.network.color_input);
+        copy(field.rgb_hidden, state.network.color_hidden);
+        copy(field.rgb_output, state.network.color_output);
+        copy(field.hash_grid, state.network.hash_grid);
+        copy(field.occupancy, state.sampling.occupancy);
 
         frame.metric<"step">().upload(training.end_step);
         frame.metric<"loss">().upload(training.loss);

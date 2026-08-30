@@ -84,7 +84,7 @@ namespace physica::reconstruction::dataset::pinf {
                             for (const std::size_t column : std::views::iota(0uz, 4uz)) video.world_from_camera[frame_index](row, column) = transforms.at(frame_index).at(row).at(column).get<float>();
                 }
 
-                VideoDecoder decoder{(path / video.file_name).string().c_str(), resolution_divisor};
+                VideoDecoder decoder{path / video.file_name, resolution_divisor};
                 const std::uint32_t width  = decoder.width;
                 const std::uint32_t height = decoder.height;
                 const float focal          = 0.5F * static_cast<float>(width) / std::tan(0.5F * video_json.at("camera_angle_x").get<float>());
@@ -107,7 +107,7 @@ namespace physica::reconstruction::dataset::pinf {
                         .view_index = video.view_index,
                         .time_index = time_index,
                     };
-                    decoder.read(frame.rgba.data());
+                    decoder.read(frame.rgba);
                     frame_set.frames.push_back(std::move(frame));
                 };
 

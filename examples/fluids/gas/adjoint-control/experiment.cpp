@@ -116,7 +116,7 @@ namespace physica::examples::adjoint_control {
             std::string line;
             std::size_t vertex_count = 0u;
             while (std::getline(input, line)) {
-                if (line.starts_with("element vertex ")) vertex_count = std::stoull(line.substr(15u));
+                if (line.starts_with("element vertex ")) std::from_chars(line.data() + 15u, line.data() + line.size(), vertex_count);
                 if (line == "end_header") break;
             }
             std::vector<Point> result(vertex_count);
@@ -233,23 +233,25 @@ namespace physica::examples::adjoint_control {
         for (std::size_t parameter = 0u; parameter < quadratic_target.size(); ++parameter) quadratic_maximum_error = std::max(quadratic_maximum_error, std::abs(quadratic_parameters[parameter] - std::clamp(quadratic_target[parameter], quadratic_lower[parameter], quadratic_upper[parameter])));
 
         std::ofstream report(output_directory / "verification.json");
-        report << std::setprecision(17) << "{\n"
-               << "  \"parameter_count\": " << parameters.size() << ",\n"
-               << "  \"objective\": " << derivative.objective << ",\n"
-               << "  \"finite_difference\": " << derivative.finite_difference << ",\n"
-               << "  \"jvp\": " << derivative.jvp << ",\n"
-               << "  \"vjp_dot_direction\": " << derivative.vjp_dot_direction << ",\n"
-               << "  \"finite_difference_jvp_relative_error\": " << derivative.finite_difference_jvp_relative_error << ",\n"
-               << "  \"jvp_vjp_relative_error\": " << derivative.jvp_vjp_relative_error << ",\n"
-               << "  \"maximum_mass_relative_error\": " << maximum_mass_relative_error << ",\n"
-               << "  \"lbfgsb_maximum_error\": " << quadratic_maximum_error << ",\n"
-               << "  \"lbfgsb_stop_reason\": " << std::to_underlying(quadratic_optimizer.stop_reason) << ",\n"
-               << "  \"components\": [\n";
+        std::print(report,
+            "{{\n"
+            "  \"parameter_count\": {},\n"
+            "  \"objective\": {:.17g},\n"
+            "  \"finite_difference\": {:.17g},\n"
+            "  \"jvp\": {:.17g},\n"
+            "  \"vjp_dot_direction\": {:.17g},\n"
+            "  \"finite_difference_jvp_relative_error\": {:.17g},\n"
+            "  \"jvp_vjp_relative_error\": {:.17g},\n"
+            "  \"maximum_mass_relative_error\": {:.17g},\n"
+            "  \"lbfgsb_maximum_error\": {:.17g},\n"
+            "  \"lbfgsb_stop_reason\": {},\n"
+            "  \"components\": [\n",
+            parameters.size(), derivative.objective, derivative.finite_difference, derivative.jvp, derivative.vjp_dot_direction, derivative.finite_difference_jvp_relative_error, derivative.jvp_vjp_relative_error, maximum_mass_relative_error, quadratic_maximum_error, std::to_underlying(quadratic_optimizer.stop_reason));
         for (std::size_t index = 0u; index < component_checks.size(); ++index) {
             const ComponentDerivativeCheck& component = component_checks[index];
-            report << "    {\"parameter\": " << component.parameter << ", \"analytic\": " << component.analytic << ", \"finite_difference\": " << component.finite_difference << ", \"relative_error\": " << component.relative_error << "}" << (index + 1u == component_checks.size() ? "\n" : ",\n");
+            std::print(report, "    {{\"parameter\": {}, \"analytic\": {:.17g}, \"finite_difference\": {:.17g}, \"relative_error\": {:.17g}}}{}", component.parameter, component.analytic, component.finite_difference, component.relative_error, index + 1u == component_checks.size() ? "\n" : ",\n");
         }
-        report << "  ]\n}\n";
+        std::print(report, "  ]\n}}\n");
         std::println("Adjoint check: FD={:.9e}, JVP={:.9e}, VJP.p={:.9e}", derivative.finite_difference, derivative.jvp, derivative.vjp_dot_direction);
         std::println("Relative errors: FD/JVP={:.3e}, JVP/VJP={:.3e}, mass={:.3e}, L-BFGS-B={:.3e}", derivative.finite_difference_jvp_relative_error, derivative.jvp_vjp_relative_error, maximum_mass_relative_error, quadratic_maximum_error);
         if (derivative.finite_difference_jvp_relative_error > 1.0e-2) throw std::runtime_error("Finite-difference/JVP verification failed");
@@ -290,10 +292,10 @@ namespace physica::examples::adjoint_control {
         for (const fluids::gas::solvers::adjoint_control::OptimizationEvaluation& evaluation : result.evaluations) std::println("Evaluation {} iteration {} line {}: objective={:.9e}, density={:.9e}, control={:.9e}, |pg|={:.6e}", evaluation.coordinates.objective_evaluation, evaluation.coordinates.optimizer_iteration, evaluation.coordinates.line_search_evaluation, evaluation.summary.objective, evaluation.summary.density_loss, evaluation.summary.control_effort, evaluation.projected_gradient_norm);
 
         std::ofstream evaluations(output_directory / "evaluations.csv");
-        evaluations << "record,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm\n" << std::setprecision(17);
+        std::println(evaluations, "record,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm");
         for (std::size_t record = 0u; record < result.evaluations.size(); ++record) {
             const fluids::gas::solvers::adjoint_control::OptimizationEvaluation& evaluation = result.evaluations[record];
-            evaluations << record << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.gradient_norm << ',' << evaluation.projected_gradient_norm << '\n';
+            std::println(evaluations, "{},{},{},{},{:.17g},{:.17g},{:.17g},{:.17g},{:.17g},{:.17g}", record, evaluation.coordinates.optimizer_iteration, evaluation.coordinates.objective_evaluation, evaluation.coordinates.line_search_evaluation, evaluation.coordinates.line_search_step, evaluation.summary.objective, evaluation.summary.density_loss, evaluation.summary.control_effort, evaluation.gradient_norm, evaluation.projected_gradient_norm);
         }
 
         write_parameters(output_directory / "parameters.bin", result.parameters);
@@ -329,51 +331,55 @@ namespace physica::examples::adjoint_control {
         const double objective_reduction                                              = 1.0 - final_summary.objective / uncontrolled.summary.objective;
 
         std::ofstream summary(output_directory / "summary.json");
-        summary << std::setprecision(17) << "{\n"
-                << "  \"resolution\": " << configuration.resolution << ",\n"
-                << "  \"controlled_step_count\": " << configuration.step_count << ",\n"
-                << "  \"post_step_count\": " << configuration.post_step_count << ",\n"
-                << "  \"parameter_count\": " << result.parameters.size() << ",\n"
-                << "  \"uncontrolled_objective\": " << uncontrolled.summary.objective << ",\n"
-                << "  \"objective\": " << final_summary.objective << ",\n"
-                << "  \"objective_reduction\": " << objective_reduction << ",\n"
-                << "  \"density_loss\": " << final_summary.density_loss << ",\n"
-                << "  \"control_effort\": " << final_summary.control_effort << ",\n"
-                << "  \"gradient_norm\": " << result.gradient_norm << ",\n"
-                << "  \"projected_gradient_norm\": " << result.projected_gradient_norm << ",\n"
-                << "  \"relative_l2\": " << metrics.relative_l2 << ",\n"
-                << "  \"normalized_cross_correlation\": " << metrics.normalized_cross_correlation << ",\n"
-                << "  \"soft_dice\": " << metrics.soft_dice << ",\n"
-                << "  \"mass_relative_error\": " << metrics.mass_relative_error << ",\n"
-                << "  \"maximum_divergence\": " << metrics.maximum_divergence << ",\n"
-                << "  \"rms_divergence\": " << metrics.rms_divergence << ",\n"
-                << "  \"maximum_speed\": " << metrics.maximum_speed << ",\n"
-                << "  \"dimensionless_maximum_divergence\": " << metrics.dimensionless_maximum_divergence << ",\n"
-                << "  \"optimization_evaluations\": " << result.evaluations.size() << ",\n"
-                << "  \"optimization_seconds\": " << optimization_seconds << ",\n"
-                << "  \"stop_reason\": " << std::to_underlying(result.stop_reason) << "\n"
-                << "}\n";
+        std::print(summary,
+            "{{\n"
+            "  \"resolution\": {},\n"
+            "  \"controlled_step_count\": {},\n"
+            "  \"post_step_count\": {},\n"
+            "  \"parameter_count\": {},\n"
+            "  \"uncontrolled_objective\": {:.17g},\n"
+            "  \"objective\": {:.17g},\n"
+            "  \"objective_reduction\": {:.17g},\n"
+            "  \"density_loss\": {:.17g},\n"
+            "  \"control_effort\": {:.17g},\n"
+            "  \"gradient_norm\": {:.17g},\n"
+            "  \"projected_gradient_norm\": {:.17g},\n"
+            "  \"relative_l2\": {:.17g},\n"
+            "  \"normalized_cross_correlation\": {:.17g},\n"
+            "  \"soft_dice\": {:.17g},\n"
+            "  \"mass_relative_error\": {:.17g},\n"
+            "  \"maximum_divergence\": {:.17g},\n"
+            "  \"rms_divergence\": {:.17g},\n"
+            "  \"maximum_speed\": {:.17g},\n"
+            "  \"dimensionless_maximum_divergence\": {:.17g},\n"
+            "  \"optimization_evaluations\": {},\n"
+            "  \"optimization_seconds\": {:.17g},\n"
+            "  \"stop_reason\": {}\n"
+            "}}\n",
+            configuration.resolution, configuration.step_count, configuration.post_step_count, result.parameters.size(), uncontrolled.summary.objective, final_summary.objective, objective_reduction, final_summary.density_loss, final_summary.control_effort, result.gradient_norm, result.projected_gradient_norm, metrics.relative_l2, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.mass_relative_error, metrics.maximum_divergence, metrics.rms_divergence, metrics.maximum_speed, metrics.dimensionless_maximum_divergence, result.evaluations.size(), optimization_seconds, std::to_underlying(result.stop_reason));
 
         std::ofstream report(output_directory / "REPORT.md");
-        report << "# Adjoint Control Stanford Bunny Reproduction\n\n"
-               << "The experiment uses a " << configuration.resolution << "^3 MAC grid, " << configuration.step_count << " controlled steps, " << configuration.post_step_count << " uncontrolled continuation steps, and " << result.parameters.size() << " Gaussian wind parameters.\n\n"
-               << "| Metric | Result |\n|---|---:|\n"
-               << "| Uncontrolled objective | " << uncontrolled.summary.objective << " |\n"
-               << "| Final objective | " << final_summary.objective << " |\n"
-               << "| Objective reduction | " << 100.0 * objective_reduction << "% |\n"
-               << "| Relative L2 | " << metrics.relative_l2 << " |\n"
-               << "| Normalized cross-correlation | " << metrics.normalized_cross_correlation << " |\n"
-               << "| Soft Dice | " << metrics.soft_dice << " |\n"
-               << "| Mass relative error | " << metrics.mass_relative_error << " |\n"
-               << "| Maximum divergence | " << metrics.maximum_divergence << " |\n"
-               << "| RMS divergence | " << metrics.rms_divergence << " |\n"
-               << "| Maximum speed | " << metrics.maximum_speed << " |\n"
-               << "| Dimensionless maximum divergence | " << metrics.dimensionless_maximum_divergence << " |\n"
-               << "| Optimization evaluations | " << result.evaluations.size() << " |\n"
-               << "| Optimization time | " << optimization_seconds << " s |\n\n"
-               << "## Images\n\n![Sequence](sequence.png)\n\n"
-               << "| Initial | Target | Controlled result | Absolute residual |\n|---|---|---|---|\n"
-               << "| ![](initial.png) | ![](target.png) | ![](final.png) | ![](residual.png) |\n";
+        std::print(report,
+            "# Adjoint Control Stanford Bunny Reproduction\n\n"
+            "The experiment uses a {}^3 MAC grid, {} controlled steps, {} uncontrolled continuation steps, and {} Gaussian wind parameters.\n\n"
+            "| Metric | Result |\n|---|---:|\n"
+            "| Uncontrolled objective | {:.17g} |\n"
+            "| Final objective | {:.17g} |\n"
+            "| Objective reduction | {:.17g}% |\n"
+            "| Relative L2 | {:.17g} |\n"
+            "| Normalized cross-correlation | {:.17g} |\n"
+            "| Soft Dice | {:.17g} |\n"
+            "| Mass relative error | {:.17g} |\n"
+            "| Maximum divergence | {:.17g} |\n"
+            "| RMS divergence | {:.17g} |\n"
+            "| Maximum speed | {:.17g} |\n"
+            "| Dimensionless maximum divergence | {:.17g} |\n"
+            "| Optimization evaluations | {} |\n"
+            "| Optimization time | {:.17g} s |\n\n"
+            "## Images\n\n![Sequence](sequence.png)\n\n"
+            "| Initial | Target | Controlled result | Absolute residual |\n|---|---|---|---|\n"
+            "| ![](initial.png) | ![](target.png) | ![](final.png) | ![](residual.png) |\n",
+            configuration.resolution, configuration.step_count, configuration.post_step_count, result.parameters.size(), uncontrolled.summary.objective, final_summary.objective, 100.0 * objective_reduction, metrics.relative_l2, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.mass_relative_error, metrics.maximum_divergence, metrics.rms_divergence, metrics.maximum_speed, metrics.dimensionless_maximum_divergence, result.evaluations.size(), optimization_seconds);
         std::println("Bunny final: objective={:.8e}, reduction={:.2f}%, NCC={:.5f}, Dice={:.5f}, L2={:.5f}", final_summary.objective, 100.0 * objective_reduction, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.relative_l2);
     }
 
@@ -599,7 +605,7 @@ namespace physica::examples::adjoint_control {
         std::filesystem::create_directories(directory);
         const std::array lattices{3u, 7u, 12u};
         std::ofstream output(directory / "scaling.csv");
-        output << "lattice,parameter_count,gradient_seconds,forward_simulations,reverse_simulations\n" << std::setprecision(17);
+        std::println(output, "lattice,parameter_count,gradient_seconds,forward_simulations,reverse_simulations");
         for (const std::uint32_t lattice : lattices) {
             ExperimentConfiguration configuration;
             configuration.resolution           = 18u;
@@ -610,7 +616,7 @@ namespace physica::examples::adjoint_control {
             Experiment experiment{configuration, asset};
             experiment.measure_gradient();
             const auto [parameters, seconds] = experiment.measure_gradient();
-            output << lattice << ',' << parameters << ',' << seconds << ",20,20\n";
+            std::println(output, "{},{},{:.17g},20,20", lattice, parameters, seconds);
             std::println("Lattice {}^3: {} parameters, gradient {:.6f} s", lattice, parameters, seconds);
         }
     }

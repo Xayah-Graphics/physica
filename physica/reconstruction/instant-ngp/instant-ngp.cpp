@@ -141,7 +141,7 @@ namespace physica::reconstruction::instant_ngp {
 
     template <NetworkShape NetworkSpec, SamplingShape SamplingSpec, RenderingShape RenderingSpec>
     InstantNGPDeviceState InstantNGP<NetworkSpec, SamplingSpec, RenderingSpec>::device_state() const noexcept {
-        return {.stream = stream.get(), .network = network.device_state(), .sampling = sampling.device_state()};
+        return {.stream = stream, .network = network.device_state(), .sampling = sampling.device_state()};
     }
 
     template struct InstantNGP<nerf_synthetic_network_shape, nerf_synthetic_sampling_shape, nerf_synthetic_rendering_shape>;

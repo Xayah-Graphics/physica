@@ -15,6 +15,74 @@
 
 namespace physica {
     template <class Scalar>
+    struct Vector2 final {
+        Scalar x{};
+        Scalar y{};
+
+        [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Scalar& operator[](const std::size_t index) noexcept {
+            if (index == 0U) return x;
+            return y;
+        }
+
+        [[nodiscard]] PHYSICA_HOST_DEVICE constexpr const Scalar& operator[](const std::size_t index) const noexcept {
+            if (index == 0U) return x;
+            return y;
+        }
+
+        constexpr bool operator==(const Vector2&) const noexcept = default;
+    };
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<Scalar> operator+(const Vector2<Scalar> first, const Vector2<Scalar> second) noexcept {
+        return {first.x + second.x, first.y + second.y};
+    }
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<Scalar> operator-(const Vector2<Scalar> first, const Vector2<Scalar> second) noexcept {
+        return {first.x - second.x, first.y - second.y};
+    }
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<Scalar> operator-(const Vector2<Scalar> value) noexcept {
+        return {-value.x, -value.y};
+    }
+
+    template <class Scalar, class Factor>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<decltype(Scalar{} * Factor{})> operator*(const Vector2<Scalar> value, const Factor factor) noexcept {
+        return {value.x * factor, value.y * factor};
+    }
+
+    template <class Scalar, class Factor>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<decltype(Scalar{} * Factor{})> operator*(const Factor factor, const Vector2<Scalar> value) noexcept {
+        return value * factor;
+    }
+
+    template <class Scalar, class Divisor>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Vector2<decltype(Scalar{} / Divisor{})> operator/(const Vector2<Scalar> value, const Divisor divisor) noexcept {
+        return {value.x / divisor, value.y / divisor};
+    }
+
+    template <class First, class Second>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr auto dot(const Vector2<First> first, const Vector2<Second> second) noexcept {
+        return first.x * second.x + first.y * second.y;
+    }
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE constexpr Scalar squared_length(const Vector2<Scalar> value) noexcept {
+        return dot(value, value);
+    }
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE inline Scalar length(const Vector2<Scalar> value) {
+        return static_cast<Scalar>(::cuda::std::sqrt(static_cast<double>(squared_length(value))));
+    }
+
+    template <class Scalar>
+    [[nodiscard]] PHYSICA_HOST_DEVICE inline Vector2<Scalar> normalized(const Vector2<Scalar> value) {
+        return value / length(value);
+    }
+
+    template <class Scalar>
     struct Vector3 final {
         Scalar x{};
         Scalar y{};
@@ -155,8 +223,10 @@ namespace physica {
         return exit >= minimum_distance;
     }
 
+    static_assert(sizeof(Vector2<float>) == 2U * sizeof(float));
     static_assert(sizeof(Vector3<float>) == 3U * sizeof(float));
     static_assert(sizeof(Matrix4<float>) == 16U * sizeof(float));
+    static_assert(std::is_trivially_copyable_v<Vector2<float>>);
     static_assert(std::is_trivially_copyable_v<Vector3<float>>);
     static_assert(std::is_trivially_copyable_v<Matrix4<float>>);
 } // namespace physica

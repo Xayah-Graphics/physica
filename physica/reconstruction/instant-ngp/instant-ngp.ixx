@@ -42,7 +42,7 @@ export namespace physica::reconstruction::instant_ngp {
     };
 
     struct InstantNGPDeviceState final {
-        void* stream = nullptr;
+        ::cuda::stream_ref stream;
         NetworkDeviceState network;
         SamplingDeviceState sampling;
     };

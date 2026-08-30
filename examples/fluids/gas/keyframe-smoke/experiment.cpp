@@ -109,12 +109,12 @@ namespace physica::examples::keyframe_smoke {
 
         const double initial_mass = std::ranges::fold_left(combined, 0.0, std::plus{});
         std::ofstream masses(output_directory / "mass.csv");
-        masses << "step,physical_time,mass,expected_mass\n" << std::setprecision(17);
+        std::println(masses, "step,physical_time,mass,expected_mass");
         for (std::uint32_t step = 0u; step <= dissipation_steps; ++step) {
             ::cuda::copy_bytes(stream, current.density.values, ::cuda::std::span{combined.data(), combined.size()});
             stream.sync();
             const double physical_time = step * Experiment::time_step;
-            masses << step << ',' << physical_time << ',' << std::ranges::fold_left(combined, 0.0, std::plus{}) << ',' << initial_mass * std::exp(-dissipation_rate * physical_time) << '\n';
+            std::println(masses, "{},{:.17g},{:.17g},{:.17g}", step, physical_time, std::ranges::fold_left(combined, 0.0, std::plus{}), initial_mass * std::exp(-dissipation_rate * physical_time));
             write_density_image(output_directory / "frames" / std::format("dissipation-{:03}.png", step), combined, width, height, 6u, initial_maximum);
             std::ofstream raw(output_directory / "frames" / std::format("dissipation-{:03}.bin", step), std::ios::binary);
             raw.write(reinterpret_cast<const char*>(combined.data()), static_cast<std::streamsize>(combined.size() * sizeof(float)));
@@ -124,12 +124,14 @@ namespace physica::examples::keyframe_smoke {
         }
         std::filesystem::copy_file(output_directory / "frames" / std::format("dissipation-{:03}.png", dissipation_steps), output_directory / "dissipated.png", std::filesystem::copy_options::overwrite_existing);
         std::ofstream metadata(output_directory / "metadata.json");
-        metadata << "{\n"
-                 << "  \"resolution\": [" << width << ", " << height << ", 1],\n"
-                 << "  \"physical_step_count\": " << dissipation_steps << ",\n"
-                 << "  \"time_step\": " << std::setprecision(9) << Experiment::time_step << ",\n"
-                 << "  \"density_dissipation_rate\": " << dissipation_rate << "\n"
-                 << "}\n";
+        std::print(metadata,
+            "{{\n"
+            "  \"resolution\": [{}, {}, 1],\n"
+            "  \"physical_step_count\": {},\n"
+            "  \"time_step\": {:.9g},\n"
+            "  \"density_dissipation_rate\": {:.9g}\n"
+            "}}\n",
+            width, height, dissipation_steps, Experiment::time_step, dissipation_rate);
         std::println("Composed SMOKE and simulated {} uncontrolled dissipation steps", dissipation_steps);
     }
 
@@ -162,20 +164,21 @@ namespace physica::examples::keyframe_smoke {
         write_density(output_directory / "target.png", target_density);
 
         std::ofstream metadata(output_directory / "metadata.json");
-        metadata << "{\n"
-                 << "  \"letter\": \"" << letter << "\",\n"
-                 << "  \"spatial_dimensions\": 2,\n"
-                 << "  \"resolution\": [" << resolution << ", " << resolution << ", 1],\n"
-                 << "  \"physical_step_count\": " << step_count << ",\n"
-                 << "  \"time_step\": " << std::setprecision(9) << time_step << ",\n"
-                 << "  \"control_window_steps\": " << control_window_steps << ",\n"
-                 << "  \"parameter_count\": " << control.parameter_values.size() << "\n"
-                 << "}\n";
+        std::print(metadata,
+            "{{\n"
+            "  \"letter\": \"{}\",\n"
+            "  \"spatial_dimensions\": 2,\n"
+            "  \"resolution\": [{}, {}, 1],\n"
+            "  \"physical_step_count\": {},\n"
+            "  \"time_step\": {:.9g},\n"
+            "  \"control_window_steps\": {},\n"
+            "  \"parameter_count\": {}\n"
+            "}}\n",
+            letter, resolution, resolution, step_count, time_step, control_window_steps, control.parameter_values.size());
         metadata.close();
 
         std::ofstream evaluations(output_directory / "evaluations.csv");
-        evaluations << "record,continuation_level,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm,parameter_file\n";
-        evaluations << std::setprecision(17);
+        std::println(evaluations, "record,continuation_level,optimizer_iteration,objective_evaluation,line_search_evaluation,line_search_step,objective,density_loss,control_effort,gradient_norm,projected_gradient_norm,parameter_file");
 
         std::vector<double> parameters              = control.parameter_values;
         std::vector<std::uint8_t> active_parameters = control.active_parameters(0u, step_count);
@@ -207,7 +210,7 @@ namespace physica::examples::keyframe_smoke {
             for (const fluids::gas::solvers::keyframe_smoke::OptimizationEvaluation& evaluation : result.evaluations) {
                 const std::filesystem::path parameter_path = std::filesystem::path{"parameters"} / std::format("evaluation-{:06}.bin", record_index);
                 write_parameters(output_directory / parameter_path, evaluation.parameters);
-                evaluations << record_index << ',' << evaluation.coordinates.continuation_level << ',' << evaluation.coordinates.optimizer_iteration << ',' << evaluation.coordinates.objective_evaluation << ',' << evaluation.coordinates.line_search_evaluation << ',' << evaluation.coordinates.line_search_step << ',' << evaluation.summary.objective << ',' << evaluation.summary.density_loss << ',' << evaluation.summary.control_effort << ',' << evaluation.gradient_norm << ',' << evaluation.projected_gradient_norm << ',' << parameter_path.generic_string() << '\n';
+                std::println(evaluations, "{},{},{},{},{},{:.17g},{:.17g},{:.17g},{:.17g},{:.17g},{:.17g},{}", record_index, evaluation.coordinates.continuation_level, evaluation.coordinates.optimizer_iteration, evaluation.coordinates.objective_evaluation, evaluation.coordinates.line_search_evaluation, evaluation.coordinates.line_search_step, evaluation.summary.objective, evaluation.summary.density_loss, evaluation.summary.control_effort, evaluation.gradient_norm, evaluation.projected_gradient_norm, parameter_path.generic_string());
                 ++record_index;
             }
             evaluations.flush();
@@ -242,19 +245,21 @@ namespace physica::examples::keyframe_smoke {
         write_density(output_directory / "residual.png", residual);
         const ShapeMetrics metrics = shape_metrics(final_density, target_density);
         std::ofstream summary(output_directory / "summary.json");
-        summary << std::setprecision(17) << "{\n"
-                << "  \"letter\": \"" << letter << "\",\n"
-                << "  \"objective\": " << final_summary.objective << ",\n"
-                << "  \"density_loss\": " << final_summary.density_loss << ",\n"
-                << "  \"control_effort\": " << final_summary.control_effort << ",\n"
-                << "  \"gradient_norm\": " << final_gradient_norm << ",\n"
-                << "  \"projected_gradient_norm\": " << final_projected_gradient_norm << ",\n"
-                << "  \"relative_l2\": " << metrics.relative_l2 << ",\n"
-                << "  \"normalized_cross_correlation\": " << metrics.normalized_cross_correlation << ",\n"
-                << "  \"soft_dice\": " << metrics.soft_dice << ",\n"
-                << "  \"mass_relative_error\": " << metrics.mass_relative_error << ",\n"
-                << "  \"optimization_evaluation_count\": " << record_index << "\n"
-                << "}\n";
+        std::print(summary,
+            "{{\n"
+            "  \"letter\": \"{}\",\n"
+            "  \"objective\": {:.17g},\n"
+            "  \"density_loss\": {:.17g},\n"
+            "  \"control_effort\": {:.17g},\n"
+            "  \"gradient_norm\": {:.17g},\n"
+            "  \"projected_gradient_norm\": {:.17g},\n"
+            "  \"relative_l2\": {:.17g},\n"
+            "  \"normalized_cross_correlation\": {:.17g},\n"
+            "  \"soft_dice\": {:.17g},\n"
+            "  \"mass_relative_error\": {:.17g},\n"
+            "  \"optimization_evaluation_count\": {}\n"
+            "}}\n",
+            letter, final_summary.objective, final_summary.density_loss, final_summary.control_effort, final_gradient_norm, final_projected_gradient_norm, metrics.relative_l2, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.mass_relative_error, record_index);
         summary.close();
         std::println("{} final: relative L2={:.6f}, NCC={:.6f}, soft Dice={:.6f}, mass error={:.3e}", letter, metrics.relative_l2, metrics.normalized_cross_correlation, metrics.soft_dice, metrics.mass_relative_error);
     }

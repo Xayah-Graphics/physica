@@ -1,6 +1,7 @@
 #include "dynamics-kernels.h"
 #include <cstdint>
 #include <cuda/cmath>
+#include <cuda/launch>
 #include <cuda/std/cmath>
 #include <cuda_runtime.h>
 
@@ -50,15 +51,15 @@ namespace physica::fluids::liquid::solvers::sph::kernels::pcisph {
     } // namespace
 
     void launch_pressure_update_forward(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const device::ParticleParameterView particles, const float* previous_pressures, const float* predicted_densities, const float* pressure_relaxation, float* pressures) {
-        pressure_update_forward_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, reference_gradient_norm, particles, previous_pressures, predicted_densities, pressure_relaxation, pressures);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(particle_count, block_size)), ::cuda::block_dims(block_size))), pressure_update_forward_kernel, particle_count, time_step, reference_gradient_norm, particles, previous_pressures, predicted_densities, pressure_relaxation, pressures);
     }
 
     void launch_pressure_update_jvp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const device::ParticleParameterView particles, const device::ParticleParameterTangentView particle_tangent, const float* previous_pressures, const float* predicted_densities, const float* pressure_relaxation, const float* previous_pressure_tangent, const float* predicted_density_tangent, const float* pressure_relaxation_tangent, float* pressure_tangent) {
-        pressure_update_jvp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, reference_gradient_norm, particles, particle_tangent, previous_pressures, predicted_densities, pressure_relaxation, previous_pressure_tangent, predicted_density_tangent, pressure_relaxation_tangent, pressure_tangent);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(particle_count, block_size)), ::cuda::block_dims(block_size))), pressure_update_jvp_kernel, particle_count, time_step, reference_gradient_norm, particles, particle_tangent, previous_pressures, predicted_densities, pressure_relaxation, previous_pressure_tangent, predicted_density_tangent, pressure_relaxation_tangent, pressure_tangent);
     }
 
     void launch_pressure_update_vjp(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const float time_step, const float reference_gradient_norm, const device::ParticleParameterView particles, const float* previous_pressures, const float* predicted_densities, const float* pressure_relaxation, const double* pressure_adjoint, const device::ParticleParameterAdjointView particle_adjoint, double* previous_pressure_adjoint, double* predicted_density_adjoint, double* pressure_relaxation_adjoint) {
-        pressure_update_vjp_kernel<<<::cuda::ceil_div(particle_count, block_size), block_size, 0, stream.get()>>>(particle_count, time_step, reference_gradient_norm, particles, previous_pressures, predicted_densities, pressure_relaxation, pressure_adjoint, particle_adjoint, previous_pressure_adjoint, predicted_density_adjoint, pressure_relaxation_adjoint);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(particle_count, block_size)), ::cuda::block_dims(block_size))), pressure_update_vjp_kernel, particle_count, time_step, reference_gradient_norm, particles, previous_pressures, predicted_densities, pressure_relaxation, pressure_adjoint, particle_adjoint, previous_pressure_adjoint, predicted_density_adjoint, pressure_relaxation_adjoint);
     }
 
 } // namespace physica::fluids::liquid::solvers::sph::kernels::pcisph

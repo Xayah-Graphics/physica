@@ -14,11 +14,6 @@ export namespace physica::examples::smoke {
     struct Settings final {};
 
     struct Provider final {
-    private:
-        struct SimulationDeleter final {
-            void operator()(Simulation* simulation) const noexcept;
-        };
-
     public:
         [[no_unique_address]] Settings settings;
 
@@ -36,14 +31,20 @@ export namespace physica::examples::smoke {
         void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
-        std::unique_ptr<Simulation, SimulationDeleter> simulation;
+        static void destroy_simulation(void* simulation) noexcept;
+        [[nodiscard]] Simulation& simulation_state() noexcept;
+        std::unique_ptr<void, decltype(&destroy_simulation)> simulation{nullptr, destroy_simulation};
     };
 
-    void Provider::SimulationDeleter::operator()(Simulation* const source) const noexcept {
-        delete source;
+    void Provider::destroy_simulation(void* const source) noexcept {
+        delete static_cast<Simulation*>(source);
     }
 
-    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{new Simulation{}} {}
+    Simulation& Provider::simulation_state() noexcept {
+        return *static_cast<Simulation*>(simulation.get());
+    }
+
+    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{std::make_unique<Simulation>().release(), destroy_simulation} {}
 
     Provider::~Provider() noexcept {}
 
@@ -52,26 +53,29 @@ export namespace physica::examples::smoke {
     }
 
     void Provider::reset(const std::uint64_t) {
-        simulation->reset();
+        Simulation& state = simulation_state();
+        state.reset();
     }
 
     void Provider::step(const double) {
-        simulation->step();
+        Simulation& state = simulation_state();
+        state.step();
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
-        spectra::sdk::cuda::Frame frame         = output.begin(simulation->stream.get());
+        Simulation& state                       = simulation_state();
+        spectra::sdk::cuda::Frame frame         = output.begin(state.stream.get());
         const spectra::sdk::cuda::Volume volume = frame.volume<"smoke">();
         const std::span<float> density          = volume.field<"density", float>();
         const std::span<float> temperature      = volume.field<"temperature", float>();
-        ::cuda::copy_bytes(simulation->stream, simulation->current_state.density.values, ::cuda::std::span{density.data(), density.size()});
-        ::cuda::copy_bytes(simulation->stream, simulation->current_state.temperature.values, ::cuda::std::span{temperature.data(), temperature.size()});
+        ::cuda::copy_bytes(state.stream, state.current_state.density.values, ::cuda::std::span{density.data(), density.size()});
+        ::cuda::copy_bytes(state.stream, state.current_state.temperature.values, ::cuda::std::span{temperature.data(), temperature.size()});
         const spectra::sdk::cuda::MacField velocity = volume.field<"velocity">();
-        ::cuda::copy_bytes(simulation->stream, simulation->current_state.velocity.x, ::cuda::std::span{velocity.x.data(), velocity.x.size()});
-        ::cuda::copy_bytes(simulation->stream, simulation->current_state.velocity.y, ::cuda::std::span{velocity.y.data(), velocity.y.size()});
-        ::cuda::copy_bytes(simulation->stream, simulation->current_state.velocity.z, ::cuda::std::span{velocity.z.data(), velocity.z.size()});
-        frame.metric<"step">().upload(simulation->step_index);
-        frame.metric<"time">().upload(simulation->physical_time);
+        ::cuda::copy_bytes(state.stream, state.current_state.velocity.x, ::cuda::std::span{velocity.x.data(), velocity.x.size()});
+        ::cuda::copy_bytes(state.stream, state.current_state.velocity.y, ::cuda::std::span{velocity.y.data(), velocity.y.size()});
+        ::cuda::copy_bytes(state.stream, state.current_state.velocity.z, ::cuda::std::span{velocity.z.data(), velocity.z.size()});
+        frame.metric<"step">().upload(state.step_index);
+        frame.metric<"time">().upload(state.physical_time);
         frame.commit();
     }
 } // namespace physica::examples::smoke

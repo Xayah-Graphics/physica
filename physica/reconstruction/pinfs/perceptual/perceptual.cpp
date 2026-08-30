@@ -19,9 +19,7 @@ namespace physica::reconstruction::pinfs {
     } // namespace
 
     PerceptualLoss::PerceptualLoss(const ::cuda::stream_ref source_stream, const std::uint32_t source_image_width, const std::filesystem::path& weights_path) : stream{source_stream}, image_width{source_image_width}, normalized_input{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(image_width) * image_width * 9uz, ::cuda::no_init}, column_workspace{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(image_width) * image_width * 3uz * 64uz * 9uz, ::cuda::no_init}, adjoints_a{stream, ::cuda::device_default_memory_pool(stream.device()), static_cast<std::size_t>(image_width) * image_width * 192uz, ::cuda::no_init}, adjoints_b{stream, ::cuda::device_default_memory_pool(stream.device()), adjoints_a.size(), ::cuda::no_init}, loss{stream, ::cuda::device_default_memory_pool(stream.device()), 1uz, ::cuda::no_init} {
-        cublasContext* handle{};
-        if (const cublasStatus_t status = cublasCreate(&handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("cublasCreate failed: {}", cublasGetStatusString(status))};
-        cublas.reset(handle);
+        if (const cublasStatus_t status = cublasCreate(std::out_ptr(cublas)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("cublasCreate failed: {}", cublasGetStatusString(status))};
         if (const cublasStatus_t status = cublasSetStream(cublas.get(), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("cublasSetStream failed: {}", cublasGetStatusString(status))};
 
         constexpr std::array<std::uint32_t, 13> input_channels{3u, 64u, 64u, 128u, 128u, 256u, 256u, 256u, 256u, 512u, 512u, 512u, 512u};

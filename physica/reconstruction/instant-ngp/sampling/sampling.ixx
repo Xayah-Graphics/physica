@@ -67,7 +67,7 @@ export namespace physica::reconstruction::instant_ngp {
     };
 
     struct SamplingDeviceState final {
-        std::span<const std::uint8_t> occupancy;
+        ::cuda::std::span<const std::uint8_t> occupancy;
     };
 
     template <SamplingShape Shape, NetworkShape NetworkSpec>

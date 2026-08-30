@@ -18,18 +18,18 @@ export namespace physica::neural {
     };
 
     struct MatmulRequest final {
-        const void* a;
-        const void* b;
-        void* output;
+        const float* a;
+        const float* b;
+        float* output;
         std::uint32_t rows;
         std::uint32_t columns;
         std::uint32_t reduction;
         bool transpose_a{};
         bool transpose_b{};
         MatmulEpilogue epilogue{MatmulEpilogue::none};
-        const void* bias{};
+        const float* bias{};
         float beta{};
-        const void* auxiliary{};
+        const float* auxiliary{};
     };
 
     struct MatmulRuntimeConfiguration final {
@@ -61,7 +61,7 @@ export namespace physica::neural {
             std::vector<cublasLtMatmulAlgo_t> candidates;
             bool tuned{};
 
-            Plan(cublasLtHandle_t handle, const PlanKey& key, const void* bias, const void* auxiliary, std::size_t workspace_byte_count);
+            Plan(cublasLtHandle_t handle, const PlanKey& key, const float* bias, const float* auxiliary, std::size_t workspace_byte_count, int multiprocessor_count);
             ~Plan() noexcept;
 
             Plan(const Plan&)            = delete;

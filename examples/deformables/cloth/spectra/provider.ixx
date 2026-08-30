@@ -15,11 +15,6 @@ export namespace physica::examples::cloth {
     struct Settings final {};
 
     struct Provider final {
-    private:
-        struct SimulationDeleter final {
-            void operator()(Simulation* simulation) const noexcept;
-        };
-
     public:
         [[no_unique_address]] Settings settings;
 
@@ -37,14 +32,20 @@ export namespace physica::examples::cloth {
         void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
-        std::unique_ptr<Simulation, SimulationDeleter> simulation;
+        static void destroy_simulation(void* simulation) noexcept;
+        [[nodiscard]] Simulation& simulation_state() noexcept;
+        std::unique_ptr<void, decltype(&destroy_simulation)> simulation{nullptr, destroy_simulation};
     };
 
-    void Provider::SimulationDeleter::operator()(Simulation* const source) const noexcept {
-        delete source;
+    void Provider::destroy_simulation(void* const source) noexcept {
+        delete static_cast<Simulation*>(source);
     }
 
-    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{new Simulation{}} {}
+    Simulation& Provider::simulation_state() noexcept {
+        return *static_cast<Simulation*>(simulation.get());
+    }
+
+    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{std::make_unique<Simulation>().release(), destroy_simulation} {}
 
     Provider::~Provider() noexcept {}
 
@@ -53,19 +54,20 @@ export namespace physica::examples::cloth {
     }
 
     void Provider::reset(const std::uint64_t) {
-        simulation->reset();
+        simulation_state().reset();
     }
 
     void Provider::step(const double) {
-        simulation->step();
+        simulation_state().step();
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
-        spectra::sdk::cuda::Frame frame        = output.begin(simulation->stream.get());
+        Simulation& state                      = simulation_state();
+        spectra::sdk::cuda::Frame frame        = output.begin(state.stream.get());
         const spectra::sdk::cuda::Mesh surface = frame.mesh<"surface">();
-        spectra_cuda::write_surface(simulation->stream, Simulation::rows, Simulation::columns, simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), surface.positions.data(), surface.normals.data());
-        frame.metric<"step">().upload(simulation->step_index);
-        frame.metric<"time">().upload(simulation->physical_time);
+        spectra_cuda::write_surface(state.stream, Simulation::rows, Simulation::columns, state.current_state.positions.x.data(), state.current_state.positions.y.data(), state.current_state.positions.z.data(), surface.positions.data(), surface.normals.data());
+        frame.metric<"step">().upload(state.step_index);
+        frame.metric<"time">().upload(state.physical_time);
         frame.commit();
     }
 } // namespace physica::examples::cloth

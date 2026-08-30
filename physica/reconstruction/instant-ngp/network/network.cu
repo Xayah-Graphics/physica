@@ -10,6 +10,7 @@
 #include <cuda/std/utility>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
+#include <format>
 #include <limits>
 #include <mma.h>
 #include <stdexcept>
@@ -580,24 +581,24 @@ namespace physica::reconstruction::instant_ngp::kernels {
             CublasLtPreference preference;
             int returned_algorithm_count = 0;
 
-            if (const cublasStatus_t status = cublasLtMatmulDescCreate(&operation_descriptor, CUBLAS_COMPUTE_16F, CUDA_R_16F); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " operation descriptor failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&a_descriptor, CUDA_R_16F, a_layout.rows, a_layout.columns, a_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A layout failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&b_descriptor, CUDA_R_16F, b_layout.rows, b_layout.columns, b_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B layout failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&output_descriptor, CUDA_R_16F, output_layout.rows, output_layout.columns, output_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output layout failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(a_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &a_layout.order, sizeof(a_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " A order failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(b_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &b_layout.order, sizeof(b_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " B order failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(output_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &output_layout.order, sizeof(output_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " output order failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatmulPreferenceCreate(&preference.handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " preference failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatmulPreferenceSetAttribute(preference.handle, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &max_workspace_bytes, sizeof(max_workspace_bytes)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " workspace preference failed: " + cublasGetStatusString(status)};
-            if (const cublasStatus_t status = cublasLtMatmulAlgoGetHeuristic(handle, operation_descriptor, a_descriptor, b_descriptor, output_descriptor, output_descriptor, preference.handle, 1, &heuristic, &returned_algorithm_count); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " algorithm selection failed: " + cublasGetStatusString(status)};
-            if (returned_algorithm_count == 0 || heuristic.state != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " has no supported algorithm."};
+            if (const cublasStatus_t status = cublasLtMatmulDescCreate(&operation_descriptor, CUBLAS_COMPUTE_16F, CUDA_R_16F); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} operation descriptor failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&a_descriptor, CUDA_R_16F, a_layout.rows, a_layout.columns, a_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} A layout failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&b_descriptor, CUDA_R_16F, b_layout.rows, b_layout.columns, b_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} B layout failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutCreate(&output_descriptor, CUDA_R_16F, output_layout.rows, output_layout.columns, output_layout.leading_dimension); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} output layout failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(a_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &a_layout.order, sizeof(a_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} A order failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(b_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &b_layout.order, sizeof(b_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} B order failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatrixLayoutSetAttribute(output_descriptor, CUBLASLT_MATRIX_LAYOUT_ORDER, &output_layout.order, sizeof(output_layout.order)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} output order failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatmulPreferenceCreate(&preference.handle); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} preference failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatmulPreferenceSetAttribute(preference.handle, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &max_workspace_bytes, sizeof(max_workspace_bytes)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} workspace preference failed: {}", name, cublasGetStatusString(status))};
+            if (const cublasStatus_t status = cublasLtMatmulAlgoGetHeuristic(handle, operation_descriptor, a_descriptor, b_descriptor, output_descriptor, output_descriptor, preference.handle, 1, &heuristic, &returned_algorithm_count); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} algorithm selection failed: {}", name, cublasGetStatusString(status))};
+            if (returned_algorithm_count == 0 || heuristic.state != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} has no supported algorithm.", name)};
             algorithm = heuristic.algo;
         }
 
         void cublaslt_matmul(const ::cuda::stream_ref stream, const cublasLtHandle_t handle, const std::string_view name, const cublasLtMatmulDesc_t operation_descriptor, const cublasLtMatrixLayout_t a_descriptor, const cublasLtMatrixLayout_t b_descriptor, const cublasLtMatrixLayout_t output_descriptor, const cublasLtMatmulAlgo_t& algorithm, const __half* const a, const __half* const b, __half* const output, std::uint8_t* const workspace) {
             const auto alpha = static_cast<__half>(1.0f);
             const auto beta  = static_cast<__half>(0.0f);
-            if (const cublasStatus_t status = cublasLtMatmul(handle, operation_descriptor, &alpha, a, a_descriptor, b, b_descriptor, &beta, output, output_descriptor, output, output_descriptor, &algorithm, workspace, (static_cast<std::size_t>(64u) * 1024u * 1024u), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::string{name} + " failed: " + cublasGetStatusString(status)};
+            if (const cublasStatus_t status = cublasLtMatmul(handle, operation_descriptor, &alpha, a, a_descriptor, b, b_descriptor, &beta, output, output_descriptor, output, output_descriptor, &algorithm, workspace, (static_cast<std::size_t>(64u) * 1024u * 1024u), stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error{std::format("{} failed: {}", name, cublasGetStatusString(status))};
         }
 
     } // namespace

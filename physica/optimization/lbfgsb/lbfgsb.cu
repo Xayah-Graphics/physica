@@ -1,5 +1,6 @@
 #include "lbfgsb-kernels.h"
 #include <cub/device/device_radix_sort.cuh>
+#include <cuda/algorithm>
 #include <cuda/launch>
 #include <cuda/std/algorithm>
 #include <cuda/std/cmath>
@@ -350,10 +351,10 @@ namespace physica::optimization::kernels {
     }
 
     GradientMetrics gradient_metrics(const ::cuda::stream_ref stream, const std::uint32_t parameter_count, const double* parameters, const double* gradient, const Storage storage) {
-        gradient_metrics_kernel<<<1u, block_size, 0u, stream.get()>>>(parameter_count, parameters, gradient, storage);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(block_size))), gradient_metrics_kernel, parameter_count, parameters, gradient, storage);
         GradientMetrics result;
-        cudaMemcpyAsync(&result, storage.status, sizeof(result), cudaMemcpyDeviceToHost, stream.get());
-        cudaStreamSynchronize(stream.get());
+        ::cuda::copy_bytes(stream, ::cuda::std::span<const GradientMetrics>{static_cast<const GradientMetrics*>(storage.status), 1u}, ::cuda::std::span<GradientMetrics>{&result, 1u});
+        stream.sync();
         return result;
     }
 
@@ -361,10 +362,10 @@ namespace physica::optimization::kernels {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(parameter_count), breakpoint_kernel, parameter_count, storage);
         std::size_t sort_scratch_bytes = storage.sort_scratch_bytes;
         cub::DeviceRadixSort::SortPairs(storage.sort_scratch, sort_scratch_bytes, storage.breakpoints, storage.sorted_breakpoints, storage.breakpoint_indices, storage.sorted_breakpoint_indices, parameter_count, 0, static_cast<int>(8u * sizeof(double)), stream.get());
-        search_direction_kernel<<<1u, block_size, static_cast<std::size_t>(4u) * memory * sizeof(double), stream.get()>>>(parameter_count, memory, correction_count, correction_head, storage);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(block_size)), ::cuda::dynamic_shared_memory<std::uint8_t[]>(static_cast<std::size_t>(4u) * memory * sizeof(double))), search_direction_kernel, parameter_count, memory, correction_count, correction_head, storage);
         SearchResult result;
-        cudaMemcpyAsync(&result, storage.status, sizeof(result), cudaMemcpyDeviceToHost, stream.get());
-        cudaStreamSynchronize(stream.get());
+        ::cuda::copy_bytes(stream, ::cuda::std::span<const SearchResult>{static_cast<const SearchResult*>(storage.status), 1u}, ::cuda::std::span<SearchResult>{&result, 1u});
+        stream.sync();
         return result;
     }
 
@@ -373,10 +374,10 @@ namespace physica::optimization::kernels {
     }
 
     AcceptanceResult accept_trial(const ::cuda::stream_ref stream, const std::uint32_t parameter_count, const std::uint32_t correction_slot, const double* next_gradient, const Storage storage) {
-        accept_trial_kernel<<<1u, block_size, 0u, stream.get()>>>(parameter_count, correction_slot, next_gradient, storage);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(block_size))), accept_trial_kernel, parameter_count, correction_slot, next_gradient, storage);
         AcceptanceResult result;
-        cudaMemcpyAsync(&result, storage.status, sizeof(result), cudaMemcpyDeviceToHost, stream.get());
-        cudaStreamSynchronize(stream.get());
+        ::cuda::copy_bytes(stream, ::cuda::std::span<const AcceptanceResult>{static_cast<const AcceptanceResult*>(storage.status), 1u}, ::cuda::std::span<AcceptanceResult>{&result, 1u});
+        stream.sync();
         return result;
     }
 } // namespace physica::optimization::kernels

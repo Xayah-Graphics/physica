@@ -122,13 +122,13 @@ export namespace physica::reconstruction::instant_ngp {
     };
 
     struct NetworkDeviceState final {
-        std::span<const std::uint16_t> hash_grid;
-        std::span<const std::uint16_t> density_input;
-        std::span<const std::uint16_t> density_hidden;
-        std::span<const std::uint16_t> density_output;
-        std::span<const std::uint16_t> color_input;
-        std::span<const std::uint16_t> color_hidden;
-        std::span<const std::uint16_t> color_output;
+        ::cuda::std::span<const std::uint16_t> hash_grid;
+        ::cuda::std::span<const std::uint16_t> density_input;
+        ::cuda::std::span<const std::uint16_t> density_hidden;
+        ::cuda::std::span<const std::uint16_t> density_output;
+        ::cuda::std::span<const std::uint16_t> color_input;
+        ::cuda::std::span<const std::uint16_t> color_hidden;
+        ::cuda::std::span<const std::uint16_t> color_output;
     };
 
     template <NetworkShape Shape>

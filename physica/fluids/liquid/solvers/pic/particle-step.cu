@@ -1,6 +1,7 @@
 #include "particle-step-kernels.h"
 #include <cub/device/device_reduce.cuh>
 #include <cub/device/device_scan.cuh>
+#include <cuda/algorithm>
 #include <cuda/launch>
 #include <cuda/std/algorithm>
 #include <cuda_runtime_api.h>
@@ -166,8 +167,8 @@ namespace physica::fluids::liquid::solvers::pic::kernels::particle_step {
     }
 
     void plan_maintenance(const ::cuda::stream_ref stream, const grid::device::Grid grid, const std::uint32_t particle_count, const std::uint32_t minimum_particles_per_cell, const std::uint32_t target_particles_per_cell, const std::uint32_t maximum_particles_per_cell, const simulation::VectorView<const float> positions, const std::uint32_t* cell_types, const float* level_set, std::uint32_t* raw_counts, std::uint32_t* survivor_counts, std::uint32_t* keep_flags, std::uint32_t* destinations, std::uint32_t* seed_counts, std::uint32_t* seed_offsets, std::uint32_t* totals, void* scan_scratch, std::size_t scan_scratch_bytes) {
-        cudaMemsetAsync(raw_counts, 0, grid::device::cell_count(grid) * sizeof(std::uint32_t), stream.get());
-        cudaMemsetAsync(survivor_counts, 0, grid::device::cell_count(grid) * sizeof(std::uint32_t), stream.get());
+        ::cuda::fill_bytes(stream, ::cuda::std::span<std::uint32_t>{raw_counts, grid::device::cell_count(grid)}, 0u);
+        ::cuda::fill_bytes(stream, ::cuda::std::span<std::uint32_t>{survivor_counts, grid::device::cell_count(grid)}, 0u);
         ::cuda::launch(stream, ::cuda::distribute<grid::device::block_size>(particle_count), rank_particles_kernel, grid, particle_count, maximum_particles_per_cell, positions, raw_counts, survivor_counts, keep_flags);
         cub::DeviceScan::ExclusiveSum(scan_scratch, scan_scratch_bytes, keep_flags, destinations, particle_count, stream.get());
         ::cuda::launch(stream, ::cuda::distribute<1u>(1u), survivor_total_kernel, particle_count, keep_flags, destinations, totals);

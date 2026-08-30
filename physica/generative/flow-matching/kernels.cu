@@ -291,95 +291,95 @@ namespace physica::generative::flow_matching::kernels {
     } // namespace
 
     void make_training_batch(const ::cuda::stream_ref stream, const std::uint8_t* const images, const std::uint8_t* const dataset_labels, float* const path, float* const target, float* const times, std::uint8_t* const labels, const std::uint64_t* const step, const std::uint64_t* const seed, const std::uint32_t batch) {
-        make_training_batch_kernel<<<batch, thread_count, 0u, stream.get()>>>(images, dataset_labels, path, target, times, labels, step, seed, batch);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), make_training_batch_kernel, images, dataset_labels, path, target, times, labels, step, seed, batch);
     }
 
     void make_sampling_noise(const ::cuda::stream_ref stream, float* const state, const std::uint64_t seed, const std::uint32_t batch) {
-        make_sampling_noise_kernel<<<batch, thread_count, 0u, stream.get()>>>(state, seed, batch);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), make_sampling_noise_kernel, state, seed, batch);
     }
 
     void make_sampling_time(const ::cuda::stream_ref stream, float* const times, const float time, const std::uint32_t batch) {
-        make_sampling_time_kernel<<<::cuda::ceil_div(batch, thread_count), thread_count, 0u, stream.get()>>>(times, time, batch);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(batch, thread_count)), ::cuda::block_dims(thread_count))), make_sampling_time_kernel, times, time, batch);
     }
 
     void make_time_embedding(const ::cuda::stream_ref stream, const float* const times, float* const embedding, const std::uint32_t batch, const std::uint32_t width) {
         const std::size_t count = static_cast<std::size_t>(batch) * width;
-        time_embedding_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(times, embedding, width, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), time_embedding_kernel, times, embedding, width, count);
     }
 
     void silu_forward(const ::cuda::stream_ref stream, const float* const input, float* const output, const std::size_t count) {
-        silu_forward_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(input, output, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), silu_forward_kernel, input, output, count);
     }
 
     void silu_backward(const ::cuda::stream_ref stream, const float* const input, const float* const output_gradient, float* const input_gradient, const std::size_t count) {
-        silu_backward_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(input, output_gradient, input_gradient, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), silu_backward_kernel, input, output_gradient, input_gradient, count);
     }
 
     void add_position(const ::cuda::stream_ref stream, float* const tokens, const float* const position, const std::size_t count) {
-        add_position_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(tokens, position, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), add_position_kernel, tokens, position, count);
     }
 
     void make_condition(const ::cuda::stream_ref stream, float* const time_condition, const float* const class_embedding, const std::uint8_t* const labels, const std::uint32_t batch, const std::uint32_t width) {
         const std::size_t count = static_cast<std::size_t>(batch) * width;
-        make_condition_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(time_condition, class_embedding, labels, width, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), make_condition_kernel, time_condition, class_embedding, labels, width, count);
     }
 
     void class_embedding_backward(const ::cuda::stream_ref stream, const float* const condition_gradient, const std::uint8_t* const labels, float* const class_embedding_gradient, const std::uint32_t batch, const std::uint32_t width) {
-        class_embedding_backward_kernel<<<::cuda::ceil_div(11u * width, thread_count), thread_count, 0u, stream.get()>>>(condition_gradient, labels, class_embedding_gradient, batch, width);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(11u * width, thread_count)), ::cuda::block_dims(thread_count))), class_embedding_backward_kernel, condition_gradient, labels, class_embedding_gradient, batch, width);
     }
 
     void final_adaln_forward(const ::cuda::stream_ref stream, const float* const input, const float* const modulation, float* const output, float* const means, float* const inverse_standard_deviations, const std::uint32_t batch, const std::uint32_t sequence_size, const std::uint32_t width) {
-        final_adaln_forward_kernel<<<batch * sequence_size, thread_count, 0u, stream.get()>>>(input, modulation, output, means, inverse_standard_deviations, sequence_size, width);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * sequence_size), ::cuda::block_dims(thread_count))), final_adaln_forward_kernel, input, modulation, output, means, inverse_standard_deviations, sequence_size, width);
     }
 
     void final_adaln_backward(const ::cuda::stream_ref stream, const float* const input, const float* const modulation, const float* const output_gradient, const float* const means, const float* const inverse_standard_deviations, float* const input_gradient, float* const modulation_gradient, const std::uint32_t batch, const std::uint32_t sequence_size, const std::uint32_t width) {
-        final_adaln_input_backward_kernel<<<batch * sequence_size, thread_count, 0u, stream.get()>>>(input, modulation, output_gradient, means, inverse_standard_deviations, input_gradient, sequence_size, width);
-        final_adaln_modulation_backward_kernel<<<batch, thread_count, 0u, stream.get()>>>(input, output_gradient, means, inverse_standard_deviations, modulation_gradient, sequence_size, width);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * sequence_size), ::cuda::block_dims(thread_count))), final_adaln_input_backward_kernel, input, modulation, output_gradient, means, inverse_standard_deviations, input_gradient, sequence_size, width);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), final_adaln_modulation_backward_kernel, input, output_gradient, means, inverse_standard_deviations, modulation_gradient, sequence_size, width);
     }
 
     void flow_matching_loss(const ::cuda::stream_ref stream, const float* const prediction, const float* const target, float* const prediction_gradient, float* const sample_loss, float* const loss, const std::uint32_t batch) {
-        flow_matching_sample_loss_kernel<<<batch, thread_count, 0u, stream.get()>>>(prediction, target, prediction_gradient, sample_loss);
-        flow_matching_loss_kernel<<<1u, thread_count, 0u, stream.get()>>>(sample_loss, loss, batch);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), flow_matching_sample_loss_kernel, prediction, target, prediction_gradient, sample_loss);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(thread_count))), flow_matching_loss_kernel, sample_loss, loss, batch);
     }
 
     void add_loss(const ::cuda::stream_ref stream, const float* const loss, float* const loss_sum) {
-        add_loss_kernel<<<1u, 1u, 0u, stream.get()>>>(loss, loss_sum);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(1u))), add_loss_kernel, loss, loss_sum);
     }
 
     void advance_training_state(const ::cuda::stream_ref stream, std::uint64_t* const step, std::uint64_t* const processed_samples, const std::uint32_t samples_per_step) {
-        advance_training_state_kernel<<<1u, 1u, 0u, stream.get()>>>(step, processed_samples, samples_per_step);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(1u), ::cuda::block_dims(1u))), advance_training_state_kernel, step, processed_samples, samples_per_step);
     }
 
     void make_labels(const ::cuda::stream_ref stream, std::uint8_t* const labels, const std::uint32_t batch, const std::uint32_t class_index) {
-        make_labels_kernel<<<::cuda::ceil_div(batch, thread_count), thread_count, 0u, stream.get()>>>(labels, batch, class_index);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(batch, thread_count)), ::cuda::block_dims(thread_count))), make_labels_kernel, labels, batch, class_index);
     }
 
     void combine_guidance(const ::cuda::stream_ref stream, const float* const conditional, const float* const unconditional, float* const output, const float guidance, const std::size_t count) {
-        combine_guidance_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(conditional, unconditional, output, guidance, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), combine_guidance_kernel, conditional, unconditional, output, guidance, count);
     }
 
     void euler_step(const ::cuda::stream_ref stream, float* const state, const float* const velocity, const float step_size, const std::size_t count) {
-        euler_step_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(state, velocity, step_size, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), euler_step_kernel, state, velocity, step_size, count);
     }
 
     void heun_predict(const ::cuda::stream_ref stream, const float* const state, const float* const velocity, float* const prediction, const float step_size, const std::size_t count) {
-        heun_predict_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(state, velocity, prediction, step_size, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), heun_predict_kernel, state, velocity, prediction, step_size, count);
     }
 
     void heun_step(const ::cuda::stream_ref stream, float* const state, const float* const first_velocity, const float* const second_velocity, const float step_size, const std::size_t count) {
-        heun_step_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(state, first_velocity, second_velocity, step_size, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), heun_step_kernel, state, first_velocity, second_velocity, step_size, count);
     }
 
     void rk4_intermediate(const ::cuda::stream_ref stream, const float* const state, const float* const velocity, float* const intermediate, const float step_size, const std::size_t count) {
-        rk4_intermediate_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(state, velocity, intermediate, step_size, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), rk4_intermediate_kernel, state, velocity, intermediate, step_size, count);
     }
 
     void rk4_step(const ::cuda::stream_ref stream, float* const state, const float* const first, const float* const second, const float* const third, const float* const fourth, const float step_size, const std::size_t count) {
-        rk4_step_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(state, first, second, third, fourth, step_size, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), rk4_step_kernel, state, first, second, third, fourth, step_size, count);
     }
 
     void unpatchify(const ::cuda::stream_ref stream, const float* const patches, std::uint8_t* const rgba, const std::uint32_t batch) {
         const std::size_t count = static_cast<std::size_t>(batch) * 32u * 32u;
-        unpatchify_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(patches, rgba, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), unpatchify_kernel, patches, rgba, count);
     }
 } // namespace physica::generative::flow_matching::kernels

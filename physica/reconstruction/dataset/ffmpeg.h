@@ -1,6 +1,11 @@
 #ifndef PHYSICA_RECONSTRUCTION_DATASET_FFMPEG_H
 #define PHYSICA_RECONSTRUCTION_DATASET_FFMPEG_H
 
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <span>
+
 struct AVCodecContext;
 struct AVFormatContext;
 struct AVFrame;
@@ -12,7 +17,7 @@ namespace physica::reconstruction::dataset {
         unsigned width  = 0u;
         unsigned height = 0u;
 
-        VideoDecoder(const char* path, unsigned resolution_divisor);
+        VideoDecoder(const std::filesystem::path& path, unsigned resolution_divisor);
         ~VideoDecoder() noexcept;
 
         VideoDecoder(const VideoDecoder&)            = delete;
@@ -20,16 +25,32 @@ namespace physica::reconstruction::dataset {
         VideoDecoder(VideoDecoder&&)                 = delete;
         VideoDecoder& operator=(VideoDecoder&&)      = delete;
 
-        void read(unsigned char* rgba);
+        void read(std::span<std::uint8_t> rgba);
 
     private:
-        AVFormatContext* format = nullptr;
-        AVCodecContext* codec   = nullptr;
-        SwsContext* conversion  = nullptr;
-        AVPacket* packet        = nullptr;
-        AVFrame* decoded        = nullptr;
-        int stream_index        = 0;
-        bool flushing           = false;
+        struct FormatDeleter final {
+            void operator()(AVFormatContext* format) const noexcept;
+        };
+        struct CodecDeleter final {
+            void operator()(AVCodecContext* codec) const noexcept;
+        };
+        struct ConversionDeleter final {
+            void operator()(SwsContext* conversion) const noexcept;
+        };
+        struct PacketDeleter final {
+            void operator()(AVPacket* packet) const noexcept;
+        };
+        struct FrameDeleter final {
+            void operator()(AVFrame* frame) const noexcept;
+        };
+
+        std::unique_ptr<AVFormatContext, FormatDeleter> format;
+        std::unique_ptr<AVCodecContext, CodecDeleter> codec;
+        std::unique_ptr<SwsContext, ConversionDeleter> conversion;
+        std::unique_ptr<AVPacket, PacketDeleter> packet;
+        std::unique_ptr<AVFrame, FrameDeleter> decoded;
+        int stream_index = 0;
+        bool flushing    = false;
     };
 } // namespace physica::reconstruction::dataset
 

@@ -479,7 +479,7 @@ namespace {
             for (std::uint32_t element = 0u; element < 3072u; ++element) batch_bytes[static_cast<std::size_t>(image) * 3073uz + 1uz + element] = static_cast<std::uint8_t>((image + element) % 256u);
         }
         for (std::uint32_t batch = 0u; batch < 5u; ++batch) {
-            std::ofstream file{dataset_directory / ("data_batch_" + std::to_string(batch + 1u) + ".bin"), std::ios::binary};
+            std::ofstream file{dataset_directory / std::format("data_batch_{}.bin", batch + 1u), std::ios::binary};
             file.write(reinterpret_cast<const char*>(batch_bytes.data()), static_cast<std::streamsize>(batch_bytes.size()));
         }
         physica::generative::Cifar10TrainingSet dataset{dataset_directory};
@@ -524,22 +524,22 @@ int main() {
         test_storage();
         {
             ::cuda::stream stream{::cuda::devices[0]};
-            std::cout << "rng and ODE\n";
+            std::println("rng and ODE");
             test_rng_and_ode(stream);
-            std::cout << "matmul and optimizer\n";
+            std::println("matmul and optimizer");
             test_matmul_and_optimizer(stream);
-            std::cout << "SDPA\n";
+            std::println("SDPA");
             test_sdpa(stream);
-            std::cout << "Transformer and FlowDiT\n";
+            std::println("Transformer and FlowDiT");
             test_transformer_and_model(stream);
             stream.sync();
         }
-        std::cout << "CUDA Graph resume\n";
+        std::println("CUDA Graph resume");
         test_training_resume();
-        std::cout << "Physica Flow Matching tests passed.\n";
+        std::println("Physica Flow Matching tests passed.");
         return 0;
     } catch (const std::exception& exception) {
-        std::cerr << exception.what() << '\n';
+        std::println(std::cerr, "{}", exception.what());
         return 1;
     }
 }

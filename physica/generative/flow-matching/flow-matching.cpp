@@ -43,10 +43,10 @@ namespace physica::generative::flow_matching {
         parameter_buffer.clear_gradients();
         stream.sync();
 
-        if (const cudaError_t status = cudaStreamBeginCapture(stream.get(), cudaStreamCaptureModeThreadLocal); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA graph capture: "} + cudaGetErrorString(status)};
+        if (const cudaError_t status = cudaStreamBeginCapture(stream.get(), cudaStreamCaptureModeThreadLocal); status != cudaSuccess) throw std::runtime_error{std::format("CUDA graph capture: {}", cudaGetErrorString(status))};
         training_step();
-        if (const cudaError_t status = cudaStreamEndCapture(stream.get(), &graph); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA graph completion: "} + cudaGetErrorString(status)};
-        if (const cudaError_t status = cudaGraphInstantiate(&graph_execution, graph, 0u); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA graph instantiation: "} + cudaGetErrorString(status)};
+        if (const cudaError_t status = cudaStreamEndCapture(stream.get(), &graph); status != cudaSuccess) throw std::runtime_error{std::format("CUDA graph completion: {}", cudaGetErrorString(status))};
+        if (const cudaError_t status = cudaGraphInstantiate(&graph_execution, graph, 0u); status != cudaSuccess) throw std::runtime_error{std::format("CUDA graph instantiation: {}", cudaGetErrorString(status))};
     }
 
     Trainer::~Trainer() noexcept {
@@ -58,7 +58,7 @@ namespace physica::generative::flow_matching {
         ::cuda::fill_bytes(stream, loss_sum, 0u);
         const auto start = std::chrono::steady_clock::now();
         for (std::uint64_t iteration = 0u; iteration < iterations; ++iteration)
-            if (const cudaError_t status = cudaGraphLaunch(graph_execution, stream.get()); status != cudaSuccess) throw std::runtime_error{std::string{"CUDA graph launch: "} + cudaGetErrorString(status)};
+            if (const cudaError_t status = cudaGraphLaunch(graph_execution, stream.get()); status != cudaSuccess) throw std::runtime_error{std::format("CUDA graph launch: {}", cudaGetErrorString(status))};
         float accumulated_loss{};
         ::cuda::copy_bytes(stream, loss_sum, ::cuda::std::span<float>{&accumulated_loss, 1uz});
         stream.sync();

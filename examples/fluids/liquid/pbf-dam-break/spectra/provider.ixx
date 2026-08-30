@@ -15,11 +15,6 @@ export namespace physica::examples::pbf_dam_break {
     struct Settings final {};
 
     struct Provider final {
-    private:
-        struct SimulationDeleter final {
-            void operator()(Simulation* simulation) const noexcept;
-        };
-
     public:
         [[no_unique_address]] Settings settings;
 
@@ -37,14 +32,20 @@ export namespace physica::examples::pbf_dam_break {
         void publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame);
 
     private:
-        std::unique_ptr<Simulation, SimulationDeleter> simulation;
+        static void destroy_simulation(void* simulation) noexcept;
+        [[nodiscard]] Simulation& simulation_state() noexcept;
+        std::unique_ptr<void, decltype(&destroy_simulation)> simulation{nullptr, destroy_simulation};
     };
 
-    void Provider::SimulationDeleter::operator()(Simulation* const source) const noexcept {
-        delete source;
+    void Provider::destroy_simulation(void* const source) noexcept {
+        delete static_cast<Simulation*>(source);
     }
 
-    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{new Simulation{}} {}
+    Simulation& Provider::simulation_state() noexcept {
+        return *static_cast<Simulation*>(simulation.get());
+    }
+
+    Provider::Provider(const Settings source, const std::filesystem::path&) : settings(source), simulation{std::make_unique<Simulation>().release(), destroy_simulation} {}
 
     Provider::~Provider() noexcept {}
 
@@ -53,23 +54,26 @@ export namespace physica::examples::pbf_dam_break {
     }
 
     void Provider::reset(const std::uint64_t) {
-        simulation->reset();
+        Simulation& state = simulation_state();
+        state.reset();
     }
 
     void Provider::step(const double) {
-        simulation->step();
+        Simulation& state = simulation_state();
+        state.step();
     }
 
     void Provider::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
-        spectra::sdk::cuda::Frame frame                  = output.begin(simulation->stream.get());
+        Simulation& state                                = simulation_state();
+        spectra::sdk::cuda::Frame frame                  = output.begin(state.stream.get());
         const spectra::sdk::cuda::Particles particles    = frame.particles<"particles">(Simulation::particle_count);
         const std::span<spectra::sdk::Float3> positions  = particles.positions;
         const std::span<spectra::sdk::Float3> velocities = particles.field<"velocity", spectra::sdk::Float3>();
-        spectra_cuda::write_vectors(simulation->stream, Simulation::particle_count, simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), simulation->current_state.velocities.x.data(), simulation->current_state.velocities.y.data(), simulation->current_state.velocities.z.data(), positions.data(), velocities.data());
+        spectra_cuda::write_vectors(state.stream, Simulation::particle_count, state.current_state.positions.x.data(), state.current_state.positions.y.data(), state.current_state.positions.z.data(), state.current_state.velocities.x.data(), state.current_state.velocities.y.data(), state.current_state.velocities.z.data(), positions.data(), velocities.data());
         const std::span<float> vorticity = particles.field<"vorticity", float>();
-        ::cuda::copy_bytes(simulation->stream, simulation->step_cache.vorticity_magnitudes.values, ::cuda::std::span{vorticity.data(), vorticity.size()});
-        frame.metric<"step">().upload(simulation->step_index);
-        frame.metric<"time">().upload(simulation->physical_time);
+        ::cuda::copy_bytes(state.stream, state.step_cache.vorticity_magnitudes.values, ::cuda::std::span{vorticity.data(), vorticity.size()});
+        frame.metric<"step">().upload(state.step_index);
+        frame.metric<"time">().upload(state.physical_time);
         frame.commit();
     }
 } // namespace physica::examples::pbf_dam_break

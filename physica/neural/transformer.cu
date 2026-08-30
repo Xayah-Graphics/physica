@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cuda/launch>
 #include <physica/cuda.h>
 
 namespace physica::neural::kernels {
@@ -333,33 +334,33 @@ namespace physica::neural::kernels {
     } // namespace
 
     void adaln_forward(const ::cuda::stream_ref stream, const float* const input, const float* const modulation, float* const output, float* const means, float* const inverse_standard_deviations, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t modulation_group) {
-        adaln_forward_kernel<<<batch * sequence, thread_count, 0u, stream.get()>>>(input, modulation, output, means, inverse_standard_deviations, sequence, width, modulation_group);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * sequence), ::cuda::block_dims(thread_count))), adaln_forward_kernel, input, modulation, output, means, inverse_standard_deviations, sequence, width, modulation_group);
     }
 
     void residual_forward(const ::cuda::stream_ref stream, const float* const input, const float* const branch, const float* const modulation, float* const output, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t modulation_group) {
         const std::size_t count = static_cast<std::size_t>(batch) * sequence * width;
-        residual_forward_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(input, branch, modulation, output, sequence, width, modulation_group, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), residual_forward_kernel, input, branch, modulation, output, sequence, width, modulation_group, count);
     }
 
     void residual_backward(const ::cuda::stream_ref stream, const float* const output_gradient, const float* const branch, const float* const modulation, float* const branch_gradient, float* const modulation_gradient, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t modulation_group) {
         const std::size_t count = static_cast<std::size_t>(batch) * sequence * width;
-        residual_branch_backward_kernel<<<::cuda::ceil_div(count, static_cast<std::size_t>(thread_count)), thread_count, 0u, stream.get()>>>(output_gradient, modulation, branch_gradient, sequence, width, modulation_group, count);
-        residual_gate_backward_kernel<<<batch, thread_count, 0u, stream.get()>>>(output_gradient, branch, modulation_gradient, sequence, width, modulation_group);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(::cuda::ceil_div(count, static_cast<std::size_t>(thread_count))), ::cuda::block_dims(thread_count))), residual_branch_backward_kernel, output_gradient, modulation, branch_gradient, sequence, width, modulation_group, count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), residual_gate_backward_kernel, output_gradient, branch, modulation_gradient, sequence, width, modulation_group);
     }
 
     void adaln_backward(const ::cuda::stream_ref stream, const float* const input, const float* const modulation, const float* const output_gradient, const float* const residual_gradient, const float* const means, const float* const inverse_standard_deviations, float* const input_gradient, float* const modulation_gradient, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t modulation_group) {
-        adaln_input_backward_kernel<<<batch * sequence, thread_count, 0u, stream.get()>>>(input, modulation, output_gradient, residual_gradient, means, inverse_standard_deviations, input_gradient, sequence, width, modulation_group);
-        adaln_modulation_backward_kernel<<<batch, thread_count, 0u, stream.get()>>>(input, output_gradient, means, inverse_standard_deviations, modulation_gradient, sequence, width, modulation_group);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * sequence), ::cuda::block_dims(thread_count))), adaln_input_backward_kernel, input, modulation, output_gradient, residual_gradient, means, inverse_standard_deviations, input_gradient, sequence, width, modulation_group);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch), ::cuda::block_dims(thread_count))), adaln_modulation_backward_kernel, input, output_gradient, means, inverse_standard_deviations, modulation_gradient, sequence, width, modulation_group);
     }
 
     void sdpa_forward(const ::cuda::stream_ref stream, const float* const qkv, float* const output, float* const log_sum_exp, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t head_count) {
         const std::uint32_t query_tile_count = ::cuda::ceil_div(sequence, attention_query_tile_width);
-        sdpa_forward_kernel<<<batch * head_count * query_tile_count, thread_count, 0u, stream.get()>>>(qkv, output, log_sum_exp, sequence, width, head_count, query_tile_count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * head_count * query_tile_count), ::cuda::block_dims(thread_count))), sdpa_forward_kernel, qkv, output, log_sum_exp, sequence, width, head_count, query_tile_count);
     }
 
     void sdpa_backward(const ::cuda::stream_ref stream, const float* const qkv, const float* const output, const float* const output_gradient, const float* const log_sum_exp, float* const delta, float* const qkv_gradient, const std::uint32_t batch, const std::uint32_t sequence, const std::uint32_t width, const std::uint32_t head_count) {
         const std::uint32_t tile_count = ::cuda::ceil_div(sequence, attention_query_tile_width);
-        sdpa_query_backward_kernel<<<batch * head_count * tile_count, thread_count, 0u, stream.get()>>>(qkv, output, output_gradient, log_sum_exp, delta, qkv_gradient, sequence, width, head_count, tile_count);
-        sdpa_key_value_backward_kernel<<<batch * head_count * tile_count, thread_count, 0u, stream.get()>>>(qkv, output_gradient, log_sum_exp, delta, qkv_gradient, sequence, width, head_count, tile_count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * head_count * tile_count), ::cuda::block_dims(thread_count))), sdpa_query_backward_kernel, qkv, output, output_gradient, log_sum_exp, delta, qkv_gradient, sequence, width, head_count, tile_count);
+        ::cuda::launch(stream, ::cuda::make_config(::cuda::make_hierarchy(::cuda::grid_dims(batch * head_count * tile_count), ::cuda::block_dims(thread_count))), sdpa_key_value_backward_kernel, qkv, output_gradient, log_sum_exp, delta, qkv_gradient, sequence, width, head_count, tile_count);
     }
 } // namespace physica::neural::kernels

@@ -26,9 +26,11 @@ int main(const int argc, char** argv) {
         Experiment{"game-neus", "data/pinf/Game", "output/pinfs/game-neus", physica::reconstruction::dataset::pinf::Resolution::half, physica::reconstruction::pinfs::game_neus_configuration, 200'000u, true},
         Experiment{"scalar-real", "data/pinf/ScalarReal", "output/pinfs/scalar-real", physica::reconstruction::dataset::pinf::Resolution::half, physica::reconstruction::pinfs::scalar_real_configuration, 600'000u, false},
     };
-    const std::string_view experiment_name  = argc > 1 ? argv[1] : "sphere-neus";
-    const Experiment& experiment            = *std::ranges::find_if(experiments, [&](const Experiment& candidate) { return candidate.name == experiment_name; });
-    const std::uint32_t training_steps      = argc > 2 ? static_cast<std::uint32_t>(std::stoul(argv[2])) : experiment.training_steps;
+    const std::string_view experiment_name = argc > 1 ? argv[1] : "sphere-neus";
+    const Experiment& experiment           = *std::ranges::find_if(experiments, [&](const Experiment& candidate) { return candidate.name == experiment_name; });
+    std::uint32_t requested_training_steps{};
+    if (argc > 2) std::from_chars(argv[2], argv[2] + std::char_traits<char>::length(argv[2]), requested_training_steps);
+    const std::uint32_t training_steps      = argc > 2 ? requested_training_steps : experiment.training_steps;
     const std::filesystem::path output_path = argc > 4 ? argv[4] : experiment.output_path;
     std::filesystem::create_directories(output_path);
 
@@ -41,7 +43,7 @@ int main(const int argc, char** argv) {
         const std::uint32_t iterations                                   = std::min(report_interval, training_steps - pinfs.state.step);
         const physica::reconstruction::pinfs::OptimizationStats training = pinfs.optimize(iterations);
         std::println("train step={:>6} loss={:.7f} image={:.7f} coarse={:.7f} vgg={:.7f} ghost={:.7f} overlay={:.7f} eikonal={:.7f} physics={:.7f} neumann={:.7f} psnr={:.3f}dB time={:.2f}ms", training.end_step, training.loss, training.image_loss, training.coarse_image_loss, training.perceptual_loss, training.ghost_loss, training.overlay_loss, training.eikonal_loss, training.physics_loss, training.neumann_loss, training.psnr, training.elapsed_ms);
-        std::cout.flush();
+        std::fflush(stdout);
     }
 
     pinfs.save(output_path / "final.safetensors");
