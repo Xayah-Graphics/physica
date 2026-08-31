@@ -19,6 +19,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CUDSS_VERSION: "0.8.0.10"
+  CUDSS_SHA256: "66d085917ba2aba0c61dd0cfde0ae284df9813709f60c4cd215c47f8929eb780"
+
 jobs:
   build:
     name: Windows, MSVC, CUDA
@@ -31,17 +35,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install latest CMake and CUDA
+      - name: Install CMake 4.4, CUDA 13.3, and cuDSS 0.8
         shell: pwsh
         run: |
-          winget install --id Kitware.CMake --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
-          winget install --id Nvidia.CUDA --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+          winget install --id Kitware.CMake --version 4.4.3 --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+          winget install --id Nvidia.CUDA --version 13.3 --exact --silent --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+
+          $cudssArchiveName = "libcudss-windows-x86_64-${env:CUDSS_VERSION}_cuda13-archive"
+          $cudssArchive = Join-Path $env:RUNNER_TEMP "$cudssArchiveName.zip"
+          $cudssDirectory = Join-Path $env:RUNNER_TEMP "cudss"
+          Invoke-WebRequest "https://developer.download.nvidia.com/compute/cudss/redist/libcudss/windows-x86_64/$cudssArchiveName.zip" -OutFile $cudssArchive
+          if ((Get-FileHash -LiteralPath $cudssArchive -Algorithm SHA256).Hash -ne $env:CUDSS_SHA256) { throw "cuDSS archive checksum mismatch" }
+          Expand-Archive -LiteralPath $cudssArchive -DestinationPath $cudssDirectory
+          $cudssRoot = Join-Path $cudssDirectory $cudssArchiveName
 
           "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          $cudaRoot = Get-ChildItem "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA" -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          $cudaRoot = Get-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3"
           "CUDA_PATH=$($cudaRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "CUDACXX=$($cudaRoot.FullName)\bin\nvcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CUDSS_DIR=$(Join-Path $cudssRoot 'lib\cmake\cudss')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           (Join-Path $cudaRoot.FullName "bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          (Join-Path $cudssRoot "bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Enter Visual Studio developer environment
         shell: pwsh
@@ -54,7 +68,7 @@ jobs:
 
       - name: Configure
         shell: pwsh
-        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF -DBUILD_TESTING=ON
+        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release "-Dcudss_DIR=$env:CUDSS_DIR" -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF -DBUILD_TESTING=ON
 
       - name: Build
         run: cmake --build cmake-build-release --parallel 30

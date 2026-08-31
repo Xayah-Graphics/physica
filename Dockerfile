@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
         base-devel \
         cmake \
         cuda \
+        cudss \
         ffmpeg \
         git \
         ninja
@@ -23,6 +24,7 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER=g++ \
         -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
+        -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
         -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
         -DBUILD_TESTING=ON \
@@ -32,7 +34,7 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
 FROM archlinux:latest AS runtime
 
 RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
-    pacman -Syu --noconfirm --needed cuda gcc-libs \
+    pacman -Syu --noconfirm --needed cuda ffmpeg gcc-libs \
     && groupadd --gid 10001 physica \
     && useradd --uid 10001 --gid 10001 --home-dir /workspace --shell /usr/bin/nologin physica \
     && install --directory --owner=10001 --group=10001 /opt/physica/bin /workspace

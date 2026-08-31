@@ -8,9 +8,9 @@ export module physica.example.deformables.cloth;
 import std;
 import physica.deformables.cloth.model;
 import physica.deformables.cloth.solvers.explicit_dynamics;
-import physica.deformables.cloth.operators.fixed_position;
+import physica.deformables.cloth.constraints.fixed_position;
 import physica.deformables.cloth.operators.mass_spring;
-import physica.deformables.cloth.operators.semi_implicit_euler;
+import physica.deformables.cloth.integrators.semi_implicit_euler;
 
 export namespace physica::examples::cloth {
     struct Simulation final {
@@ -37,11 +37,11 @@ export namespace physica::examples::cloth {
         ::cuda::stream stream;
 
     private:
-        deformables::cloth::Model model;
-        deformables::cloth::solvers::explicit_dynamics::Solver<deformables::cloth::operators::MassSpringForce, deformables::cloth::operators::SemiImplicitEuler, deformables::cloth::operators::FixedPositionConstraint> solver;
+        deformables::cloth::Model<float> model;
+        deformables::cloth::solvers::explicit_dynamics::Solver<float, deformables::cloth::operators::MassSpringForce, deformables::cloth::integrators::SemiImplicitEuler, deformables::cloth::constraints::FixedPositionConstraint> solver;
 
     public:
-        deformables::cloth::solvers::explicit_dynamics::State current_state;
+        deformables::cloth::State<float> current_state;
         std::uint64_t step_index = 0u;
         double physical_time     = 0.0;
 
@@ -56,14 +56,14 @@ export namespace physica::examples::cloth {
         void step();
 
     private:
-        deformables::cloth::solvers::explicit_dynamics::State next_state;
-        deformables::cloth::solvers::explicit_dynamics::Control control;
+        deformables::cloth::State<float> next_state;
+        deformables::cloth::Control<float> control;
         decltype(solver)::Parameters parameters;
         decltype(solver)::StepCache step_cache;
         decltype(solver)::Workspace workspace;
 
-        [[nodiscard]] static deformables::cloth::ModelConfiguration create_configuration();
-        [[nodiscard]] static deformables::cloth::operators::FixedPositionConstraint::Configuration create_constraint_configuration(const deformables::cloth::ModelConfiguration& configuration);
+        [[nodiscard]] static deformables::cloth::ModelConfiguration<float> create_configuration();
+        [[nodiscard]] static deformables::cloth::constraints::FixedPositionConstraint::Configuration create_constraint_configuration(const deformables::cloth::ModelConfiguration<float>& configuration);
     };
 
     Simulation::Simulation() : stream{::cuda::devices[0]}, model(create_configuration(), stream), solver(model, {.force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .integrator = {.time_step = time_step / static_cast<float>(integration_substeps)}, .constraint = create_constraint_configuration(model.configuration)}), current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
@@ -102,20 +102,28 @@ export namespace physica::examples::cloth {
         physical_time = static_cast<double>(step_index) * time_step;
     }
 
-    deformables::cloth::ModelConfiguration Simulation::create_configuration() {
-        deformables::cloth::ModelConfiguration result{
-            .rest_positions = std::vector<Vector3<float>>(static_cast<std::size_t>(rows) * columns),
-            .triangles      = {},
+    deformables::cloth::ModelConfiguration<float> Simulation::create_configuration() {
+        deformables::cloth::ModelConfiguration<float> result{
+            .rest_positions      = std::vector<Vector3<float>>(static_cast<std::size_t>(rows) * columns),
+            .triangles           = {},
+            .material_coordinates = {},
         };
+        std::vector<deformables::cloth::MaterialCoordinate<float>> vertex_material_coordinates(static_cast<std::size_t>(rows) * columns);
         const float spacing_x = width / static_cast<float>(columns - 1u);
         const float spacing_y = height / static_cast<float>(rows - 1u);
         for (std::uint32_t row = 0u; row < rows; ++row) {
             for (std::uint32_t column = 0u; column < columns; ++column) {
                 const std::uint32_t particle    = row * columns + column;
                 result.rest_positions[particle] = {.x = static_cast<float>(column) * spacing_x, .y = -static_cast<float>(row) * spacing_y, .z = 0.0F};
+                vertex_material_coordinates[particle] = {.u = static_cast<float>(column) * spacing_x, .v = static_cast<float>(row) * spacing_y};
             }
         }
         result.triangles.reserve(static_cast<std::size_t>(rows - 1u) * (columns - 1u) * 2uz);
+        result.material_coordinates.reserve(result.triangles.capacity());
+        const auto append_triangle = [&](const std::uint32_t first, const std::uint32_t second, const std::uint32_t third) {
+            result.triangles.push_back({.first = first, .second = second, .third = third});
+            result.material_coordinates.push_back({.first = vertex_material_coordinates[first], .second = vertex_material_coordinates[second], .third = vertex_material_coordinates[third]});
+        };
         for (std::uint32_t row = 0u; row + 1u < rows; ++row) {
             for (std::uint32_t column = 0u; column + 1u < columns; ++column) {
                 const std::uint32_t top_left     = row * columns + column;
@@ -123,19 +131,19 @@ export namespace physica::examples::cloth {
                 const std::uint32_t bottom_left  = top_left + columns;
                 const std::uint32_t bottom_right = bottom_left + 1u;
                 if ((row + column) % 2u == 0u) {
-                    result.triangles.push_back({.first = top_left, .second = top_right, .third = bottom_right});
-                    result.triangles.push_back({.first = top_left, .second = bottom_right, .third = bottom_left});
+                    append_triangle(top_left, top_right, bottom_right);
+                    append_triangle(top_left, bottom_right, bottom_left);
                 } else {
-                    result.triangles.push_back({.first = top_left, .second = top_right, .third = bottom_left});
-                    result.triangles.push_back({.first = top_right, .second = bottom_right, .third = bottom_left});
+                    append_triangle(top_left, top_right, bottom_left);
+                    append_triangle(top_right, bottom_right, bottom_left);
                 }
             }
         }
         return result;
     }
 
-    deformables::cloth::operators::FixedPositionConstraint::Configuration Simulation::create_constraint_configuration(const deformables::cloth::ModelConfiguration& configuration) {
-        deformables::cloth::operators::FixedPositionConstraint::Configuration result{.anchors = {}};
+    deformables::cloth::constraints::FixedPositionConstraint::Configuration Simulation::create_constraint_configuration(const deformables::cloth::ModelConfiguration<float>& configuration) {
+        deformables::cloth::constraints::FixedPositionConstraint::Configuration result{.anchors = {}};
         result.anchors.reserve(rows);
         for (std::uint32_t row = 0u; row < rows; ++row) {
             const std::uint32_t particle = row * columns;

@@ -19,6 +19,15 @@ namespace physica::deformables::cloth::operators {
             };
         }
 
+        kernels::SpringTopologyView stretch_topology_view(const Model<float>& model) {
+            return {
+                .first   = model.topology.device.edges.first.values.data(),
+                .second  = model.topology.device.edges.second.values.data(),
+                .offsets = model.topology.device.vertex_edges.offsets.values.data(),
+                .indices = model.topology.device.vertex_edges.indices.values.data(),
+            };
+        }
+
         auto parameter_view(const auto& parameters) {
             return kernels::SpringParametersView{
                 .stiffnesses  = parameters.stiffnesses.values.data(),
@@ -36,25 +45,24 @@ namespace physica::deformables::cloth::operators {
         }
     } // namespace
 
-    MassSpringForce::MassSpringForce(const Model& model, Configuration next_configuration) : configuration(std::move(next_configuration)), topology(build_topology(model.configuration)), device_topology{.stretch = allocate_device_topology(model, topology.stretch), .bending = allocate_device_topology(model, topology.bending)} {
-        upload_topology(model, topology.stretch, device_topology.stretch);
-        upload_topology(model, topology.bending, device_topology.bending);
+    MassSpringForce::MassSpringForce(const Model<float>& model, Configuration next_configuration) : configuration(std::move(next_configuration)), bending_topology(build_bending_topology(model)), device_bending_topology(allocate_device_topology(model, bending_topology)) {
+        upload_topology(model, bending_topology, device_bending_topology);
         model.stream.sync();
     }
 
-    MassSpringForce::Parameters MassSpringForce::allocate_parameters(const Model& model) const {
+    MassSpringForce::Parameters MassSpringForce::allocate_parameters(const Model<float>& model) const {
         Parameters result{
             .stretch =
                 {
-                    .stiffnesses  = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
-                    .dampings     = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
-                    .rest_lengths = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+                    .dampings     = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+                    .rest_lengths = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
                 },
             .bending =
                 {
-                    .stiffnesses  = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
-                    .dampings     = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
-                    .rest_lengths = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
+                    .dampings     = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
+                    .rest_lengths = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
                 },
         };
         simulation::clear(model.stream, result.stretch.stiffnesses);
@@ -62,29 +70,29 @@ namespace physica::deformables::cloth::operators {
         simulation::clear(model.stream, result.bending.stiffnesses);
         simulation::clear(model.stream, result.bending.dampings);
 
-        std::vector<float> stretch_rest_lengths(topology.stretch.springs.size());
-        std::vector<float> bending_rest_lengths(topology.bending.springs.size());
-        for (std::size_t spring = 0uz; spring < topology.stretch.springs.size(); ++spring) stretch_rest_lengths[spring] = topology.stretch.springs[spring].rest_length;
-        for (std::size_t spring = 0uz; spring < topology.bending.springs.size(); ++spring) bending_rest_lengths[spring] = topology.bending.springs[spring].rest_length;
+        std::vector<float> stretch_rest_lengths(model.topology.edges.size());
+        std::vector<float> bending_rest_lengths(bending_topology.springs.size());
+        for (std::size_t spring = 0uz; spring < model.topology.edges.size(); ++spring) stretch_rest_lengths[spring] = length(model.configuration.rest_positions[model.topology.edges[spring].second] - model.configuration.rest_positions[model.topology.edges[spring].first]);
+        for (std::size_t spring = 0uz; spring < bending_topology.springs.size(); ++spring) bending_rest_lengths[spring] = bending_topology.springs[spring].rest_length;
         ::cuda::copy_bytes(model.stream, stretch_rest_lengths, result.stretch.rest_lengths.values);
         ::cuda::copy_bytes(model.stream, bending_rest_lengths, result.bending.rest_lengths.values);
         model.stream.sync();
         return result;
     }
 
-    MassSpringForce::ParameterTangent MassSpringForce::allocate_parameter_tangent(const Model& model) const {
+    MassSpringForce::ParameterTangent MassSpringForce::allocate_parameter_tangent(const Model<float>& model) const {
         ParameterTangent result{
             .stretch =
                 {
-                    .stiffnesses  = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
-                    .dampings     = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
-                    .rest_lengths = simulation::ScalarField<float>(model.stream, topology.stretch.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+                    .dampings     = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+                    .rest_lengths = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
                 },
             .bending =
                 {
-                    .stiffnesses  = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
-                    .dampings     = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
-                    .rest_lengths = simulation::ScalarField<float>(model.stream, topology.bending.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
+                    .dampings     = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
+                    .rest_lengths = simulation::ScalarField<float>(model.stream, bending_topology.springs.size()),
                 },
         };
         simulation::clear(model.stream, result.stretch.stiffnesses);
@@ -96,19 +104,19 @@ namespace physica::deformables::cloth::operators {
         return result;
     }
 
-    MassSpringForce::ParameterAdjoint MassSpringForce::allocate_parameter_adjoint(const Model& model) const {
+    MassSpringForce::ParameterAdjoint MassSpringForce::allocate_parameter_adjoint(const Model<float>& model) const {
         ParameterAdjoint result{
             .stretch =
                 {
-                    .stiffnesses  = simulation::ScalarField<double>(model.stream, topology.stretch.springs.size()),
-                    .dampings     = simulation::ScalarField<double>(model.stream, topology.stretch.springs.size()),
-                    .rest_lengths = simulation::ScalarField<double>(model.stream, topology.stretch.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<double>(model.stream, model.topology.edges.size()),
+                    .dampings     = simulation::ScalarField<double>(model.stream, model.topology.edges.size()),
+                    .rest_lengths = simulation::ScalarField<double>(model.stream, model.topology.edges.size()),
                 },
             .bending =
                 {
-                    .stiffnesses  = simulation::ScalarField<double>(model.stream, topology.bending.springs.size()),
-                    .dampings     = simulation::ScalarField<double>(model.stream, topology.bending.springs.size()),
-                    .rest_lengths = simulation::ScalarField<double>(model.stream, topology.bending.springs.size()),
+                    .stiffnesses  = simulation::ScalarField<double>(model.stream, bending_topology.springs.size()),
+                    .dampings     = simulation::ScalarField<double>(model.stream, bending_topology.springs.size()),
+                    .rest_lengths = simulation::ScalarField<double>(model.stream, bending_topology.springs.size()),
                 },
         };
         simulation::clear(model.stream, result.stretch.stiffnesses);
@@ -120,34 +128,34 @@ namespace physica::deformables::cloth::operators {
         return result;
     }
 
-    MassSpringForce::Cache MassSpringForce::allocate_cache(const Model&) const {
+    MassSpringForce::Cache MassSpringForce::allocate_cache(const Model<float>&) const {
         return {};
     }
 
-    MassSpringForce::Workspace MassSpringForce::allocate_workspace(const Model&) const {
+    MassSpringForce::Workspace MassSpringForce::allocate_workspace(const Model<float>&) const {
         return {};
     }
 
-    MassSpringForce::TangentWorkspace MassSpringForce::allocate_tangent_workspace(const Model&) const {
+    MassSpringForce::TangentWorkspace MassSpringForce::allocate_tangent_workspace(const Model<float>&) const {
         return {};
     }
 
-    MassSpringForce::AdjointWorkspace MassSpringForce::allocate_adjoint_workspace(const Model&) const {
+    MassSpringForce::AdjointWorkspace MassSpringForce::allocate_adjoint_workspace(const Model<float>&) const {
         return {};
     }
 
-    void MassSpringForce::forward(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& external_forces, const simulation::ScalarField<float>& masses, const Parameters& parameters, simulation::VectorField<float>& forces, Cache&, Workspace&) const {
-        kernels::force_forward(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(external_forces), masses.values.data(), topology_view(device_topology.stretch), parameter_view(parameters.stretch), topology_view(device_topology.bending), parameter_view(parameters.bending), simulation::view(forces));
+    void MassSpringForce::forward(const Model<float>& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>& external_forces, const simulation::ScalarField<float>& masses, const Parameters& parameters, simulation::VectorField<float>& forces, Cache&, Workspace&) const {
+        kernels::force_forward(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(external_forces), masses.values.data(), stretch_topology_view(model), parameter_view(parameters.stretch), topology_view(device_bending_topology), parameter_view(parameters.bending), simulation::view(forces));
     }
 
-    void MassSpringForce::jvp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>&, const simulation::ScalarField<float>&, const Parameters& parameters, const simulation::VectorField<float>&, const Cache&, const simulation::VectorField<float>& position_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::VectorField<float>& external_force_tangent, const simulation::ScalarField<float>& mass_tangent, const ParameterTangent& parameter_tangent, simulation::VectorField<float>& force_tangent, TangentWorkspace&) const {
-        kernels::force_jvp(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(external_force_tangent), simulation::view(position_tangent), simulation::view(velocity_tangent), mass_tangent.values.data(), topology_view(device_topology.stretch), parameter_view(parameters.stretch), parameter_view(parameter_tangent.stretch), topology_view(device_topology.bending), parameter_view(parameters.bending), parameter_view(parameter_tangent.bending), simulation::view(force_tangent));
+    void MassSpringForce::jvp(const Model<float>& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>&, const simulation::ScalarField<float>&, const Parameters& parameters, const simulation::VectorField<float>&, const Cache&, const simulation::VectorField<float>& position_tangent, const simulation::VectorField<float>& velocity_tangent, const simulation::VectorField<float>& external_force_tangent, const simulation::ScalarField<float>& mass_tangent, const ParameterTangent& parameter_tangent, simulation::VectorField<float>& force_tangent, TangentWorkspace&) const {
+        kernels::force_jvp(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(external_force_tangent), simulation::view(position_tangent), simulation::view(velocity_tangent), mass_tangent.values.data(), stretch_topology_view(model), parameter_view(parameters.stretch), parameter_view(parameter_tangent.stretch), topology_view(device_bending_topology), parameter_view(parameters.bending), parameter_view(parameter_tangent.bending), simulation::view(force_tangent));
     }
 
-    void MassSpringForce::vjp(const Model& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>&, const simulation::ScalarField<float>&, const Parameters& parameters, const simulation::VectorField<float>&, const Cache&, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& position_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& external_force_adjoint, simulation::ScalarField<double>& mass_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace&) const {
-        kernels::force_state_vjp(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), topology_view(device_topology.stretch), parameter_view(parameters.stretch), topology_view(device_topology.bending), parameter_view(parameters.bending), simulation::view(position_adjoint), simulation::view(velocity_adjoint), simulation::view(external_force_adjoint), mass_adjoint.values.data());
-        kernels::force_parameter_vjp(model.stream, static_cast<std::uint32_t>(topology.stretch.springs.size()), simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), topology_view(device_topology.stretch), parameter_view(parameters.stretch), parameter_adjoint_view(parameter_adjoint.stretch));
-        kernels::force_parameter_vjp(model.stream, static_cast<std::uint32_t>(topology.bending.springs.size()), simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), topology_view(device_topology.bending), parameter_view(parameters.bending), parameter_adjoint_view(parameter_adjoint.bending));
+    void MassSpringForce::vjp(const Model<float>& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::VectorField<float>&, const simulation::ScalarField<float>&, const Parameters& parameters, const simulation::VectorField<float>&, const Cache&, const simulation::VectorField<double>& force_adjoint, simulation::VectorField<double>& position_adjoint, simulation::VectorField<double>& velocity_adjoint, simulation::VectorField<double>& external_force_adjoint, simulation::ScalarField<double>& mass_adjoint, ParameterAdjoint& parameter_adjoint, AdjointWorkspace&) const {
+        kernels::force_state_vjp(model.stream, static_cast<std::uint32_t>(model.particle_count), {.x = configuration.gravity.x, .y = configuration.gravity.y, .z = configuration.gravity.z}, simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), stretch_topology_view(model), parameter_view(parameters.stretch), topology_view(device_bending_topology), parameter_view(parameters.bending), simulation::view(position_adjoint), simulation::view(velocity_adjoint), simulation::view(external_force_adjoint), mass_adjoint.values.data());
+        kernels::force_parameter_vjp(model.stream, static_cast<std::uint32_t>(model.topology.edges.size()), simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), stretch_topology_view(model), parameter_view(parameters.stretch), parameter_adjoint_view(parameter_adjoint.stretch));
+        kernels::force_parameter_vjp(model.stream, static_cast<std::uint32_t>(bending_topology.springs.size()), simulation::view(positions), simulation::view(velocities), simulation::view(force_adjoint), topology_view(device_bending_topology), parameter_view(parameters.bending), parameter_adjoint_view(parameter_adjoint.bending));
     }
 
     void MassSpringForce::build_adjacency(SpringTopology& spring_topology, const std::size_t particle_count) {
@@ -165,33 +173,19 @@ namespace physica::deformables::cloth::operators {
         }
     }
 
-    MassSpringForce::Topology MassSpringForce::build_topology(const ModelConfiguration& configuration) {
-        std::map<std::pair<std::uint32_t, std::uint32_t>, std::vector<std::uint32_t>> edge_opposites;
-        for (const Triangle triangle : configuration.triangles) {
-            const std::array vertices{triangle.first, triangle.second, triangle.third};
-            for (std::size_t edge = 0uz; edge < 3uz; ++edge) {
-                const std::uint32_t first  = vertices[edge] < vertices[(edge + 1uz) % 3uz] ? vertices[edge] : vertices[(edge + 1uz) % 3uz];
-                const std::uint32_t second = vertices[edge] < vertices[(edge + 1uz) % 3uz] ? vertices[(edge + 1uz) % 3uz] : vertices[edge];
-                edge_opposites[{first, second}].push_back(vertices[(edge + 2uz) % 3uz]);
-            }
+    MassSpringForce::SpringTopology MassSpringForce::build_bending_topology(const Model<float>& model) {
+        SpringTopology result{};
+        result.springs.reserve(model.topology.hinges.size());
+        for (const Hinge hinge : model.topology.hinges) {
+            const std::uint32_t first  = hinge.first_opposite < hinge.second_opposite ? hinge.first_opposite : hinge.second_opposite;
+            const std::uint32_t second = hinge.first_opposite < hinge.second_opposite ? hinge.second_opposite : hinge.first_opposite;
+            result.springs.push_back({.first = first, .second = second, .rest_length = length(model.configuration.rest_positions[second] - model.configuration.rest_positions[first])});
         }
-
-        Topology result{};
-        result.stretch.springs.reserve(edge_opposites.size());
-        for (const auto& [edge, opposites] : edge_opposites) {
-            result.stretch.springs.push_back({.first = edge.first, .second = edge.second, .rest_length = length(configuration.rest_positions[edge.second] - configuration.rest_positions[edge.first])});
-            if (opposites.size() == 2uz) {
-                const std::uint32_t first  = opposites[0] < opposites[1] ? opposites[0] : opposites[1];
-                const std::uint32_t second = opposites[0] < opposites[1] ? opposites[1] : opposites[0];
-                result.bending.springs.push_back({.first = first, .second = second, .rest_length = length(configuration.rest_positions[second] - configuration.rest_positions[first])});
-            }
-        }
-        build_adjacency(result.stretch, configuration.rest_positions.size());
-        build_adjacency(result.bending, configuration.rest_positions.size());
+        build_adjacency(result, model.particle_count);
         return result;
     }
 
-    MassSpringForce::DeviceSpringTopology MassSpringForce::allocate_device_topology(const Model& model, const SpringTopology& spring_topology) {
+    MassSpringForce::DeviceSpringTopology MassSpringForce::allocate_device_topology(const Model<float>& model, const SpringTopology& spring_topology) {
         return {
             .first   = simulation::ScalarField<std::uint32_t>(model.stream, spring_topology.springs.size()),
             .second  = simulation::ScalarField<std::uint32_t>(model.stream, spring_topology.springs.size()),
@@ -200,7 +194,7 @@ namespace physica::deformables::cloth::operators {
         };
     }
 
-    void MassSpringForce::upload_topology(const Model& model, const SpringTopology& spring_topology, DeviceSpringTopology& destination) {
+    void MassSpringForce::upload_topology(const Model<float>& model, const SpringTopology& spring_topology, DeviceSpringTopology& destination) {
         std::vector<std::uint32_t> first(spring_topology.springs.size());
         std::vector<std::uint32_t> second(spring_topology.springs.size());
         for (std::size_t spring = 0uz; spring < spring_topology.springs.size(); ++spring) {

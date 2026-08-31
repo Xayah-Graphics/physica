@@ -36,6 +36,7 @@ include(CTest)
 # ============================================================================
 include(cmake/Dependencies.cmake)
 physica_require_dependency(cuda)
+physica_require_dependency(cudss)
 physica_require_dependency(cccl)
 physica_require_dependency(nlohmann_json)
 physica_require_dependency(stb)
@@ -364,23 +365,99 @@ add_library(physica-deformables-cloth STATIC)
 target_sources(
         physica-deformables-cloth
         PRIVATE
-        physica/deformables/cloth/model.cpp
-        physica/deformables/cloth/operators/fixed-position-kernels.h
-        physica/deformables/cloth/operators/fixed-position.cpp
-        physica/deformables/cloth/operators/fixed-position.cu
+        physica/deformables/cloth/coloring.cpp
+        physica/deformables/cloth/topology.cpp
+        physica/deformables/cloth/constraints/analytic-collision-kernels.h
+        physica/deformables/cloth/constraints/analytic-collision.cpp
+        physica/deformables/cloth/constraints/analytic-collision.cu
+        physica/deformables/cloth/constraints/fixed-position-kernels.h
+        physica/deformables/cloth/constraints/fixed-position.cpp
+        physica/deformables/cloth/constraints/fixed-position.cu
+        physica/deformables/cloth/constraints/provot-strain-limit-kernels.h
+        physica/deformables/cloth/constraints/provot-strain-limit.cpp
+        physica/deformables/cloth/constraints/provot-strain-limit.cu
         physica/deformables/cloth/operators/mass-spring-kernels.h
         physica/deformables/cloth/operators/mass-spring.cpp
         physica/deformables/cloth/operators/mass-spring.cu
-        physica/deformables/cloth/operators/semi-implicit-euler-kernels.h
-        physica/deformables/cloth/operators/semi-implicit-euler.cpp
-        physica/deformables/cloth/operators/semi-implicit-euler.cu
+        physica/deformables/cloth/integrators/forward-euler-kernels.h
+        physica/deformables/cloth/integrators/forward-euler.cpp
+        physica/deformables/cloth/integrators/forward-euler.cu
+        physica/deformables/cloth/integrators/semi-implicit-euler-kernels.h
+        physica/deformables/cloth/integrators/semi-implicit-euler.cpp
+        physica/deformables/cloth/integrators/semi-implicit-euler.cu
+        physica/deformables/cloth/solvers/position-dynamics-kernels.h
+        physica/deformables/cloth/solvers/position-dynamics.cu
+        physica/deformables/cloth/solvers/velocity-verlet/velocity-verlet-kernels.h
+        physica/deformables/cloth/solvers/velocity-verlet/velocity-verlet.cu
+        physica/deformables/cloth/solvers/pbd/pbd-kernels.h
+        physica/deformables/cloth/solvers/pbd/pbd.cpp
+        physica/deformables/cloth/solvers/pbd/pbd.cu
+        physica/deformables/cloth/solvers/strain-based-dynamics/strain-based-dynamics-kernels.h
+        physica/deformables/cloth/solvers/strain-based-dynamics/strain-based-dynamics.cpp
+        physica/deformables/cloth/solvers/strain-based-dynamics/strain-based-dynamics.cu
+        physica/deformables/cloth/solvers/xpbd/xpbd-kernels.h
+        physica/deformables/cloth/solvers/xpbd/xpbd.cpp
+        physica/deformables/cloth/solvers/xpbd/xpbd.cu
+        physica/deformables/cloth/solvers/fast-projection/fast-projection-kernels.h
+        physica/deformables/cloth/solvers/fast-projection/fast-projection.cpp
+        physica/deformables/cloth/solvers/fast-projection/fast-projection.cu
+        physica/deformables/cloth/solvers/block-pcg/block-pcg-kernels.h
+        physica/deformables/cloth/solvers/block-pcg/block-pcg.cpp
+        physica/deformables/cloth/solvers/block-pcg/block-pcg.cu
+        physica/deformables/cloth/solvers/fast-mass-spring/fast-mass-spring-kernels.h
+        physica/deformables/cloth/solvers/fast-mass-spring/fast-mass-spring.cpp
+        physica/deformables/cloth/solvers/fast-mass-spring/fast-mass-spring.cu
+        physica/deformables/cloth/solvers/baraff-witkin/baraff-witkin-kernels.h
+        physica/deformables/cloth/solvers/baraff-witkin/second-order.cuh
+        physica/deformables/cloth/solvers/baraff-witkin/baraff-witkin.cpp
+        physica/deformables/cloth/solvers/baraff-witkin/baraff-witkin.cu
+        physica/deformables/cloth/solvers/projective-dynamics/projective-dynamics-kernels.h
+        physica/deformables/cloth/solvers/projective-dynamics/projective-dynamics.cpp
+        physica/deformables/cloth/solvers/projective-dynamics/projective-dynamics.cu
+        physica/deformables/cloth/solvers/choi-ko/choi-ko-kernels.h
+        physica/deformables/cloth/solvers/choi-ko/choi-ko.cpp
+        physica/deformables/cloth/solvers/choi-ko/choi-ko.cu
+        physica/deformables/cloth/solvers/stvk-fem/stvk-fem-kernels.h
+        physica/deformables/cloth/solvers/stvk-fem/stvk-fem.cpp
+        physica/deformables/cloth/solvers/stvk-fem/stvk-fem.cu
+        physica/deformables/cloth/solvers/corotated-fem/corotated-fem-kernels.h
+        physica/deformables/cloth/solvers/corotated-fem/corotated-fem.cpp
+        physica/deformables/cloth/solvers/corotated-fem/corotated-fem.cu
+        physica/deformables/cloth/solvers/surface-neo-hookean/surface-neo-hookean-kernels.h
+        physica/deformables/cloth/solvers/surface-neo-hookean/surface-neo-hookean.cpp
+        physica/deformables/cloth/solvers/surface-neo-hookean/surface-neo-hookean.cu
+        physica/deformables/cloth/solvers/discrete-shells/discrete-shells-kernels.h
+        physica/deformables/cloth/solvers/discrete-shells/second-order.cuh
+        physica/deformables/cloth/solvers/discrete-shells/discrete-shells.cpp
+        physica/deformables/cloth/solvers/discrete-shells/discrete-shells.cu
         PUBLIC
         FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/deformables/cloth/coloring.ixx
+        physica/deformables/cloth/topology.ixx
         physica/deformables/cloth/model.ixx
-        physica/deformables/cloth/operators/fixed-position.ixx
+        physica/deformables/cloth/state.ixx
+        physica/deformables/cloth/forward.ixx
+        physica/deformables/cloth/constraints/analytic-collision.ixx
+        physica/deformables/cloth/constraints/fixed-position.ixx
+        physica/deformables/cloth/constraints/provot-strain-limit.ixx
         physica/deformables/cloth/operators/mass-spring.ixx
-        physica/deformables/cloth/operators/semi-implicit-euler.ixx
+        physica/deformables/cloth/integrators/forward-euler.ixx
+        physica/deformables/cloth/integrators/semi-implicit-euler.ixx
         physica/deformables/cloth/solvers/explicit-dynamics/explicit-dynamics.ixx
+        physica/deformables/cloth/solvers/velocity-verlet/velocity-verlet.ixx
+        physica/deformables/cloth/solvers/pbd/pbd.ixx
+        physica/deformables/cloth/solvers/strain-based-dynamics/strain-based-dynamics.ixx
+        physica/deformables/cloth/solvers/xpbd/xpbd.ixx
+        physica/deformables/cloth/solvers/fast-projection/fast-projection.ixx
+        physica/deformables/cloth/solvers/block-pcg/block-pcg.ixx
+        physica/deformables/cloth/solvers/fast-mass-spring/fast-mass-spring.ixx
+        physica/deformables/cloth/solvers/baraff-witkin/baraff-witkin.ixx
+        physica/deformables/cloth/solvers/projective-dynamics/projective-dynamics.ixx
+        physica/deformables/cloth/solvers/choi-ko/choi-ko.ixx
+        physica/deformables/cloth/solvers/stvk-fem/stvk-fem.ixx
+        physica/deformables/cloth/solvers/corotated-fem/corotated-fem.ixx
+        physica/deformables/cloth/solvers/surface-neo-hookean/surface-neo-hookean.ixx
+        physica/deformables/cloth/solvers/discrete-shells/discrete-shells.ixx
 )
 target_include_directories(physica-deformables-cloth PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
 target_link_libraries(
@@ -389,6 +466,9 @@ target_link_libraries(
         CCCL::libcudacxx
         CUDA::toolkit
         physica-simulation-field
+        PRIVATE
+        cudss
+        CUDA::cublas
 )
 
 # ============================================================================
@@ -656,6 +736,391 @@ if (PHYSICA_EXAMPLES)
     )
     target_link_libraries(physica-example-flip-apic-dam-break-cli PRIVATE physica-example-flip-apic-dam-break)
 
+    add_library(physica-example-cloth-support STATIC)
+    target_sources(
+            physica-example-cloth-support
+            PRIVATE
+            examples/deformables/cloth/support/scene.cpp
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/support/scene.ixx
+    )
+    target_link_libraries(physica-example-cloth-support PUBLIC physica-deformables-cloth)
+
+    add_library(physica-example-cloth-forward-euler STATIC)
+    target_sources(
+            physica-example-cloth-forward-euler
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/forward-euler/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-forward-euler PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-forward-euler-cli
+            examples/deformables/cloth/forward-euler/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-forward-euler-cli PRIVATE physica-example-cloth-forward-euler)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-forward-euler-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-forward-euler-cli> $<TARGET_FILE_DIR:physica-example-cloth-forward-euler-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-semi-implicit-euler STATIC)
+    target_sources(
+            physica-example-cloth-semi-implicit-euler
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/semi-implicit-euler/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-semi-implicit-euler PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-semi-implicit-euler-cli
+            examples/deformables/cloth/semi-implicit-euler/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-semi-implicit-euler-cli PRIVATE physica-example-cloth-semi-implicit-euler)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-semi-implicit-euler-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-semi-implicit-euler-cli> $<TARGET_FILE_DIR:physica-example-cloth-semi-implicit-euler-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-velocity-verlet STATIC)
+    target_sources(
+            physica-example-cloth-velocity-verlet
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/velocity-verlet/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-velocity-verlet PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-velocity-verlet-cli
+            examples/deformables/cloth/velocity-verlet/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-velocity-verlet-cli PRIVATE physica-example-cloth-velocity-verlet)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-velocity-verlet-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-velocity-verlet-cli> $<TARGET_FILE_DIR:physica-example-cloth-velocity-verlet-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-provot-strain-limiting STATIC)
+    target_sources(
+            physica-example-cloth-provot-strain-limiting
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/provot-strain-limiting/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-provot-strain-limiting PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-provot-strain-limiting-cli
+            examples/deformables/cloth/provot-strain-limiting/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-provot-strain-limiting-cli PRIVATE physica-example-cloth-provot-strain-limiting)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-provot-strain-limiting-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-provot-strain-limiting-cli> $<TARGET_FILE_DIR:physica-example-cloth-provot-strain-limiting-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-analytic-collision STATIC)
+    target_sources(
+            physica-example-cloth-analytic-collision
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/analytic-collision/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-analytic-collision PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-analytic-collision-cli
+            examples/deformables/cloth/analytic-collision/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-analytic-collision-cli PRIVATE physica-example-cloth-analytic-collision)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-analytic-collision-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-analytic-collision-cli> $<TARGET_FILE_DIR:physica-example-cloth-analytic-collision-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-pbd STATIC)
+    target_sources(
+            physica-example-cloth-pbd
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/pbd/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-pbd PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-pbd-cli
+            examples/deformables/cloth/pbd/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-pbd-cli PRIVATE physica-example-cloth-pbd)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-pbd-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-pbd-cli> $<TARGET_FILE_DIR:physica-example-cloth-pbd-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-strain-based-dynamics STATIC)
+    target_sources(
+            physica-example-cloth-strain-based-dynamics
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/strain-based-dynamics/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-strain-based-dynamics PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-strain-based-dynamics-cli
+            examples/deformables/cloth/strain-based-dynamics/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-strain-based-dynamics-cli PRIVATE physica-example-cloth-strain-based-dynamics)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-strain-based-dynamics-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-strain-based-dynamics-cli> $<TARGET_FILE_DIR:physica-example-cloth-strain-based-dynamics-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-xpbd STATIC)
+    target_sources(
+            physica-example-cloth-xpbd
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/xpbd/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-xpbd PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-xpbd-cli
+            examples/deformables/cloth/xpbd/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-xpbd-cli PRIVATE physica-example-cloth-xpbd)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-xpbd-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-xpbd-cli> $<TARGET_FILE_DIR:physica-example-cloth-xpbd-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-fast-projection STATIC)
+    target_sources(
+            physica-example-cloth-fast-projection
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/fast-projection/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-fast-projection PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-fast-projection-cli
+            examples/deformables/cloth/fast-projection/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-fast-projection-cli PRIVATE physica-example-cloth-fast-projection)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-fast-projection-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-fast-projection-cli> $<TARGET_FILE_DIR:physica-example-cloth-fast-projection-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-fast-mass-spring STATIC)
+    target_sources(
+            physica-example-cloth-fast-mass-spring
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/fast-mass-spring/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-fast-mass-spring PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-fast-mass-spring-cli
+            examples/deformables/cloth/fast-mass-spring/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-fast-mass-spring-cli PRIVATE physica-example-cloth-fast-mass-spring)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-fast-mass-spring-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-fast-mass-spring-cli> $<TARGET_FILE_DIR:physica-example-cloth-fast-mass-spring-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-baraff-witkin STATIC)
+    target_sources(
+            physica-example-cloth-baraff-witkin
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/baraff-witkin/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-baraff-witkin PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-baraff-witkin-cli
+            examples/deformables/cloth/baraff-witkin/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-baraff-witkin-cli PRIVATE physica-example-cloth-baraff-witkin)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-baraff-witkin-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-baraff-witkin-cli> $<TARGET_FILE_DIR:physica-example-cloth-baraff-witkin-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-projective-dynamics STATIC)
+    target_sources(
+            physica-example-cloth-projective-dynamics
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/projective-dynamics/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-projective-dynamics PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-projective-dynamics-cli
+            examples/deformables/cloth/projective-dynamics/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-projective-dynamics-cli PRIVATE physica-example-cloth-projective-dynamics)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-projective-dynamics-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-projective-dynamics-cli> $<TARGET_FILE_DIR:physica-example-cloth-projective-dynamics-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-choi-ko STATIC)
+    target_sources(
+            physica-example-cloth-choi-ko
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/choi-ko/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-choi-ko PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-choi-ko-cli
+            examples/deformables/cloth/choi-ko/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-choi-ko-cli PRIVATE physica-example-cloth-choi-ko)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-choi-ko-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-choi-ko-cli> $<TARGET_FILE_DIR:physica-example-cloth-choi-ko-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-stvk-fem STATIC)
+    target_sources(
+            physica-example-cloth-stvk-fem
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/stvk-fem/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-stvk-fem PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-stvk-fem-cli
+            examples/deformables/cloth/stvk-fem/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-stvk-fem-cli PRIVATE physica-example-cloth-stvk-fem)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-stvk-fem-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-stvk-fem-cli> $<TARGET_FILE_DIR:physica-example-cloth-stvk-fem-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-corotated-fem STATIC)
+    target_sources(
+            physica-example-cloth-corotated-fem
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/corotated-fem/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-corotated-fem PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-corotated-fem-cli
+            examples/deformables/cloth/corotated-fem/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-corotated-fem-cli PRIVATE physica-example-cloth-corotated-fem)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-corotated-fem-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-corotated-fem-cli> $<TARGET_FILE_DIR:physica-example-cloth-corotated-fem-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-surface-neo-hookean STATIC)
+    target_sources(
+            physica-example-cloth-surface-neo-hookean
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/surface-neo-hookean/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-surface-neo-hookean PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-surface-neo-hookean-cli
+            examples/deformables/cloth/surface-neo-hookean/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-surface-neo-hookean-cli PRIVATE physica-example-cloth-surface-neo-hookean)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-surface-neo-hookean-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-surface-neo-hookean-cli> $<TARGET_FILE_DIR:physica-example-cloth-surface-neo-hookean-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
+    add_library(physica-example-cloth-discrete-shells STATIC)
+    target_sources(
+            physica-example-cloth-discrete-shells
+            PUBLIC
+            FILE_SET cxx_modules TYPE CXX_MODULES FILES
+            examples/deformables/cloth/discrete-shells/simulation.ixx
+    )
+    target_link_libraries(physica-example-cloth-discrete-shells PUBLIC physica-example-cloth-support)
+    add_executable(
+            physica-example-cloth-discrete-shells-cli
+            examples/deformables/cloth/discrete-shells/main.cpp
+    )
+    target_link_libraries(physica-example-cloth-discrete-shells-cli PRIVATE physica-example-cloth-discrete-shells)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-discrete-shells-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-discrete-shells-cli> $<TARGET_FILE_DIR:physica-example-cloth-discrete-shells-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
+
     add_library(physica-example-cloth STATIC)
     target_sources(
             physica-example-cloth
@@ -672,6 +1137,14 @@ if (PHYSICA_EXAMPLES)
             examples/deformables/cloth/main.cpp
     )
     target_link_libraries(physica-example-cloth-cli PRIVATE physica-example-cloth)
+    if (WIN32)
+        add_custom_command(
+                TARGET physica-example-cloth-cli
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-cli> $<TARGET_FILE_DIR:physica-example-cloth-cli>
+                COMMAND_EXPAND_LISTS
+        )
+    endif ()
 
     if (PHYSICA_BUILD_SPECTRA)
         physica_require_dependency(spectra_sdk)
