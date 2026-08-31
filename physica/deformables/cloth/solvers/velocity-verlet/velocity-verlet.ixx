@@ -8,6 +8,7 @@ export module physica.deformables.cloth.solvers.velocity_verlet;
 
 import std;
 import physica.deformables.cloth.forward;
+import physica.deformables.cloth.model;
 export import physica.deformables.cloth.state;
 
 export namespace physica::deformables::cloth::solvers::velocity_verlet {

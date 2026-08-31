@@ -6,6 +6,7 @@ export module physica.deformables.cloth.solvers.explicit_dynamics;
 
 import std;
 import physica.deformables.cloth.forward;
+import physica.deformables.cloth.model;
 export import physica.deformables.cloth.state;
 
 export namespace physica::deformables::cloth::solvers::explicit_dynamics {
