@@ -1,0 +1,320 @@
+#usda 1.0
+(
+    metersPerUnit = 1
+    subLayers = [
+        @./scene.usda@
+    ]
+    upAxis = "Z"
+)
+
+over "World"
+{
+    over "Flag"
+    {
+        over "FlagMesh"
+        {
+            def GeomSubset "Pins" (
+                displayName = "Pins"
+            )
+            {
+                uniform token elementType = "point"
+                int[] indices = [0, 12, 24, 36, 48, 60, 72, 84]
+            }
+        }
+    }
+}
+
+def Scope "Physica"
+{
+    custom double physica:clock:stepSeconds = 0.008333333333333333
+    custom uint64 physica:clock:startStep = 0
+    custom bool physica:clock:loop = 0
+    custom uint64 physica:seed = 1337
+    custom uint physica:version = 2
+
+    def Scope "Resources"
+    {
+    }
+
+    def Scope "Systems"
+    {
+        def Scope "Cloth"
+        {
+            custom bool physica:enabled = 1
+            custom string physica:id = "cloth"
+            custom string physica:module = "physica.example.deformables.cloth.flag"
+            custom string physica:name = "Flag Cloth"
+            custom bool physica:visible = 1
+
+            def Scope "Inputs"
+            {
+                def Scope "Cloth"
+                {
+                    custom string physica:id = "cloth"
+                    custom rel physica:selections = [</World/Flag/FlagMesh/Pins>]
+                    custom rel physica:source = </World/Flag/FlagMesh>
+                }
+            }
+
+            def Scope "Parameters"
+            {
+                def Scope "ParticleMass"
+                {
+                    custom double3 physica:floating = (0.0125, 0, 0)
+                    custom string physica:id = "particleMass"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "StretchStiffness"
+                {
+                    custom double3 physica:floating = (420, 0, 0)
+                    custom string physica:id = "stretchStiffness"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "StretchDamping"
+                {
+                    custom double3 physica:floating = (1.4, 0, 0)
+                    custom string physica:id = "stretchDamping"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "BendingStiffness"
+                {
+                    custom double3 physica:floating = (4, 0, 0)
+                    custom string physica:id = "bendingStiffness"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "BendingDamping"
+                {
+                    custom double3 physica:floating = (0.3, 0, 0)
+                    custom string physica:id = "bendingDamping"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "Gravity"
+                {
+                    custom double3 physica:floating = (0, 0, -9.81)
+                    custom string physica:id = "gravity"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float3"
+                }
+                def Scope "Wind"
+                {
+                    custom double3 physica:floating = (3.2, -0.25, 0.35)
+                    custom string physica:id = "wind"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float3"
+                }
+                def Scope "GustStrength"
+                {
+                    custom double3 physica:floating = (0.3, 0, 0)
+                    custom string physica:id = "gustStrength"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "GustFrequency"
+                {
+                    custom double3 physica:floating = (0.8, 0, 0)
+                    custom string physica:id = "gustFrequency"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "AirDensity"
+                {
+                    custom double3 physica:floating = (1.225, 0, 0)
+                    custom string physica:id = "airDensity"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "DragCoefficient"
+                {
+                    custom double3 physica:floating = (1, 0, 0)
+                    custom string physica:id = "dragCoefficient"
+                    custom int64 physica:integer = 0
+                    custom token physica:valueKind = "float"
+                }
+                def Scope "Substeps"
+                {
+                    custom double3 physica:floating = (0, 0, 0)
+                    custom string physica:id = "substeps"
+                    custom int64 physica:integer = 8
+                    custom token physica:valueKind = "integer"
+                }
+            }
+
+            def Scope "Bindings"
+            {
+                def Scope "Surface"
+                {
+                    custom string physica:id = "surface"
+                    custom rel physica:target = </World/Flag/FlagMesh>
+                }
+            }
+
+            def Scope "Views"
+            {
+                def Scope "Pins"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "viridis"
+                    custom token physica:colorSource = "uniform"
+                    custom color4f physica:color = (1, 0.25, 0.05, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "overlay"
+                    custom string physica:id = "pins"
+                    custom string physica:name = "Pinned Vertices"
+                    custom float physica:scalarMaximum = 1
+                    custom float physica:scalarMinimum = 0
+                    custom float physica:size = 7
+                    custom string physica:source = "pins"
+                    custom token physica:type = "points"
+                    custom bool physica:visible = 1
+                }
+                def Scope "Velocity"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "turbo"
+                    custom token physica:colorSource = "scalar"
+                    custom color4f physica:color = (0.1, 0.7, 1, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "velocity"
+                    custom string physica:name = "Velocity"
+                    custom float physica:scalarMaximum = 4
+                    custom float physica:scalarMinimum = 0
+                    custom float physica:scale = 0.08
+                    custom string physica:source = "velocity"
+                    custom token physica:type = "vectors"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1.5
+                }
+                def Scope "Force"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "coolWarm"
+                    custom token physica:colorSource = "scalar"
+                    custom color4f physica:color = (1, 0.4, 0.1, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "force"
+                    custom string physica:name = "Last Substep Force"
+                    custom float physica:scalarMaximum = 2
+                    custom float physica:scalarMinimum = 0
+                    custom float physica:scale = 0.02
+                    custom string physica:source = "force"
+                    custom token physica:type = "vectors"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1.5
+                }
+                def Scope "Strain"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "turbo"
+                    custom token physica:colorSource = "scalar"
+                    custom color4f physica:color = (1, 1, 1, 1)
+                    custom token physica:compositionDomain = "sceneLinear"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "strain"
+                    custom string physica:name = "Maximum Stretch Strain"
+                    custom float physica:scalarMaximum = 0.25
+                    custom float physica:scalarMinimum = 0
+                    custom string physica:source = "strain"
+                    custom token physica:type = "surface"
+                    custom bool physica:visible = 0
+                }
+                def Scope "StretchConstraints"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "viridis"
+                    custom token physica:colorSource = "uniform"
+                    custom color4f physica:color = (0.1, 0.9, 1, 0.8)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "xRay"
+                    custom string physica:id = "stretch-constraints"
+                    custom string physica:name = "Stretch Constraints"
+                    custom float physica:scalarMaximum = 1
+                    custom float physica:scalarMinimum = 0
+                    custom string physica:source = "stretch-constraints"
+                    custom token physica:type = "segments"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1
+                }
+                def Scope "BendConstraints"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom token physica:colorMap = "viridis"
+                    custom token physica:colorSource = "uniform"
+                    custom color4f physica:color = (1, 0.2, 0.8, 0.75)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "xRay"
+                    custom string physica:id = "bend-constraints"
+                    custom string physica:name = "Bending Constraints"
+                    custom float physica:scalarMaximum = 1
+                    custom float physica:scalarMinimum = 0
+                    custom string physica:source = "bend-constraints"
+                    custom token physica:type = "segments"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1
+                }
+                def Scope "Wireframe"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom color4f physica:color = (0.02, 0.02, 0.02, 0.9)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "wireframe"
+                    custom string physica:name = "Wireframe"
+                    custom float physica:scale = 0.1
+                    custom string physica:source = "surface"
+                    custom token physica:type = "wireframe"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1
+                }
+                def Scope "Vertices"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom color4f physica:color = (1, 1, 1, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "vertices"
+                    custom string physica:name = "Vertices"
+                    custom float physica:scale = 0.1
+                    custom string physica:source = "surface"
+                    custom token physica:type = "vertices"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 3
+                }
+                def Scope "VertexNormals"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom color4f physica:color = (0.2, 0.55, 1, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "vertex-normals"
+                    custom string physica:name = "Vertex Normals"
+                    custom float physica:scale = 0.06
+                    custom string physica:source = "surface"
+                    custom token physica:type = "vertexNormals"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1
+                }
+                def Scope "FaceNormals"
+                {
+                    custom rel physica:anchor = </World/Flag/FlagMesh>
+                    custom color4f physica:color = (1, 0.7, 0.1, 1)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "tested"
+                    custom string physica:id = "face-normals"
+                    custom string physica:name = "Face Normals"
+                    custom float physica:scale = 0.06
+                    custom string physica:source = "surface"
+                    custom token physica:type = "faceNormals"
+                    custom bool physica:visible = 0
+                    custom float physica:width = 1
+                }
+            }
+        }
+    }
+}

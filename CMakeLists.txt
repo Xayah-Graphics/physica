@@ -1121,44 +1121,61 @@ if (PHYSICA_EXAMPLES)
         )
     endif ()
 
-    add_library(physica-example-cloth STATIC)
-    target_sources(
-            physica-example-cloth
-            PRIVATE
-            examples/deformables/cloth/simulation.cu
-            examples/deformables/cloth/simulation_kernels.h
-            PUBLIC
-            FILE_SET cxx_modules TYPE CXX_MODULES FILES
-            examples/deformables/cloth/simulation.ixx
-    )
-    target_link_libraries(physica-example-cloth PUBLIC physica-deformables-cloth)
-    add_executable(
-            physica-example-cloth-cli
-            examples/deformables/cloth/main.cpp
-    )
-    target_link_libraries(physica-example-cloth-cli PRIVATE physica-example-cloth)
-    if (WIN32)
-        add_custom_command(
-                TARGET physica-example-cloth-cli
-                POST_BUILD
-                COMMAND "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:physica-example-cloth-cli> $<TARGET_FILE_DIR:physica-example-cloth-cli>
-                COMMAND_EXPAND_LISTS
-        )
-    endif ()
-
     if (PHYSICA_BUILD_SPECTRA)
         physica_require_dependency(spectra_sdk)
 
         spectra_add_provider(
+                physica-example-cloth-flag-spectra
+                MODULE physica.example.deformables.cloth.flag.module
+                TYPE physica::examples::cloth_flag::Module
+        )
+        target_sources(
+                physica-example-cloth-flag-spectra
+                PRIVATE
+                examples/deformables/cloth/flag/simulation_kernels.h
+                examples/deformables/cloth/flag/simulation.cu
+                examples/deformables/cloth/flag/module_kernels.h
+                examples/deformables/cloth/flag/module_kernels.cu
+                examples/deformables/cloth/flag/module.cpp
+                PRIVATE
+                FILE_SET provider_module TYPE CXX_MODULES FILES
+                examples/deformables/cloth/flag/module.ixx
+        )
+        target_link_libraries(physica-example-cloth-flag-spectra PRIVATE physica-deformables-cloth)
+        set(physica_cloth_flag_bundle_directory "${PROJECT_BINARY_DIR}/spectra/cloth-flag")
+        file(MAKE_DIRECTORY "${physica_cloth_flag_bundle_directory}/textures")
+        configure_file(
+                examples/deformables/cloth/flag/scene.usda
+                "${physica_cloth_flag_bundle_directory}/scene.usda"
+                COPYONLY
+        )
+        configure_file(
+                examples/deformables/cloth/flag/scene.physica.usda
+                "${physica_cloth_flag_bundle_directory}/scene.physica.usda"
+                COPYONLY
+        )
+        configure_file(
+                examples/deformables/cloth/flag/textures/color_0C0C0C.exr
+                "${physica_cloth_flag_bundle_directory}/textures/color_0C0C0C.exr"
+                COPYONLY
+        )
+        set_target_properties(
+                physica-example-cloth-flag-spectra
+                PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${physica_cloth_flag_bundle_directory}>"
+        )
+
+        spectra_add_provider(
                 physica-example-instant-ngp-spectra
-                MODULE physica.example.reconstruction.instant_ngp.spectra
-                TYPE physica::examples::instant_ngp::Provider
+                MODULE physica.example.reconstruction.instant_ngp.module
+                TYPE physica::examples::instant_ngp::Module
         )
         target_sources(
                 physica-example-instant-ngp-spectra
                 PRIVATE
+                examples/reconstruction/instant-ngp/spectra/module.cpp
+                PRIVATE
                 FILE_SET provider_module TYPE CXX_MODULES FILES
-                examples/reconstruction/instant-ngp/spectra/provider.ixx
+                examples/reconstruction/instant-ngp/spectra/module.ixx
         )
         target_link_libraries(
                 physica-example-instant-ngp-spectra
@@ -1169,8 +1186,13 @@ if (PHYSICA_EXAMPLES)
         set(physica_instant_ngp_bundle_directory "${PROJECT_BINARY_DIR}/spectra/instant-ngp")
         file(MAKE_DIRECTORY "${physica_instant_ngp_bundle_directory}")
         configure_file(
-                examples/reconstruction/instant-ngp/spectra/scene.spectra
-                "${physica_instant_ngp_bundle_directory}/scene.spectra"
+                examples/reconstruction/instant-ngp/spectra/scene.usda
+                "${physica_instant_ngp_bundle_directory}/scene.usda"
+                COPYONLY
+        )
+        configure_file(
+                examples/reconstruction/instant-ngp/spectra/scene.physica.usda
+                "${physica_instant_ngp_bundle_directory}/scene.physica.usda"
                 COPYONLY
         )
         set_target_properties(
@@ -1180,21 +1202,23 @@ if (PHYSICA_EXAMPLES)
 
         spectra_add_provider(
                 physica-example-smoke-spectra
-                MODULE physica.example.fluids.gas.smoke.spectra
-                TYPE physica::examples::smoke::Provider
+                MODULE physica.example.fluids.gas.smoke.module
+                TYPE physica::examples::smoke::Module
         )
         target_sources(
                 physica-example-smoke-spectra
                 PRIVATE
+                examples/fluids/gas/smoke/spectra/module.cpp
+                PRIVATE
                 FILE_SET provider_module TYPE CXX_MODULES FILES
-                examples/fluids/gas/smoke/spectra/provider.ixx
+                examples/fluids/gas/smoke/spectra/module.ixx
         )
         target_link_libraries(physica-example-smoke-spectra PRIVATE physica-example-smoke)
         set(physica_smoke_bundle_directory "${PROJECT_BINARY_DIR}/spectra/smoke")
         file(MAKE_DIRECTORY "${physica_smoke_bundle_directory}")
         configure_file(
-                examples/fluids/gas/smoke/spectra/scene.spectra
-                "${physica_smoke_bundle_directory}/scene.spectra"
+                examples/fluids/gas/smoke/spectra/scene.usda
+                "${physica_smoke_bundle_directory}/scene.usda"
                 COPYONLY
         )
         set_target_properties(
@@ -1204,24 +1228,25 @@ if (PHYSICA_EXAMPLES)
 
         spectra_add_provider(
                 physica-example-pbf-dam-break-spectra
-                MODULE physica.example.fluids.liquid.pbf_dam_break.spectra
-                TYPE physica::examples::pbf_dam_break::Provider
+                MODULE physica.example.fluids.liquid.pbf_dam_break.module
+                TYPE physica::examples::pbf_dam_break::Module
         )
         target_sources(
                 physica-example-pbf-dam-break-spectra
                 PRIVATE
                 examples/fluids/liquid/pbf-dam-break/spectra/kernels.cu
                 examples/fluids/liquid/pbf-dam-break/spectra/kernels.h
+                examples/fluids/liquid/pbf-dam-break/spectra/module.cpp
                 PRIVATE
                 FILE_SET provider_module TYPE CXX_MODULES FILES
-                examples/fluids/liquid/pbf-dam-break/spectra/provider.ixx
+                examples/fluids/liquid/pbf-dam-break/spectra/module.ixx
         )
         target_link_libraries(physica-example-pbf-dam-break-spectra PRIVATE physica-example-pbf-dam-break)
         set(physica_pbf_bundle_directory "${PROJECT_BINARY_DIR}/spectra/pbf-dam-break")
         file(MAKE_DIRECTORY "${physica_pbf_bundle_directory}")
         configure_file(
-                examples/fluids/liquid/pbf-dam-break/spectra/scene.spectra
-                "${physica_pbf_bundle_directory}/scene.spectra"
+                examples/fluids/liquid/pbf-dam-break/spectra/scene.usda
+                "${physica_pbf_bundle_directory}/scene.usda"
                 COPYONLY
         )
         set_target_properties(
@@ -1231,24 +1256,25 @@ if (PHYSICA_EXAMPLES)
 
         spectra_add_provider(
                 physica-example-flip-apic-dam-break-spectra
-                MODULE physica.example.fluids.liquid.flip_apic_dam_break.spectra
-                TYPE physica::examples::flip_apic_dam_break::Provider
+                MODULE physica.example.fluids.liquid.flip_apic_dam_break.module
+                TYPE physica::examples::flip_apic_dam_break::Module
         )
         target_sources(
                 physica-example-flip-apic-dam-break-spectra
                 PRIVATE
                 examples/fluids/liquid/flip-apic-dam-break/spectra/kernels.cu
                 examples/fluids/liquid/flip-apic-dam-break/spectra/kernels.h
+                examples/fluids/liquid/flip-apic-dam-break/spectra/module.cpp
                 PRIVATE
                 FILE_SET provider_module TYPE CXX_MODULES FILES
-                examples/fluids/liquid/flip-apic-dam-break/spectra/provider.ixx
+                examples/fluids/liquid/flip-apic-dam-break/spectra/module.ixx
         )
         target_link_libraries(physica-example-flip-apic-dam-break-spectra PRIVATE physica-example-flip-apic-dam-break)
         set(physica_flip_apic_bundle_directory "${PROJECT_BINARY_DIR}/spectra/flip-apic-dam-break")
         file(MAKE_DIRECTORY "${physica_flip_apic_bundle_directory}")
         configure_file(
-                examples/fluids/liquid/flip-apic-dam-break/spectra/scene.spectra
-                "${physica_flip_apic_bundle_directory}/scene.spectra"
+                examples/fluids/liquid/flip-apic-dam-break/spectra/scene.usda
+                "${physica_flip_apic_bundle_directory}/scene.usda"
                 COPYONLY
         )
         set_target_properties(
@@ -1256,37 +1282,6 @@ if (PHYSICA_EXAMPLES)
                 PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${physica_flip_apic_bundle_directory}>"
         )
 
-        spectra_add_provider(
-                physica-example-cloth-spectra
-                MODULE physica.example.deformables.cloth.spectra
-                TYPE physica::examples::cloth::Provider
-        )
-        target_sources(
-                physica-example-cloth-spectra
-                PRIVATE
-                examples/deformables/cloth/spectra/kernels.cu
-                examples/deformables/cloth/spectra/kernels.h
-                PRIVATE
-                FILE_SET provider_module TYPE CXX_MODULES FILES
-                examples/deformables/cloth/spectra/provider.ixx
-        )
-        target_link_libraries(physica-example-cloth-spectra PRIVATE physica-example-cloth)
-        set(physica_cloth_bundle_directory "${PROJECT_BINARY_DIR}/spectra/cloth")
-        file(MAKE_DIRECTORY "${physica_cloth_bundle_directory}/assets")
-        configure_file(
-                examples/deformables/cloth/spectra/scene.spectra
-                "${physica_cloth_bundle_directory}/scene.spectra"
-                COPYONLY
-        )
-        configure_file(
-                examples/deformables/cloth/spectra/assets/flag.ply
-                "${physica_cloth_bundle_directory}/assets/flag.ply"
-                COPYONLY
-        )
-        set_target_properties(
-                physica-example-cloth-spectra
-                PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${physica_cloth_bundle_directory}>"
-        )
     endif ()
 endif ()
 

@@ -1,0 +1,69 @@
+#usda 1.0
+(
+    metersPerUnit = 1
+    subLayers = [
+        @./scene.usda@
+    ]
+    upAxis = "Y"
+)
+
+def Scope "Physica"
+{
+    custom double physica:clock:stepSeconds = 0.008333333333333333
+    custom uint64 physica:clock:startStep = 0
+    custom bool physica:clock:loop = 0
+    custom uint64 physica:seed = 1337
+    custom uint physica:version = 2
+
+    def Scope "Resources"
+    {
+        def Scope "RadianceField"
+        {
+            custom token physica:kind = "hashGridRadianceField"
+            custom string physica:name = "Radiance Field"
+            custom matrix4d physica:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            custom bool physica:visible = 1
+        }
+    }
+
+    def Scope "Systems"
+    {
+        def Scope "InstantNGP"
+        {
+            custom bool physica:enabled = 1
+            custom string physica:id = "instant-ngp"
+            custom string physica:module = "physica.example.reconstruction.instant-ngp"
+            custom string physica:name = "Instant NGP"
+            custom bool physica:visible = 1
+
+            def Scope "Inputs"
+            {
+            }
+            def Scope "Parameters"
+            {
+            }
+            def Scope "Bindings"
+            {
+                def Scope "Field"
+                {
+                    custom string physica:id = "field"
+                    custom rel physica:target = </Physica/Resources/RadianceField>
+                }
+            }
+            def Scope "Views"
+            {
+                def Scope "OccupancyGrid"
+                {
+                    custom color4f physica:color = (0.1, 0.8, 1, 0.65)
+                    custom token physica:compositionDomain = "displayReferred"
+                    custom token physica:depthMode = "xRay"
+                    custom string physica:id = "occupancy-grid"
+                    custom string physica:name = "Occupancy Grid"
+                    custom string physica:source = "field"
+                    custom token physica:type = "occupancyGrid"
+                    custom bool physica:visible = 0
+                }
+            }
+        }
+    }
+}

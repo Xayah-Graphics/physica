@@ -1,0 +1,37 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Camera "Overview" (
+        displayName = "Overview"
+    )
+    {
+        float2 clippingRange = (0.01, 10)
+        float focalLength = 43.455845
+        float focusDistance = 1
+        float horizontalAperture = 36
+        token projection = "perspective"
+        float verticalAperture = 36
+        matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0.5, 0.5, 2, 1) )
+        uniform token[] xformOpOrder = ["xformOp:transform"]
+    }
+}
+
+def Scope "Render"
+{
+    def RenderProduct "Display"
+    {
+        uniform int2 resolution = (1280, 720)
+    }
+
+    def RenderSettings "Settings"
+    {
+        rel camera = </World/Overview>
+        rel products = [</Render/Display>]
+    }
+}

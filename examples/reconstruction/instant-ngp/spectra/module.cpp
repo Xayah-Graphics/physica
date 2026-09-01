@@ -1,0 +1,78 @@
+module;
+
+#include <cuda_runtime_api.h>
+#include <physica/cuda.h>
+#include <spectra/sdk/cuda_types.h>
+
+module physica.example.reconstruction.instant_ngp.module;
+
+import std;
+import physica.reconstruction.dataset.nerf_synthetic;
+import physica.reconstruction.instant_ngp;
+import spectra.sdk;
+import spectra.sdk.cuda;
+
+namespace physica::examples::instant_ngp {
+    Module::Module(const Settings source, const std::filesystem::path& assets, const spectra::sdk::SceneInputs&) : settings(source), dataset(reconstruction::dataset::nerf_synthetic::load(assets / "../../../data/nerf-synthetic/lego", {.frame_sets = {"train"}})) {}
+
+    Module::~Module() = default;
+
+    void Module::setup(spectra::sdk::cuda::Setup& setup) {
+        const reconstruction::dataset::multiview::FrameSet& training_frames = dataset.frame_sets[0];
+        const reconstruction::dataset::multiview::Frame& first_frame        = training_frames.frames.front();
+        std::vector<spectra::sdk::Camera> cameras;
+        cameras.reserve(training_frames.frames.size());
+        for (const reconstruction::dataset::multiview::Frame& frame : training_frames.frames) {
+            const Matrix4<float>& transform = frame.world_from_camera;
+            cameras.push_back({
+                .right     = {transform(1uz, 0uz), transform(2uz, 0uz), transform(0uz, 0uz)},
+                .down      = {-transform(1uz, 1uz), -transform(2uz, 1uz), -transform(0uz, 1uz)},
+                .forward   = {-transform(1uz, 2uz), -transform(2uz, 2uz), -transform(0uz, 2uz)},
+                .position  = {transform(1uz, 3uz) * scene_scale + 0.5F, transform(2uz, 3uz) * scene_scale + 0.5F, transform(0uz, 3uz) * scene_scale + 0.5F},
+                .focal     = {frame.intrinsics.focal_x, frame.intrinsics.focal_y},
+                .principal = {frame.intrinsics.principal_x, frame.intrinsics.principal_y},
+            });
+        }
+
+        const spectra::sdk::cuda::CamerasSetup camera_output = setup.cameras<"training">(cameras, first_frame.extent.width, first_frame.extent.height);
+        std::size_t pixel_offset                             = 0uz;
+        for (const reconstruction::dataset::multiview::Frame& frame : training_frames.frames) {
+            if (cudaMemcpy(camera_output.images.data() + pixel_offset, frame.rgba.data(), frame.rgba.size(), cudaMemcpyHostToDevice) != cudaSuccess) throw std::runtime_error("CUDA training-image upload failed");
+            pixel_offset += frame.rgba.size() / sizeof(spectra::sdk::Rgba8);
+        }
+        setup.hash_grid_radiance_field<"field">();
+    }
+
+    void Module::reset(const std::uint64_t seed) {
+        instant_ngp = std::make_unique<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>>(dataset, 0u, 0u, scene_scale, static_cast<std::uint32_t>(seed));
+        training = {};
+        psnr     = std::numeric_limits<float>::quiet_NaN();
+    }
+
+    void Module::step(double) {
+        training = instant_ngp->optimize(1u);
+        psnr     = -10.0F * std::log10(training.loss);
+    }
+
+    void Module::publish(spectra::sdk::cuda::Output& output, spectra::sdk::PresentationFrame) {
+        const reconstruction::instant_ngp::InstantNGPDeviceState state = instant_ngp->device_state();
+        spectra::sdk::cuda::Frame frame                                = output.begin(state.stream.get());
+        const spectra::sdk::cuda::HashGridRadianceField field          = frame.hash_grid_radiance_field<"field">();
+        const auto copy                                                = [stream = state.stream](const auto destination, const auto source) { ::cuda::copy_bytes(stream, source, ::cuda::std::span{destination.data(), destination.size()}); };
+
+        copy(field.density_input, state.network.density_input);
+        copy(field.density_output, state.network.density_output);
+        copy(field.rgb_input, state.network.color_input);
+        copy(field.rgb_hidden, state.network.color_hidden);
+        copy(field.rgb_output, state.network.color_output);
+        copy(field.hash_grid, state.network.hash_grid);
+        copy(field.occupancy, state.sampling.occupancy);
+
+        frame.metric<"step">().upload(training.end_step);
+        frame.metric<"loss">().upload(training.loss);
+        frame.metric<"psnr">().upload(psnr);
+        frame.metric<"sample-efficiency">().upload(training.sample_efficiency);
+        frame.metric<"occupancy">().upload(training.occupancy_ratio);
+        frame.commit();
+    }
+} // namespace physica::examples::instant_ngp

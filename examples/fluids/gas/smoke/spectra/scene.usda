@@ -1,0 +1,296 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Scope "Lights"
+    {
+
+        def SphereLight "Key_Light" (
+            displayName = "Key Light"
+        )
+        {
+            color3f inputs:color = (42, 45, 50)
+            float inputs:intensity = 1
+            bool inputs:treatAsPoint = 1
+            custom token spectra:lightType = "point"
+            custom token spectra:intensity:colorSpace = "sRGB"
+            custom token spectra:intensity:encoding = "rgbIlluminant"
+            custom float[] spectra:intensity:samples = []
+            custom float spectra:intensity:scalar = 0
+            custom float spectra:intensity:temperature = 0
+            custom color3f spectra:intensity:value = (42, 45, 50)
+            custom float[] spectra:intensity:wavelengths = []
+            custom string spectra:name = "Key Light"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (2.5, 3, 2.5, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (2.5, 3, 2.5, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def DomeLight "Environment" (
+            displayName = "Environment"
+        )
+        {
+            color3f inputs:color = (0.025, 0.03, 0.04)
+            float inputs:intensity = 1
+            custom token spectra:lightType = "infinite"
+            custom token spectra:radiance:colorSpace = "sRGB"
+            custom token spectra:radiance:encoding = "rgbIlluminant"
+            custom float[] spectra:radiance:samples = []
+            custom float spectra:radiance:scalar = 0
+            custom float spectra:radiance:temperature = 0
+            custom color3f spectra:radiance:value = (0.025, 0.03, 0.04)
+            custom float[] spectra:radiance:wavelengths = []
+            custom string spectra:name = "Environment"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+    }
+
+    def Scope "Volumes"
+    {
+
+        def Volume "Double_Jet_Thermal_Smoke" (
+            displayName = "Double-Jet Thermal Smoke"
+        )
+        {
+            custom uint spectra:diagnostics:axis = 2
+            custom uint spectra:diagnostics:categoryMask = 4294967294
+            custom color4f spectra:diagnostics:color = (1, 1, 1, 1)
+            custom token spectra:diagnostics:colorMap = "viridis"
+            custom token spectra:diagnostics:depthMode = "tested"
+            custom string spectra:diagnostics:field = ""
+            custom token spectra:diagnostics:mapping = "value"
+            custom float spectra:diagnostics:maximum = 1
+            custom float spectra:diagnostics:minimum = 0
+            custom token spectra:diagnostics:mode = "off"
+            custom float spectra:diagnostics:opacity = 1
+            custom uint spectra:diagnostics:sampling = 8
+            custom float spectra:diagnostics:scale = 0.1
+            custom float spectra:diagnostics:slicePosition = 0.5
+            custom uint spectra:diagnostics:steps = 32
+            custom float spectra:diagnostics:threshold = 0.5
+            custom float spectra:diagnostics:width = 1.5
+            custom point3f spectra:domainMaximum = (1, 1.5, 1)
+            custom point3f spectra:domainMinimum = (0, 0, 0)
+            custom string spectra:name = "Double-Jet Thermal Smoke"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom bool spectra:rendering:blackbodyEmission = 0
+            custom float spectra:rendering:anisotropy = 0.28
+            custom float spectra:rendering:densityScale = 4
+            custom string spectra:rendering:densityField = "density"
+            custom token spectra:rendering:emission:colorSpace = "sRGB"
+            custom token spectra:rendering:emission:encoding = "rgbIlluminant"
+            custom float[] spectra:rendering:emission:samples = []
+            custom float spectra:rendering:emission:scalar = 0
+            custom float spectra:rendering:emission:temperature = 0
+            custom color3f spectra:rendering:emission:value = (0, 0, 0)
+            custom float[] spectra:rendering:emission:wavelengths = []
+            custom float spectra:rendering:emissionScale = 1
+            custom string spectra:rendering:emissionScaleField = ""
+            custom string spectra:rendering:emissionField = ""
+            custom token spectra:rendering:fieldColorSpace = "sRGB"
+            custom float spectra:rendering:minimumEmissionTemperature = 100
+            custom token spectra:rendering:sigmaA:colorSpace = "sRGB"
+            custom token spectra:rendering:sigmaA:encoding = "rgbUnbounded"
+            custom float[] spectra:rendering:sigmaA:samples = []
+            custom float spectra:rendering:sigmaA:scalar = 0
+            custom float spectra:rendering:sigmaA:temperature = 0
+            custom color3f spectra:rendering:sigmaA:value = (0.22, 0.25, 0.3)
+            custom float[] spectra:rendering:sigmaA:wavelengths = []
+            custom string spectra:rendering:sigmaAField = ""
+            custom token spectra:rendering:sigmaS:colorSpace = "sRGB"
+            custom token spectra:rendering:sigmaS:encoding = "rgbUnbounded"
+            custom float[] spectra:rendering:sigmaS:samples = []
+            custom float spectra:rendering:sigmaS:scalar = 0
+            custom float spectra:rendering:sigmaS:temperature = 0
+            custom color3f spectra:rendering:sigmaS:value = (0.96, 0.9, 0.8)
+            custom float[] spectra:rendering:sigmaS:wavelengths = []
+            custom string spectra:rendering:sigmaSField = ""
+            custom string spectra:rendering:temperatureField = "temperature"
+            custom float spectra:rendering:temperatureOffset = 0
+            custom float spectra:rendering:temperatureScale = 1
+            custom int3 spectra:resolution = (0, 0, 0)
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+            custom token spectra:volumeType = "denseGrid"
+            token visibility = "inherited"
+
+            def Scope "Fields"
+            {
+            }
+        }
+    }
+
+    def Scope "Particles"
+    {
+    }
+
+    def Scope "NeuralFields"
+    {
+    }
+
+    def Scope "Instances"
+    {
+    }
+
+    def Scope "Cameras"
+    {
+        def Camera "Overview" (
+            displayName = "Overview"
+        )
+        {
+            float2 clippingRange = (0.01, 20)
+            float focalLength = 20.955
+            float focusDistance = 1
+            token projection = "perspective"
+            custom token spectra:cameraType = "perspective"
+            custom float spectra:exposureTime = 1
+            custom float spectra:farPlane = 20
+            custom float spectra:focalDistance = 1
+            custom float spectra:lensRadius = 0
+            custom string spectra:name = "Overview"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom float spectra:nearPlane = 0.01
+            custom float2 spectra:screenMaximum = (1, 1)
+            custom float2 spectra:screenMinimum = (-1, -1)
+            custom matrix4d spectra:transform = ( (0.8804711, 0, -0.4740998, 0), (-0.07914866, 0.9859662, -0.14699037, 0), (0.4674464, 0.16694514, 0.8681147, 0), (1.9, 1.2, 3.1, 1) )
+            matrix4d xformOp:transform = ( (0.8804711, 0, -0.4740998, 0), (-0.07914866, 0.9859662, -0.14699037, 0), (0.4674464, 0.16694514, 0.8681147, 0), (1.9, 1.2, 3.1, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+            custom float spectra:verticalFov = 35
+            float verticalAperture = 13.214172241918197
+        }
+    }
+}
+
+def Scope "Spectra"
+{
+    custom uint spectra:profileVersion = 2
+    custom string spectra:sceneName = "Smoke"
+
+    def Scope "Geometry"
+    {
+    }
+
+    def Scope "SphereSets"
+    {
+    }
+
+    def Scope "Textures"
+    {
+    }
+
+    def Scope "Materials"
+    {
+    }
+
+    def Scope "Media"
+    {
+    }
+
+    def Scope "AreaLights"
+    {
+    }
+
+    def Scope "Prototypes"
+    {
+    }
+
+    def Scope "Films"
+    {
+        def RenderProduct "Display" (
+            displayName = "Display"
+        )
+        {
+            uniform int2 resolution = (1920, 1080)
+            custom token spectra:colorSpace = "sRGB"
+            custom float spectra:exposure = 0
+            custom float spectra:filter:b = 0.33333334
+            custom float spectra:filter:c = 0.33333334
+            custom token spectra:filter:kind = "gaussian"
+            custom float2 spectra:filter:radius = (1.5, 1.5)
+            custom float spectra:filter:sigma = 0.5
+            custom float spectra:filter:tau = 3
+            custom bool spectra:gbuffer = 1
+            custom bool spectra:gbufferCameraSpace = 1
+            custom bool spectra:hasMaximumComponentValue = 0
+            custom float spectra:iso = 100
+            custom string spectra:name = "Display"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom int2 spectra:pixelMaximum = (1920, 1080)
+            custom int2 spectra:pixelMinimum = (0, 0)
+            custom float[] spectra:sensorResponse = []
+            custom matrix3d spectra:sensorToOutputRGB = ( (3.240478992462158, -1.5371500253677368, -0.49853500723838806), (-0.9692559838294983, 1.8759909868240356, 0.04155600070953369), (0.05564799904823303, -0.20404300093650818, 1.0573110580444336) )
+        }
+    }
+
+    def Scope "Samplers"
+    {
+        def Scope "Sampler" (
+            displayName = "Sampler"
+        )
+        {
+            custom bool spectra:jitter = 1
+            custom token spectra:kind = "pmj02bn"
+            custom string spectra:name = "Sampler"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom token spectra:randomization = "owen"
+            custom uint spectra:samplesPerPixel = 256
+            custom uint spectra:seed = 20260809
+            custom uint spectra:xStrata = 1
+            custom uint spectra:yStrata = 1
+        }
+    }
+
+    def Scope "Simulation"
+    {
+        custom bool spectra:clock:hasEndStep = 0
+        custom bool spectra:clock:loop = 0
+        custom uint64 spectra:clock:startStep = 0
+        custom double spectra:clock:stepSeconds = 0.008333333333333333
+        custom uint64 spectra:seed = 20260809
+
+        def Scope "smoke"
+        {
+            custom bool spectra:enabled = 1
+            custom string spectra:id = "smoke"
+            custom string spectra:name = "Smoke"
+            custom string spectra:provider = "physica.example.fluids.gas.smoke"
+            custom bool spectra:visible = 1
+
+            def Scope "Binding_001"
+            {
+                custom string spectra:output = "smoke"
+                custom rel spectra:resource = </World/Volumes/Double_Jet_Thermal_Smoke>
+            }
+        }
+    }
+}
+
+def Scope "Render"
+{
+    def RenderSettings "Settings"
+    {
+        rel camera = </World/Cameras/Overview>
+        rel products = </Spectra/Films/Display>
+        custom rel spectra:film = </Spectra/Films/Display>
+        custom rel spectra:sampler = </Spectra/Samplers/Sampler>
+        custom token spectra:transport:lightSampler = "bvh"
+        custom uint spectra:transport:maximumDepth = 5
+        custom bool spectra:transport:regularize = 0
+    }
+}

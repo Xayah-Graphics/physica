@@ -1,0 +1,348 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Scope "Lights"
+    {
+
+        def SphereLight "Key" (
+            displayName = "Key"
+        )
+        {
+            color3f inputs:color = (18, 20, 24)
+            float inputs:intensity = 1
+            bool inputs:treatAsPoint = 1
+            custom token spectra:lightType = "point"
+            custom token spectra:intensity:colorSpace = "sRGB"
+            custom token spectra:intensity:encoding = "rgbIlluminant"
+            custom float[] spectra:intensity:samples = []
+            custom float spectra:intensity:scalar = 0
+            custom float spectra:intensity:temperature = 0
+            custom color3f spectra:intensity:value = (18, 20, 24)
+            custom float[] spectra:intensity:wavelengths = []
+            custom string spectra:name = "Key"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (1.5, 1.8, 1.4, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (1.5, 1.8, 1.4, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+
+        def DomeLight "Environment" (
+            displayName = "Environment"
+        )
+        {
+            color3f inputs:color = (0.025, 0.032, 0.045)
+            float inputs:intensity = 1
+            custom token spectra:lightType = "infinite"
+            custom token spectra:radiance:colorSpace = "sRGB"
+            custom token spectra:radiance:encoding = "rgbIlluminant"
+            custom float[] spectra:radiance:samples = []
+            custom float spectra:radiance:scalar = 0
+            custom float spectra:radiance:temperature = 0
+            custom color3f spectra:radiance:value = (0.025, 0.032, 0.045)
+            custom float[] spectra:radiance:wavelengths = []
+            custom string spectra:name = "Environment"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+        }
+    }
+
+    def Scope "Volumes"
+    {
+    }
+
+    def Scope "Particles"
+    {
+
+        def Points "PBF_Fluid" (
+            displayName = "PBF Fluid"
+        )
+        {
+            custom token spectra:diagnostics:colorMap = "turbo"
+            custom float spectra:diagnostics:maximum = 1
+            custom float spectra:diagnostics:minimum = 0
+            custom uint spectra:diagnostics:sampling = 8
+            custom float spectra:diagnostics:scale = 0.1
+            custom string spectra:diagnostics:vectorField = ""
+            custom float spectra:diagnostics:width = 1.5
+            custom point3f spectra:domainMaximum = (0.8, 1.1, 0.5)
+            custom point3f spectra:domainMinimum = (0, 0, 0)
+            custom string spectra:name = "PBF Fluid"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom float spectra:radius = 0.01
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+            custom color4f spectra:visualization:color = (0.18, 0.55, 1, 1)
+            custom token spectra:visualization:colorMap = "turbo"
+            custom token spectra:visualization:depthMode = "tested"
+            custom token spectra:visualization:display = "spheres"
+            custom string spectra:visualization:field = "velocity"
+            custom token spectra:visualization:mapping = "magnitude"
+            custom float spectra:visualization:maximum = 3
+            custom float spectra:visualization:minimum = 0
+            custom float spectra:visualization:pointSize = 2
+            custom float spectra:visualization:radiusScale = 1
+            token visibility = "inherited"
+
+            def Scope "Fields"
+            {
+            }
+        }
+    }
+
+    def Scope "NeuralFields"
+    {
+    }
+
+    def Scope "Instances"
+    {
+
+        over "Floor" (
+            displayName = "Floor"
+            instanceable = true
+            prepend references = </Spectra/Prototypes/Floor_Prototype>
+        )
+        {
+            custom string spectra:name = "Floor"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom rel spectra:prototype = </Spectra/Prototypes/Floor_Prototype>
+            custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+            token visibility = "inherited"
+        }
+    }
+
+    def Scope "Cameras"
+    {
+        def Camera "Overview" (
+            displayName = "Overview"
+        )
+        {
+            float2 clippingRange = (0.01, 10)
+            float focalLength = 20.955
+            float focusDistance = 1
+            token projection = "perspective"
+            custom token spectra:cameraType = "perspective"
+            custom float spectra:exposureTime = 1
+            custom float spectra:farPlane = 10
+            custom float spectra:focalDistance = 1
+            custom float spectra:lensRadius = 0
+            custom string spectra:name = "Overview"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom float spectra:nearPlane = 0.01
+            custom float2 spectra:screenMaximum = (1, 1)
+            custom float2 spectra:screenMinimum = (-1, -1)
+            custom matrix4d spectra:transform = ( (0.780869, 0, -0.624695, 0), (-0.236101, 0.925771, -0.295221, 0), (0.578417, 0.378085, 0.72291, 0), (1.45, 0.85, 1.55, 1) )
+            matrix4d xformOp:transform = ( (0.780869, 0, -0.624695, 0), (-0.236101, 0.925771, -0.295221, 0), (0.578417, 0.378085, 0.72291, 0), (1.45, 0.85, 1.55, 1) )
+            uniform token[] xformOpOrder = ["xformOp:transform"]
+            custom float spectra:verticalFov = 38
+            float verticalAperture = 14.430770272969868
+        }
+    }
+}
+
+def Scope "Spectra"
+{
+    custom uint spectra:profileVersion = 2
+    custom string spectra:sceneName = "PBF Dam Break"
+
+    def Scope "Geometry"
+    {
+
+        class Cube "Floor" (
+            displayName = "Floor"
+        )
+        {
+            double size = 1
+            custom point3f spectra:boundsMaximum = (0.84, 0, 0.54)
+            custom point3f spectra:boundsMinimum = (-0.04, -0.04, -0.04)
+            custom token spectra:geometryType = "box"
+            float3 xformOp:scale = (0.88, 0.04, 0.5800000000000001)
+            double3 xformOp:translate = (0.39999999999999997, -0.02, 0.25)
+            uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate"]
+            custom string spectra:name = "Floor"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+        }
+    }
+
+    def Scope "SphereSets"
+    {
+    }
+
+    def Scope "Textures"
+    {
+    }
+
+    def Scope "Materials"
+    {
+
+        def Material "Container" (
+            displayName = "Container"
+        )
+        {
+            token outputs:spectra:surface.connect = </Spectra/Materials/Container/SpectraSurface.outputs:surface>
+            token outputs:surface.connect = </Spectra/Materials/Container/PreviewSurface.outputs:surface>
+            custom string spectra:name = "Container"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.06, 0.075, 0.09)
+                float inputs:roughness = 0.5
+                token outputs:surface
+            }
+
+            def Shader "SpectraSurface"
+            {
+                uniform token info:id = "SpectraDiffuse"
+                token outputs:surface
+                custom token spectra:reflectance:colorSpace = "sRGB"
+                custom token spectra:reflectance:encoding = "rgbAlbedo"
+                custom float[] spectra:reflectance:samples = []
+                custom float spectra:reflectance:scalar = 0
+                custom float spectra:reflectance:temperature = 0
+                custom color3f spectra:reflectance:value = (0.06, 0.075, 0.09)
+                custom float[] spectra:reflectance:wavelengths = []
+            }
+        }
+    }
+
+    def Scope "Media"
+    {
+    }
+
+    def Scope "AreaLights"
+    {
+    }
+
+    def Scope "Prototypes"
+    {
+
+        class Xform "Floor_Prototype" (
+            displayName = "Floor Prototype"
+        )
+        {
+            custom string spectra:name = "Floor Prototype"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+
+            over "Primitive_001" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+                prepend references = </Spectra/Geometry/Floor>
+            )
+            {
+                rel material:binding = </Spectra/Materials/Container>
+                uniform token orientation = "rightHanded"
+                custom rel spectra:geometry = </Spectra/Geometry/Floor>
+                custom rel spectra:material = </Spectra/Materials/Container>
+                custom bool spectra:reverseOrientation = 0
+                custom matrix4d spectra:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+                matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+                uniform token[] xformOpOrder = ["xformOp:scale", "xformOp:translate", "xformOp:transform"]
+            }
+        }
+    }
+
+    def Scope "Films"
+    {
+        def RenderProduct "Main_Film" (
+            displayName = "Main Film"
+        )
+        {
+            uniform int2 resolution = (1920, 1080)
+            custom token spectra:colorSpace = "sRGB"
+            custom float spectra:exposure = 0
+            custom float spectra:filter:b = 0.33333334
+            custom float spectra:filter:c = 0.33333334
+            custom token spectra:filter:kind = "gaussian"
+            custom float2 spectra:filter:radius = (1.5, 1.5)
+            custom float spectra:filter:sigma = 0.5
+            custom float spectra:filter:tau = 3
+            custom bool spectra:gbuffer = 1
+            custom bool spectra:gbufferCameraSpace = 1
+            custom bool spectra:hasMaximumComponentValue = 0
+            custom float spectra:iso = 100
+            custom string spectra:name = "Main Film"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom int2 spectra:pixelMaximum = (1920, 1080)
+            custom int2 spectra:pixelMinimum = (0, 0)
+            custom float[] spectra:sensorResponse = []
+            custom matrix3d spectra:sensorToOutputRGB = ( (3.240478992462158, -1.5371500253677368, -0.49853500723838806), (-0.9692559838294983, 1.8759909868240356, 0.04155600070953369), (0.05564799904823303, -0.20404300093650818, 1.0573110580444336) )
+        }
+    }
+
+    def Scope "Samplers"
+    {
+        def Scope "Main_Sampler" (
+            displayName = "Main Sampler"
+        )
+        {
+            custom bool spectra:jitter = 1
+            custom token spectra:kind = "pmj02bn"
+            custom string spectra:name = "Main Sampler"
+            custom uint64 spectra:revision:content = 1
+            custom uint64 spectra:revision:topology = 1
+            custom token spectra:randomization = "owen"
+            custom uint spectra:samplesPerPixel = 128
+            custom uint spectra:seed = 20260816
+            custom uint spectra:xStrata = 1
+            custom uint spectra:yStrata = 1
+        }
+    }
+
+    def Scope "Simulation"
+    {
+        custom bool spectra:clock:hasEndStep = 0
+        custom bool spectra:clock:loop = 0
+        custom uint64 spectra:clock:startStep = 0
+        custom double spectra:clock:stepSeconds = 0.004166666666666667
+        custom uint64 spectra:seed = 0
+
+        def Scope "pbf_dam_break"
+        {
+            custom bool spectra:enabled = 1
+            custom string spectra:id = "pbf-dam-break"
+            custom string spectra:name = "PBF Dam Break"
+            custom string spectra:provider = "physica.example.fluids.liquid.pbf_dam_break"
+            custom bool spectra:visible = 1
+
+            def Scope "Binding_001"
+            {
+                custom string spectra:output = "particles"
+                custom rel spectra:resource = </World/Particles/PBF_Fluid>
+            }
+        }
+    }
+}
+
+def Scope "Render"
+{
+    def RenderSettings "Settings"
+    {
+        rel camera = </World/Cameras/Overview>
+        rel products = </Spectra/Films/Main_Film>
+        custom rel spectra:film = </Spectra/Films/Main_Film>
+        custom rel spectra:sampler = </Spectra/Samplers/Main_Sampler>
+        custom token spectra:transport:lightSampler = "bvh"
+        custom uint spectra:transport:maximumDepth = 5
+        custom bool spectra:transport:regularize = 0
+    }
+}
