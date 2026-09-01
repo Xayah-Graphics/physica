@@ -28,7 +28,7 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
         -DBUILD_TESTING=ON \
-    && cmake --build cmake-build-release --parallel 30
+    && cmake --build cmake-build-release --parallel
 
 
 FROM archlinux:latest AS runtime

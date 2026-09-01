@@ -56,4 +56,4 @@ jobs:
             -DBUILD_TESTING=ON
 
       - name: Build
-        run: cmake --build cmake-build-release --parallel 30
+        run: cmake --build cmake-build-release --parallel
