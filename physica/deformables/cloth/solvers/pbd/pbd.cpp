@@ -1,7 +1,7 @@
 module;
 
-#include "pbd-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "pbd-kernels.h"
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
 
@@ -10,8 +10,7 @@ module physica.deformables.cloth.solvers.pbd;
 import std;
 
 namespace physica::deformables::cloth::solvers::pbd {
-    Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step), iteration_count(configuration.iteration_count), gravity(configuration.gravity), coloring(build_edge_coloring(model.topology.edges, model.particle_count)), colored_edges(model.stream, coloring.edges.size()), rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
+    Solver::Solver(const Model<float>& model, Configuration configuration) : time_step(configuration.time_step), iteration_count(configuration.iteration_count), gravity(configuration.gravity), coloring(build_edge_coloring(model.topology.edges, model.particle_count)), colored_edges(model.stream, coloring.edges.size()), rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         std::vector<float> host_rest_lengths(model.topology.edges.size());
         for (std::size_t edge_index = 0uz; edge_index < model.topology.edges.size(); ++edge_index) {
             const Edge edge               = model.topology.edges[edge_index];
@@ -22,7 +21,7 @@ namespace physica::deformables::cloth::solvers::pbd {
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         ::cuda::copy_bytes(model.stream, coloring.edges, colored_edges.values);

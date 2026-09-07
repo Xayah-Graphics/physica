@@ -63,35 +63,27 @@ export namespace physica::examples::cloth::fast_mass_spring {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step              = time_step,
-                  .global_iteration_count = global_iteration_count,
-                  .gravity                = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .spring_stiffness       = spring_stiffness,
-                  .masses                 = std::vector<float>(model.particle_count, mass),
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step              = time_step,
+                                                                                                                                                         .global_iteration_count = global_iteration_count,
+                                                                                                                                                         .gravity                = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .spring_stiffness       = spring_stiffness,
+                                                                                                                                                         .masses                 = std::vector<float>(model.particle_count, mass),
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::initialize(model, current_state, next_state, control);
         std::vector<Vector3<float>> initial_positions = model.configuration.rest_positions;
         for (std::uint32_t row = 0u; row < rows; ++row) {
             for (std::uint32_t column = 0u; column < columns; ++column) {
-                const std::uint32_t particle = row * columns + column;
-                const float row_phase        = std::numbers::pi_v<float> * static_cast<float>(row) / static_cast<float>(rows - 1u);
-                const float column_phase     = 2.0F * std::numbers::pi_v<float> * static_cast<float>(column) / static_cast<float>(columns - 1u);
+                const std::uint32_t particle  = row * columns + column;
+                const float row_phase         = std::numbers::pi_v<float> * static_cast<float>(row) / static_cast<float>(rows - 1u);
+                const float column_phase      = 2.0F * std::numbers::pi_v<float> * static_cast<float>(column) / static_cast<float>(columns - 1u);
                 initial_positions[particle].z = initial_perturbation * std::sin(row_phase) * std::sin(column_phase);
             }
         }
@@ -129,14 +121,14 @@ export namespace physica::examples::cloth::fast_mass_spring {
         stream.sync();
 
         float maximum_absolute_edge_length_error = 0.0F;
-        float maximum_stretch_ratio               = 0.0F;
+        float maximum_stretch_ratio              = 0.0F;
         for (const deformables::cloth::Edge edge : model.topology.edges) {
             const Vector3<float> first{.x = state[0][edge.first], .y = state[1][edge.first], .z = state[2][edge.first]};
             const Vector3<float> second{.x = state[0][edge.second], .y = state[1][edge.second], .z = state[2][edge.second]};
-            const float rest_length    = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
-            const float current_length = length(second - first);
+            const float rest_length            = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
+            const float current_length         = length(second - first);
             maximum_absolute_edge_length_error = std::max(maximum_absolute_edge_length_error, std::abs(current_length - rest_length));
-            maximum_stretch_ratio               = std::max(maximum_stretch_ratio, current_length / rest_length);
+            maximum_stretch_ratio              = std::max(maximum_stretch_ratio, current_length / rest_length);
         }
 
         float maximum_fixed_position_error = 0.0F;

@@ -82,38 +82,30 @@ export namespace physica::examples::cloth::discrete_shells {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(create_configuration(), stream),
-          solver(
-              model,
-              {
-                  .time_step = time_step,
-                  .newton_iteration_count = newton_iteration_count,
-                  .pcg_iteration_count = pcg_iteration_count,
-                  .line_search_candidate_count = line_search_candidate_count,
-                  .gravity = {.x = 0.0F, .y = 0.0F, .z = gravity_z},
-                  .length_stiffness = length_stiffness,
-                  .area_stiffness = area_stiffness,
-                  .bending_stiffness = bending_stiffness,
-                  .bending_damping = bending_damping,
-                  .hessian_positive_margin = 1.0e-3F,
-                  .armijo_coefficient = 1.0e-4F,
-                  .line_search_contraction = 0.5F,
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                          {.particle = fixed_particles[2], .position = model.configuration.rest_positions[fixed_particles[2]]},
-                          {.particle = fixed_particles[3], .position = model.configuration.rest_positions[fixed_particles[3]]},
-                          {.particle = fixed_particles[4], .position = model.configuration.rest_positions[fixed_particles[4]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(create_configuration(), stream), solver(model,
+                                                                                 {
+                                                                                     .time_step                   = time_step,
+                                                                                     .newton_iteration_count      = newton_iteration_count,
+                                                                                     .pcg_iteration_count         = pcg_iteration_count,
+                                                                                     .line_search_candidate_count = line_search_candidate_count,
+                                                                                     .gravity                     = {.x = 0.0F, .y = 0.0F, .z = gravity_z},
+                                                                                     .length_stiffness            = length_stiffness,
+                                                                                     .area_stiffness              = area_stiffness,
+                                                                                     .bending_stiffness           = bending_stiffness,
+                                                                                     .bending_damping             = bending_damping,
+                                                                                     .hessian_positive_margin     = 1.0e-3F,
+                                                                                     .armijo_coefficient          = 1.0e-4F,
+                                                                                     .line_search_contraction     = 0.5F,
+                                                                                     .fixed_vertices =
+                                                                                         {
+                                                                                             {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                             {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                             {.particle = fixed_particles[2], .position = model.configuration.rest_positions[fixed_particles[2]]},
+                                                                                             {.particle = fixed_particles[3], .position = model.configuration.rest_positions[fixed_particles[3]]},
+                                                                                             {.particle = fixed_particles[4], .position = model.configuration.rest_positions[fixed_particles[4]]},
+                                                                                         },
+                                                                                 }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         std::vector<Vector3<float>> velocities(model.particle_count);
         std::vector<Vector3<float>> accelerations(model.particle_count, {.x = 0.0F, .y = 0.0F, .z = gravity_z});
         for (std::uint32_t row = 0u; row < rows; ++row) {
@@ -130,10 +122,10 @@ export namespace physica::examples::cloth::discrete_shells {
 
         std::vector<float> masses(model.particle_count);
         for (const deformables::cloth::Triangle triangle : model.configuration.triangles) {
-            const Vector3<float> first = model.configuration.rest_positions[triangle.first];
+            const Vector3<float> first  = model.configuration.rest_positions[triangle.first];
             const Vector3<float> second = model.configuration.rest_positions[triangle.second];
-            const Vector3<float> third = model.configuration.rest_positions[triangle.third];
-            const float share = surface_density * length(cross(second - first, third - first)) / 6.0F;
+            const Vector3<float> third  = model.configuration.rest_positions[triangle.third];
+            const float share           = surface_density * length(cross(second - first, third - first)) / 6.0F;
             masses[triangle.first] += share;
             masses[triangle.second] += share;
             masses[triangle.third] += share;
@@ -150,10 +142,10 @@ export namespace physica::examples::cloth::discrete_shells {
     deformables::cloth::ModelConfiguration<float> Simulation::create_configuration() {
         deformables::cloth::ModelConfiguration<float> result = support::create_grid({.rows = rows, .columns = columns, .width = beam_length, .height = beam_width});
         for (std::uint32_t row = 0u; row < rows; ++row) {
-            const float cross_coordinate = static_cast<float>(row) / static_cast<float>(rows - 1u);
+            const float cross_coordinate    = static_cast<float>(row) / static_cast<float>(rows - 1u);
             const float normalized_distance = std::abs(2.0F * cross_coordinate - 1.0F);
             for (std::uint32_t column = 0u; column < columns; ++column) {
-                const std::uint32_t particle = row * columns + column;
+                const std::uint32_t particle      = row * columns + column;
                 result.rest_positions[particle].y = (cross_coordinate - 0.5F) * beam_width;
                 result.rest_positions[particle].z = -crease_depth * (1.0F - normalized_distance);
             }
@@ -168,13 +160,19 @@ export namespace physica::examples::cloth::discrete_shells {
 
     Summary Simulation::summarize() {
         const std::size_t particle_count = model.particle_count;
-        const std::size_t edge_count = model.topology.edges.size();
+        const std::size_t edge_count     = model.topology.edges.size();
         const std::size_t triangle_count = model.configuration.triangles.size();
-        const std::size_t hinge_count = model.topology.hinges.size();
+        const std::size_t hinge_count    = model.topology.hinges.size();
         std::array<std::vector<float>, 9uz> state{
-            std::vector<float>(particle_count), std::vector<float>(particle_count), std::vector<float>(particle_count),
-            std::vector<float>(particle_count), std::vector<float>(particle_count), std::vector<float>(particle_count),
-            std::vector<float>(particle_count), std::vector<float>(particle_count), std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
+            std::vector<float>(particle_count),
         };
         std::vector<float> edge_conditions(edge_count);
         std::vector<float> edge_energies(edge_count);
@@ -208,26 +206,26 @@ export namespace physica::examples::cloth::discrete_shells {
         stream.sync();
 
         std::uint32_t curved_rest_hinge_count = 0u;
-        float maximum_absolute_rest_dihedral = 0.0F;
+        float maximum_absolute_rest_dihedral  = 0.0F;
         for (const deformables::cloth::Hinge hinge : model.topology.hinges) {
-            const Vector3<float> edge_first = model.configuration.rest_positions[hinge.edge_first];
-            const Vector3<float> edge_second = model.configuration.rest_positions[hinge.edge_second];
-            const Vector3<float> first_opposite = model.configuration.rest_positions[hinge.first_opposite];
+            const Vector3<float> edge_first      = model.configuration.rest_positions[hinge.edge_first];
+            const Vector3<float> edge_second     = model.configuration.rest_positions[hinge.edge_second];
+            const Vector3<float> first_opposite  = model.configuration.rest_positions[hinge.first_opposite];
             const Vector3<float> second_opposite = model.configuration.rest_positions[hinge.second_opposite];
-            const Vector3<float> edge = normalized(edge_second - edge_first);
-            const Vector3<float> first_normal = normalized(cross(edge_second - edge_first, first_opposite - edge_first));
-            const Vector3<float> second_normal = normalized(cross(edge_first - edge_second, second_opposite - edge_second));
-            const float angle = std::atan2(dot(cross(first_normal, second_normal), edge), dot(first_normal, second_normal));
-            maximum_absolute_rest_dihedral = std::max(maximum_absolute_rest_dihedral, std::abs(angle));
+            const Vector3<float> edge            = normalized(edge_second - edge_first);
+            const Vector3<float> first_normal    = normalized(cross(edge_second - edge_first, first_opposite - edge_first));
+            const Vector3<float> second_normal   = normalized(cross(edge_first - edge_second, second_opposite - edge_second));
+            const float angle                    = std::atan2(dot(cross(first_normal, second_normal), edge), dot(first_normal, second_normal));
+            maximum_absolute_rest_dihedral       = std::max(maximum_absolute_rest_dihedral, std::abs(angle));
             if (std::abs(angle) > 1.0e-4F) ++curved_rest_hinge_count;
         }
 
-        float maximum_relative_edge_length_error = 0.0F;
+        float maximum_relative_edge_length_error   = 0.0F;
         float maximum_relative_triangle_area_error = 0.0F;
-        float maximum_absolute_dihedral_delta = 0.0F;
-        double total_membrane_energy = 0.0;
-        double total_bending_energy = 0.0;
-        double total_damping_potential = 0.0;
+        float maximum_absolute_dihedral_delta      = 0.0F;
+        double total_membrane_energy               = 0.0;
+        double total_bending_energy                = 0.0;
+        double total_damping_potential             = 0.0;
         for (std::size_t edge = 0uz; edge < edge_count; ++edge) {
             maximum_relative_edge_length_error = std::max(maximum_relative_edge_length_error, std::abs(edge_conditions[edge]));
             total_membrane_energy += edge_energies[edge];
@@ -257,25 +255,25 @@ export namespace physica::examples::cloth::discrete_shells {
         const Vector3<float> probe_velocity{.x = state[3][probe_particle], .y = state[4][probe_particle], .z = state[5][probe_particle]};
 
         return {
-            .frames = frame_count,
-            .physical_time = static_cast<double>(frame_count) * time_step,
-            .curved_rest_hinge_count = curved_rest_hinge_count,
-            .maximum_absolute_rest_dihedral = maximum_absolute_rest_dihedral,
-            .maximum_relative_edge_length_error = maximum_relative_edge_length_error,
+            .frames                               = frame_count,
+            .physical_time                        = static_cast<double>(frame_count) * time_step,
+            .curved_rest_hinge_count              = curved_rest_hinge_count,
+            .maximum_absolute_rest_dihedral       = maximum_absolute_rest_dihedral,
+            .maximum_relative_edge_length_error   = maximum_relative_edge_length_error,
             .maximum_relative_triangle_area_error = maximum_relative_triangle_area_error,
-            .maximum_absolute_dihedral_delta = maximum_absolute_dihedral_delta,
-            .total_membrane_energy = total_membrane_energy,
-            .total_bending_energy = total_bending_energy,
-            .total_damping_potential = total_damping_potential,
-            .regularization_shift = regularization_shift,
-            .accepted_step_size = accepted_step_size,
-            .accepted_line_search_candidate = accepted_candidate,
-            .maximum_fixed_position_error = maximum_fixed_position_error,
-            .maximum_position_magnitude = maximum_position_magnitude,
-            .maximum_velocity_magnitude = maximum_velocity_magnitude,
-            .probe_displacement = length(probe_position - model.configuration.rest_positions[probe_particle]),
-            .probe_position = probe_position,
-            .probe_velocity = probe_velocity,
+            .maximum_absolute_dihedral_delta      = maximum_absolute_dihedral_delta,
+            .total_membrane_energy                = total_membrane_energy,
+            .total_bending_energy                 = total_bending_energy,
+            .total_damping_potential              = total_damping_potential,
+            .regularization_shift                 = regularization_shift,
+            .accepted_step_size                   = accepted_step_size,
+            .accepted_line_search_candidate       = accepted_candidate,
+            .maximum_fixed_position_error         = maximum_fixed_position_error,
+            .maximum_position_magnitude           = maximum_position_magnitude,
+            .maximum_velocity_magnitude           = maximum_velocity_magnitude,
+            .probe_displacement                   = length(probe_position - model.configuration.rest_positions[probe_particle]),
+            .probe_position                       = probe_position,
+            .probe_velocity                       = probe_velocity,
         };
     }
 } // namespace physica::examples::cloth::discrete_shells

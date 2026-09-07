@@ -18,8 +18,8 @@ namespace physica::examples::cloth::support {
         const float spacing_y = grid.height / static_cast<float>(grid.rows - 1u);
         for (std::uint32_t row = 0u; row < grid.rows; ++row) {
             for (std::uint32_t column = 0u; column < grid.columns; ++column) {
-                const std::uint32_t particle    = row * grid.columns + column;
-                result.rest_positions[particle] = {.x = static_cast<float>(column) * spacing_x, .y = -static_cast<float>(row) * spacing_y, .z = 0.0F};
+                const std::uint32_t particle          = row * grid.columns + column;
+                result.rest_positions[particle]       = {.x = static_cast<float>(column) * spacing_x, .y = -static_cast<float>(row) * spacing_y, .z = 0.0F};
                 vertex_material_coordinates[particle] = {.u = static_cast<float>(column) * spacing_x, .v = static_cast<float>(row) * spacing_y};
             }
         }

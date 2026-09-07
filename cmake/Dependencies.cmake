@@ -18,6 +18,24 @@ FetchContent_Declare(
         EXCLUDE_FROM_ALL
 )
 
+FetchContent_Declare(
+        cudnn_frontend
+        URL "https://codeload.github.com/NVIDIA/cudnn-frontend/tar.gz/91159779637b672a3f768738f5b30eee33f2180d"
+        URL_HASH SHA256=7ff261059996a163830007d8502664243b539e57ec72593dcb7e659d4604ce94
+        SOURCE_SUBDIR physica-unused
+        SYSTEM
+        EXCLUDE_FROM_ALL
+)
+
+FetchContent_Declare(
+        cutlass
+        URL "https://codeload.github.com/NVIDIA/cutlass/tar.gz/dcf215af68a2d08d305076c152a06f201728cd53"
+        URL_HASH SHA256=f77df767bdaccadee95989697913d414e7489e02c3d42aea609f68adc0627907
+        SOURCE_SUBDIR physica-unused
+        SYSTEM
+        EXCLUDE_FROM_ALL
+)
+
 set(PHYSICA_DEPENDENCIES_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/dependencies")
 
 macro(physica_require_dependency dependency)

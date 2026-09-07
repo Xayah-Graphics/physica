@@ -52,8 +52,7 @@ jobs:
             -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
             -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
             -DPHYSICA_EXAMPLES=ON \
-            -DPHYSICA_BUILD_SPECTRA=OFF \
-            -DBUILD_TESTING=ON
+            -DPHYSICA_BUILD_SPECTRA=OFF
 
       - name: Build
         run: cmake --build cmake-build-release --parallel

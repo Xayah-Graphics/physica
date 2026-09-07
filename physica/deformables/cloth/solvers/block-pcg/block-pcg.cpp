@@ -10,12 +10,7 @@ module physica.deformables.cloth.solvers.block_pcg;
 import std;
 
 namespace physica::deformables::cloth::solvers::block_pcg {
-    BlockCsrMatrix::BlockCsrMatrix(const Model<float>& model, const std::span<const std::uint32_t> host_row_offsets, const std::span<const std::uint32_t> host_column_indices)
-        : row_count(host_row_offsets.size() - 1uz),
-          block_count(host_column_indices.size()),
-          row_offsets(model.stream, host_row_offsets.size()),
-          column_indices(model.stream, host_column_indices.size()),
-          block_values(model.stream, 9uz * host_column_indices.size()) {
+    BlockCsrMatrix::BlockCsrMatrix(const Model<float>& model, const std::span<const std::uint32_t> host_row_offsets, const std::span<const std::uint32_t> host_column_indices) : row_count(host_row_offsets.size() - 1uz), block_count(host_column_indices.size()), row_offsets(model.stream, host_row_offsets.size()), column_indices(model.stream, host_column_indices.size()), block_values(model.stream, 9uz * host_column_indices.size()) {
         ::cuda::copy_bytes(model.stream, ::cuda::std::span<const std::uint32_t>{host_row_offsets.data(), host_row_offsets.size()}, row_offsets.values);
         ::cuda::copy_bytes(model.stream, ::cuda::std::span<const std::uint32_t>{host_column_indices.data(), host_column_indices.size()}, column_indices.values);
         model.stream.sync();

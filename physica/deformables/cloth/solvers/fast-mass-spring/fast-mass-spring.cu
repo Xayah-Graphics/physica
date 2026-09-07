@@ -24,13 +24,13 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring::kernels {
             const std::uint32_t particle = free_particles[free_particle];
             Vector3<float> spring_right_hand_side{};
             for (std::uint32_t adjacency = vertex_edge_offsets[particle]; adjacency < vertex_edge_offsets[particle + 1u]; ++adjacency) {
-                const std::uint32_t edge   = vertex_edges[adjacency];
-                const bool particle_first  = edge_first[edge] == particle;
-                const std::uint32_t other  = particle_first ? edge_second[edge] : edge_first[edge];
-                spring_right_hand_side     = spring_right_hand_side + (particle_first ? load(projected_springs, edge) : -load(projected_springs, edge));
+                const std::uint32_t edge  = vertex_edges[adjacency];
+                const bool particle_first = edge_first[edge] == particle;
+                const std::uint32_t other = particle_first ? edge_second[edge] : edge_first[edge];
+                spring_right_hand_side    = spring_right_hand_side + (particle_first ? load(projected_springs, edge) : -load(projected_springs, edge));
                 if (fixed_vertex_mask[other] != 0u) spring_right_hand_side = spring_right_hand_side + load(fixed_positions, other);
             }
-            const Vector3<float> right_hand_side = (masses[particle] * inverse_time_step_squared) * load(predicted_positions, particle) + spring_stiffness * spring_right_hand_side;
+            const Vector3<float> right_hand_side                       = (masses[particle] * inverse_time_step_squared) * load(predicted_positions, particle) + spring_stiffness * spring_right_hand_side;
             right_hand_sides[free_particle]                            = right_hand_side.x;
             right_hand_sides[free_particle_count + free_particle]      = right_hand_side.y;
             right_hand_sides[2u * free_particle_count + free_particle] = right_hand_side.z;

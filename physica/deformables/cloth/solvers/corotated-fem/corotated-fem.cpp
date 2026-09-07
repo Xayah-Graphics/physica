@@ -1,7 +1,7 @@
 module;
 
-#include "corotated-fem-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "corotated-fem-kernels.h"
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
 
@@ -32,24 +32,24 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
     Solver::StepCache Solver::allocate_step_cache(const Model<float>& model) const {
         const std::size_t triangle_count = model.configuration.triangles.size();
         StepCache result{
-            .predicted_positions                  = simulation::VectorField<float>(model.stream, model.particle_count),
+            .predicted_positions                 = simulation::VectorField<float>(model.stream, model.particle_count),
             .deformation_gradient_first_columns  = simulation::VectorField<float>(model.stream, triangle_count),
             .deformation_gradient_second_columns = simulation::VectorField<float>(model.stream, triangle_count),
-            .biot_strains                         = simulation::VectorField<float>(model.stream, triangle_count),
-            .triangle_energies                    = simulation::ScalarField<float>(model.stream, triangle_count),
-            .triangle_gradients                   = simulation::VectorField<float>(model.stream, 3uz * triangle_count),
-            .triangle_hessians                    = simulation::ScalarField<float>(model.stream, 81uz * triangle_count),
-            .gradient                             = simulation::VectorField<float>(model.stream, model.particle_count),
-            .hessian                              = block_pcg::BlockCsrMatrix(model, pattern.row_offsets, pattern.column_indices),
-            .triangle_rank_step_limits            = simulation::ScalarField<float>(model.stream, triangle_count),
-            .maximum_rank_safe_step               = simulation::ScalarField<float>(model.stream, 1uz),
-            .regularization_shift                 = simulation::ScalarField<float>(model.stream, 1uz),
-            .minimum_gershgorin_bound             = simulation::ScalarField<double>(model.stream, 1uz),
-            .accepted_step_size                   = simulation::ScalarField<float>(model.stream, 1uz),
-            .accepted_candidate                   = simulation::ScalarField<std::uint32_t>(model.stream, 1uz),
-            .incremental_potential                = simulation::ScalarField<double>(model.stream, 1uz),
-            .directional_derivative               = simulation::ScalarField<double>(model.stream, 1uz),
-            .line_search_potentials               = simulation::ScalarField<double>(model.stream, line_search_candidate_count),
+            .biot_strains                        = simulation::VectorField<float>(model.stream, triangle_count),
+            .triangle_energies                   = simulation::ScalarField<float>(model.stream, triangle_count),
+            .triangle_gradients                  = simulation::VectorField<float>(model.stream, 3uz * triangle_count),
+            .triangle_hessians                   = simulation::ScalarField<float>(model.stream, 81uz * triangle_count),
+            .gradient                            = simulation::VectorField<float>(model.stream, model.particle_count),
+            .hessian                             = block_pcg::BlockCsrMatrix(model, pattern.row_offsets, pattern.column_indices),
+            .triangle_rank_step_limits           = simulation::ScalarField<float>(model.stream, triangle_count),
+            .maximum_rank_safe_step              = simulation::ScalarField<float>(model.stream, 1uz),
+            .regularization_shift                = simulation::ScalarField<float>(model.stream, 1uz),
+            .minimum_gershgorin_bound            = simulation::ScalarField<double>(model.stream, 1uz),
+            .accepted_step_size                  = simulation::ScalarField<float>(model.stream, 1uz),
+            .accepted_candidate                  = simulation::ScalarField<std::uint32_t>(model.stream, 1uz),
+            .incremental_potential               = simulation::ScalarField<double>(model.stream, 1uz),
+            .directional_derivative              = simulation::ScalarField<double>(model.stream, 1uz),
+            .line_search_potentials              = simulation::ScalarField<double>(model.stream, line_search_candidate_count),
         };
         simulation::clear(model.stream, result.maximum_rank_safe_step);
         simulation::clear(model.stream, result.regularization_shift);
@@ -70,13 +70,13 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
             .right_hand_side         = simulation::VectorField<float>(model.stream, model.particle_count),
             .newton_direction        = simulation::VectorField<float>(model.stream, model.particle_count),
             .gershgorin_lower_bounds = simulation::ScalarField<float>(model.stream, model.particle_count),
-            .pcg                      = std::move(pcg),
+            .pcg                     = std::move(pcg),
         };
     }
 
     void Solver::forward(const Model<float>& model, const State<float>& state, const Control<float>& control, const Parameters& parameters, State<float>& next_state, StepCache& cache, Workspace& workspace) const {
-        const std::uint32_t particle_count = static_cast<std::uint32_t>(model.particle_count);
-        const std::uint32_t triangle_count = static_cast<std::uint32_t>(model.configuration.triangles.size());
+        const std::uint32_t particle_count    = static_cast<std::uint32_t>(model.particle_count);
+        const std::uint32_t triangle_count    = static_cast<std::uint32_t>(model.configuration.triangles.size());
         const float inverse_time_step_squared = 1.0F / (time_step * time_step);
         simulation::clear(model.stream, cache.accepted_step_size);
         simulation::clear(model.stream, cache.accepted_candidate);
@@ -107,13 +107,13 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
     Solver::HostData Solver::build_host_data(const Model<float>& model, const Configuration& configuration) {
         const std::size_t triangle_count = model.configuration.triangles.size();
         HostData result{
-            .pattern = {.row_offsets = {}, .column_indices = {}, .block_contribution_offsets = {}, .block_contributions = {}},
+            .pattern              = {.row_offsets = {}, .column_indices = {}, .block_contribution_offsets = {}, .block_contributions = {}},
             .material_u_gradients = std::vector<Vector3<float>>(triangle_count),
             .material_v_gradients = std::vector<Vector3<float>>(triangle_count),
-            .triangle_weights = std::vector<float>(triangle_count),
-            .fixed_vertex_mask = std::vector<std::uint32_t>(model.particle_count),
-            .fixed_positions = model.configuration.rest_positions,
-            .line_search_steps = std::vector<float>(configuration.line_search_candidate_count),
+            .triangle_weights     = std::vector<float>(triangle_count),
+            .fixed_vertex_mask    = std::vector<std::uint32_t>(model.particle_count),
+            .fixed_positions      = model.configuration.rest_positions,
+            .line_search_steps    = std::vector<float>(configuration.line_search_candidate_count),
         };
 
         std::vector<std::set<std::uint32_t>> rows(model.particle_count);
@@ -131,26 +131,26 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
 
         std::vector<std::vector<std::uint32_t>> block_contributions(result.pattern.column_indices.size());
         for (std::uint32_t triangle_index = 0u; triangle_index < triangle_count; ++triangle_index) {
-            const Triangle triangle = model.configuration.triangles[triangle_index];
+            const Triangle triangle                           = model.configuration.triangles[triangle_index];
             const TriangleMaterialCoordinates<float> material = model.configuration.material_coordinates[triangle_index];
-            const float material_10_u = material.second.u - material.first.u;
-            const float material_10_v = material.second.v - material.first.v;
-            const float material_20_u = material.third.u - material.first.u;
-            const float material_20_v = material.third.v - material.first.v;
-            const float determinant   = material_10_u * material_20_v - material_20_u * material_10_v;
-            const float inverse_00    = material_20_v / determinant;
-            const float inverse_01    = -material_20_u / determinant;
-            const float inverse_10    = -material_10_v / determinant;
-            const float inverse_11    = material_10_u / determinant;
-            result.material_u_gradients[triangle_index] = {.x = -inverse_00 - inverse_10, .y = inverse_00, .z = inverse_10};
-            result.material_v_gradients[triangle_index] = {.x = -inverse_01 - inverse_11, .y = inverse_01, .z = inverse_11};
-            result.triangle_weights[triangle_index]     = 0.5F * std::abs(determinant) * configuration.thickness;
+            const float material_10_u                         = material.second.u - material.first.u;
+            const float material_10_v                         = material.second.v - material.first.v;
+            const float material_20_u                         = material.third.u - material.first.u;
+            const float material_20_v                         = material.third.v - material.first.v;
+            const float determinant                           = material_10_u * material_20_v - material_20_u * material_10_v;
+            const float inverse_00                            = material_20_v / determinant;
+            const float inverse_01                            = -material_20_u / determinant;
+            const float inverse_10                            = -material_10_v / determinant;
+            const float inverse_11                            = material_10_u / determinant;
+            result.material_u_gradients[triangle_index]       = {.x = -inverse_00 - inverse_10, .y = inverse_00, .z = inverse_10};
+            result.material_v_gradients[triangle_index]       = {.x = -inverse_01 - inverse_11, .y = inverse_01, .z = inverse_11};
+            result.triangle_weights[triangle_index]           = 0.5F * std::abs(determinant) * configuration.thickness;
 
             const std::array vertices{triangle.first, triangle.second, triangle.third};
             for (std::uint32_t local_row = 0u; local_row < 3u; ++local_row) {
                 for (std::uint32_t local_column = 0u; local_column < 3u; ++local_column) {
-                    const auto first = result.pattern.column_indices.begin() + result.pattern.row_offsets[vertices[local_row]];
-                    const auto last  = result.pattern.column_indices.begin() + result.pattern.row_offsets[vertices[local_row] + 1u];
+                    const auto first          = result.pattern.column_indices.begin() + result.pattern.row_offsets[vertices[local_row]];
+                    const auto last           = result.pattern.column_indices.begin() + result.pattern.row_offsets[vertices[local_row] + 1u];
                     const std::uint32_t block = static_cast<std::uint32_t>(std::lower_bound(first, last, vertices[local_column]) - result.pattern.column_indices.begin());
                     block_contributions[block].push_back(9u * triangle_index + 3u * local_row + local_column);
                 }
@@ -171,26 +171,8 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
     }
 
     Solver::Solver(const Model<float>& model, const Configuration& configuration, HostData host_data)
-        : time_step(configuration.time_step),
-          newton_iteration_count(configuration.newton_iteration_count),
-          line_search_candidate_count(configuration.line_search_candidate_count),
-          gravity(configuration.gravity),
-          lame_lambda(configuration.young_modulus * configuration.poisson_ratio / (1.0F - configuration.poisson_ratio * configuration.poisson_ratio)),
-          lame_mu(configuration.young_modulus / (2.0F * (1.0F + configuration.poisson_ratio))),
-          hessian_positive_margin(configuration.hessian_positive_margin),
-          armijo_coefficient(configuration.armijo_coefficient),
-          rank_safety_fraction(configuration.rank_safety_fraction),
-          pattern(std::move(host_data.pattern)),
-          block_solver(model, {.iteration_count = configuration.pcg_iteration_count}),
-          masses(model.stream, configuration.masses.size()),
-          material_u_gradients(model.stream, host_data.material_u_gradients.size()),
-          material_v_gradients(model.stream, host_data.material_v_gradients.size()),
-          triangle_weights(model.stream, host_data.triangle_weights.size()),
-          block_contribution_offsets(model.stream, pattern.block_contribution_offsets.size()),
-          block_contributions(model.stream, pattern.block_contributions.size()),
-          fixed_vertex_mask(model.stream, host_data.fixed_vertex_mask.size()),
-          fixed_positions(model.stream, host_data.fixed_positions.size()),
-          line_search_steps(model.stream, host_data.line_search_steps.size()) {
+        : time_step(configuration.time_step), newton_iteration_count(configuration.newton_iteration_count), line_search_candidate_count(configuration.line_search_candidate_count), gravity(configuration.gravity), lame_lambda(configuration.young_modulus * configuration.poisson_ratio / (1.0F - configuration.poisson_ratio * configuration.poisson_ratio)), lame_mu(configuration.young_modulus / (2.0F * (1.0F + configuration.poisson_ratio))), hessian_positive_margin(configuration.hessian_positive_margin), armijo_coefficient(configuration.armijo_coefficient), rank_safety_fraction(configuration.rank_safety_fraction), pattern(std::move(host_data.pattern)), block_solver(model, {.iteration_count = configuration.pcg_iteration_count}), masses(model.stream, configuration.masses.size()), material_u_gradients(model.stream, host_data.material_u_gradients.size()), material_v_gradients(model.stream, host_data.material_v_gradients.size()), triangle_weights(model.stream, host_data.triangle_weights.size()),
+          block_contribution_offsets(model.stream, pattern.block_contribution_offsets.size()), block_contributions(model.stream, pattern.block_contributions.size()), fixed_vertex_mask(model.stream, host_data.fixed_vertex_mask.size()), fixed_positions(model.stream, host_data.fixed_positions.size()), line_search_steps(model.stream, host_data.line_search_steps.size()) {
         ::cuda::copy_bytes(model.stream, configuration.masses, masses.values);
         simulation::upload(model.stream, host_data.material_u_gradients, material_u_gradients);
         simulation::upload(model.stream, host_data.material_v_gradients, material_v_gradients);
@@ -204,8 +186,8 @@ namespace physica::deformables::cloth::solvers::corotated_fem {
     }
 
     void Solver::evaluate_system(const Model<float>& model, const Parameters&, const simulation::VectorField<float>& positions, StepCache& cache, Workspace& workspace) const {
-        const std::uint32_t particle_count = static_cast<std::uint32_t>(model.particle_count);
-        const std::uint32_t triangle_count = static_cast<std::uint32_t>(model.configuration.triangles.size());
+        const std::uint32_t particle_count    = static_cast<std::uint32_t>(model.particle_count);
+        const std::uint32_t triangle_count    = static_cast<std::uint32_t>(model.configuration.triangles.size());
         const float inverse_time_step_squared = 1.0F / (time_step * time_step);
         kernels::evaluate_elements(model.stream, triangle_count, lame_lambda, lame_mu, model.topology.device.triangles.first.values.data(), model.topology.device.triangles.second.values.data(), model.topology.device.triangles.third.values.data(), simulation::view(material_u_gradients), simulation::view(material_v_gradients), triangle_weights.values.data(), simulation::view(positions), simulation::view(cache.deformation_gradient_first_columns), simulation::view(cache.deformation_gradient_second_columns), simulation::view(cache.biot_strains), cache.triangle_energies.values.data(), simulation::view(cache.triangle_gradients), cache.triangle_hessians.values.data());
         kernels::assemble_incremental_system(model.stream, particle_count, inverse_time_step_squared, model.topology.device.triangles.first.values.data(), model.topology.device.triangles.second.values.data(), model.topology.device.triangles.third.values.data(), model.topology.device.vertex_triangles.offsets.values.data(), model.topology.device.vertex_triangles.indices.values.data(), cache.hessian.row_offsets.values.data(), cache.hessian.column_indices.values.data(), block_contribution_offsets.values.data(), block_contributions.values.data(), masses.values.data(), simulation::view(cache.predicted_positions), simulation::view(positions), simulation::view(cache.triangle_gradients), cache.triangle_hessians.values.data(), simulation::view(cache.gradient), cache.hessian.block_values.values.data());

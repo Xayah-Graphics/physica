@@ -29,7 +29,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(PHYSICA_EXAMPLES "Build examples" ON)
 option(PHYSICA_BUILD_SPECTRA "Build Spectra providers for examples" ON)
-include(CTest)
 
 # ============================================================================
 # Dependencies
@@ -40,6 +39,9 @@ physica_require_dependency(cudss)
 physica_require_dependency(cccl)
 physica_require_dependency(nlohmann_json)
 physica_require_dependency(stb)
+physica_require_dependency(cudnn)
+physica_require_dependency(cudnn_frontend)
+physica_require_dependency(cutlass)
 physica_require_dependency(ffmpeg)
 include(cmake/ClionCudaFacade.cmake)
 
@@ -125,6 +127,31 @@ target_link_libraries(
         CUDA::cublas
         CUDA::cublasLt
 )
+
+# ============================================================================
+# Neural / Inference
+# ============================================================================
+add_library(physica-neural-inference STATIC)
+target_sources(
+        physica-neural-inference
+        PRIVATE
+        physica/neural/inference-kernels.h
+        physica/neural/inference-kernels.cu
+        physica/neural/inference-attention.cu
+        physica/neural/inference-gemm.cu
+        physica/neural/inference-runtime.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/neural/inference-runtime.ixx
+)
+set_target_properties(physica-neural-inference PROPERTIES CUDA_ARCHITECTURES 120a-real)
+target_compile_options(physica-neural-inference PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo;-Xcompiler=/utf-8>)
+target_include_directories(physica-neural-inference PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
+target_link_libraries(physica-neural-inference
+        PUBLIC CCCL::libcudacxx CUDA::toolkit physica::cudnn-frontend CUDA::cublasLt
+        PRIVATE CUDA::cudart CUDA::cuda_driver CUDA::nvrtc physica::cutlass)
 
 # ============================================================================
 # Simulation / Field
@@ -594,25 +621,54 @@ target_link_libraries(
         physica-serialization
 )
 
-if (BUILD_TESTING)
-    add_executable(
-            physica-flow-matching-regression
-            physica/generative/flow-matching/regression.cpp
-    )
-    target_link_libraries(
-            physica-flow-matching-regression
-            PRIVATE
-            physica-generative-flow-matching
-            physica-neural
-            physica-serialization
-    )
-    add_test(NAME physica-flow-matching-regression COMMAND physica-flow-matching-regression)
-endif ()
+# ============================================================================
+# Generative / SDXL
+# ============================================================================
+add_library(physica-generative-sdxl STATIC)
+target_sources(
+        physica-generative-sdxl
+        PRIVATE
+        physica/generative/sdxl/kernels.h
+        physica/generative/sdxl/tokenizer-data.h
+        physica/generative/sdxl/kernels.cu
+        physica/generative/sdxl/inputs.cpp
+        physica/generative/sdxl/weights.cpp
+        physica/generative/sdxl/workspace.cpp
+        physica/generative/sdxl/text.cpp
+        physica/generative/sdxl/unet.cpp
+        physica/generative/sdxl/vae.cpp
+        physica/generative/sdxl/sdxl.cpp
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES FILES
+        physica/generative/sdxl/inputs.ixx
+        physica/generative/sdxl/weights.ixx
+        physica/generative/sdxl/workspace.ixx
+        physica/generative/sdxl/text.ixx
+        physica/generative/sdxl/unet.ixx
+        physica/generative/sdxl/vae.ixx
+        physica/generative/sdxl/sdxl.ixx
+)
+set_target_properties(physica-generative-sdxl PROPERTIES CUDA_ARCHITECTURES 120a-real)
+target_compile_options(physica-generative-sdxl PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo;-Xcompiler=/utf-8>)
+target_link_libraries(physica-generative-sdxl
+        PUBLIC physica-neural-inference
+        PRIVATE nlohmann_json::nlohmann_json CUDA::cudart CUDA::cuda_driver)
 
 # ============================================================================
 # Examples
 # ============================================================================
 if (PHYSICA_EXAMPLES)
+    add_executable(physica-example-sdxl-cli examples/generative/sdxl/main.cpp)
+    target_compile_options(physica-example-sdxl-cli PRIVATE /utf-8)
+    target_link_libraries(physica-example-sdxl-cli PRIVATE
+            physica-generative-sdxl physica-serialization physica::stb physica::cutlass nlohmann_json::nlohmann_json)
+    add_custom_command(TARGET physica-example-sdxl-cli POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PHYSICA_CUDNN_DLLS}
+                $<TARGET_FILE_DIR:physica-example-sdxl-cli>
+            COMMAND_EXPAND_LISTS)
+
     add_executable(
             physica-example-flow-matching-cli
             examples/generative/flow-matching/main.cpp

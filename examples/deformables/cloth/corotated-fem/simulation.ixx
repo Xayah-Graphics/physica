@@ -78,45 +78,36 @@ export namespace physica::examples::cloth::corotated_fem {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step = time_step,
-                  .newton_iteration_count = newton_iteration_count,
-                  .pcg_iteration_count = pcg_iteration_count,
-                  .line_search_candidate_count = line_search_candidate_count,
-                  .gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .young_modulus = young_modulus,
-                  .poisson_ratio = poisson_ratio,
-                  .thickness = thickness,
-                  .hessian_positive_margin = 1.0e-3F,
-                  .armijo_coefficient = 1.0e-4F,
-                  .line_search_contraction = 0.5F,
-                  .rank_safety_fraction = rank_safety_fraction,
-                  .masses = std::vector<float>(model.particle_count, mass),
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)),
-          initial_positions(model.configuration.rest_positions) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step                   = time_step,
+                                                                                                                                                         .newton_iteration_count      = newton_iteration_count,
+                                                                                                                                                         .pcg_iteration_count         = pcg_iteration_count,
+                                                                                                                                                         .line_search_candidate_count = line_search_candidate_count,
+                                                                                                                                                         .gravity                     = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .young_modulus               = young_modulus,
+                                                                                                                                                         .poisson_ratio               = poisson_ratio,
+                                                                                                                                                         .thickness                   = thickness,
+                                                                                                                                                         .hessian_positive_margin     = 1.0e-3F,
+                                                                                                                                                         .armijo_coefficient          = 1.0e-4F,
+                                                                                                                                                         .line_search_contraction     = 0.5F,
+                                                                                                                                                         .rank_safety_fraction        = rank_safety_fraction,
+                                                                                                                                                         .masses                      = std::vector<float>(model.particle_count, mass),
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)), initial_positions(model.configuration.rest_positions) {
         support::initialize(model, current_state, next_state, control);
         std::vector<Vector3<float>> velocities(model.particle_count);
         const float cosine = std::cos(initial_rotation);
-        const float sine = std::sin(initial_rotation);
+        const float sine   = std::sin(initial_rotation);
         for (std::uint32_t particle = 0u; particle < model.particle_count; ++particle) {
-            const Vector3<float> rest = model.configuration.rest_positions[particle];
+            const Vector3<float> rest   = model.configuration.rest_positions[particle];
             initial_positions[particle] = {.x = rest.x, .y = cosine * rest.y, .z = sine * rest.y};
-            velocities[particle] = {.x = 0.0F, .y = -initial_angular_velocity * initial_positions[particle].z, .z = initial_angular_velocity * initial_positions[particle].y};
+            velocities[particle]        = {.x = 0.0F, .y = -initial_angular_velocity * initial_positions[particle].z, .z = initial_angular_velocity * initial_positions[particle].y};
         }
         for (const std::uint32_t particle : fixed_particles) velocities[particle] = {};
         simulation::upload(stream, initial_positions, current_state.positions);
@@ -174,14 +165,14 @@ export namespace physica::examples::cloth::corotated_fem {
         stream.sync();
 
         float maximum_absolute_principal_biot_strain = 0.0F;
-        float minimum_surface_jacobian = std::numeric_limits<float>::max();
-        double total_elastic_energy = 0.0;
+        float minimum_surface_jacobian               = std::numeric_limits<float>::max();
+        double total_elastic_energy                  = 0.0;
         for (std::size_t triangle = 0uz; triangle < triangle_count; ++triangle) {
-            const float difference = biot_strain[0][triangle] - biot_strain[2][triangle];
-            const float radius = std::sqrt(0.25F * difference * difference + biot_strain[1][triangle] * biot_strain[1][triangle]);
-            const float center = 0.5F * (biot_strain[0][triangle] + biot_strain[2][triangle]);
+            const float difference                 = biot_strain[0][triangle] - biot_strain[2][triangle];
+            const float radius                     = std::sqrt(0.25F * difference * difference + biot_strain[1][triangle] * biot_strain[1][triangle]);
+            const float center                     = 0.5F * (biot_strain[0][triangle] + biot_strain[2][triangle]);
             maximum_absolute_principal_biot_strain = std::max(maximum_absolute_principal_biot_strain, std::max(std::abs(center + radius), std::abs(center - radius)));
-            minimum_surface_jacobian = std::min(minimum_surface_jacobian, (1.0F + biot_strain[0][triangle]) * (1.0F + biot_strain[2][triangle]) - biot_strain[1][triangle] * biot_strain[1][triangle]);
+            minimum_surface_jacobian               = std::min(minimum_surface_jacobian, (1.0F + biot_strain[0][triangle]) * (1.0F + biot_strain[2][triangle]) - biot_strain[1][triangle] * biot_strain[1][triangle]);
             total_elastic_energy += triangle_energies[triangle];
         }
 
@@ -201,21 +192,21 @@ export namespace physica::examples::cloth::corotated_fem {
         const Vector3<float> probe_position{.x = state[0][probe_particle], .y = state[1][probe_particle], .z = state[2][probe_particle]};
         const Vector3<float> probe_velocity{.x = state[3][probe_particle], .y = state[4][probe_particle], .z = state[5][probe_particle]};
         return {
-            .frames = frame_count,
-            .physical_time = static_cast<double>(frame_count) * time_step,
+            .frames                                 = frame_count,
+            .physical_time                          = static_cast<double>(frame_count) * time_step,
             .maximum_absolute_principal_biot_strain = maximum_absolute_principal_biot_strain,
-            .minimum_surface_jacobian = minimum_surface_jacobian,
-            .total_elastic_energy = total_elastic_energy,
-            .regularization_shift = regularization_shift,
-            .maximum_rank_safe_step = maximum_rank_safe_step,
-            .accepted_step_size = accepted_step_size,
-            .accepted_line_search_candidate = accepted_candidate,
-            .maximum_fixed_position_error = maximum_fixed_position_error,
-            .maximum_position_magnitude = maximum_position_magnitude,
-            .maximum_velocity_magnitude = maximum_velocity_magnitude,
-            .probe_displacement = length(probe_position - initial_positions[probe_particle]),
-            .probe_position = probe_position,
-            .probe_velocity = probe_velocity,
+            .minimum_surface_jacobian               = minimum_surface_jacobian,
+            .total_elastic_energy                   = total_elastic_energy,
+            .regularization_shift                   = regularization_shift,
+            .maximum_rank_safe_step                 = maximum_rank_safe_step,
+            .accepted_step_size                     = accepted_step_size,
+            .accepted_line_search_candidate         = accepted_candidate,
+            .maximum_fixed_position_error           = maximum_fixed_position_error,
+            .maximum_position_magnitude             = maximum_position_magnitude,
+            .maximum_velocity_magnitude             = maximum_velocity_magnitude,
+            .probe_displacement                     = length(probe_position - initial_positions[probe_particle]),
+            .probe_position                         = probe_position,
+            .probe_velocity                         = probe_velocity,
         };
     }
 } // namespace physica::examples::cloth::corotated_fem

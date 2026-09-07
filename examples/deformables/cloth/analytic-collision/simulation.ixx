@@ -26,21 +26,21 @@ export namespace physica::examples::cloth::analytic_collision {
     };
 
     struct Simulation final {
-        inline static constexpr std::uint32_t rows            = 10u;
-        inline static constexpr std::uint32_t columns         = 10u;
-        inline static constexpr float width                   = 1.6F;
-        inline static constexpr float height                  = 1.6F;
-        inline static constexpr float initial_height          = 1.4F;
-        inline static constexpr float time_step               = 1.0F / 480.0F;
-        inline static constexpr std::uint32_t frame_count      = 384u;
-        inline static constexpr float gravity_y               = -9.81F;
-        inline static constexpr float mass                    = 0.04F;
-        inline static constexpr float stretch_stiffness       = 30.0F;
-        inline static constexpr float stretch_damping         = 0.8F;
-        inline static constexpr float bending_stiffness       = 0.6F;
-        inline static constexpr float bending_damping         = 0.2F;
-        inline static constexpr float thickness               = 0.02F;
-        inline static constexpr float plane_offset            = 0.0F;
+        inline static constexpr std::uint32_t rows        = 10u;
+        inline static constexpr std::uint32_t columns     = 10u;
+        inline static constexpr float width               = 1.6F;
+        inline static constexpr float height              = 1.6F;
+        inline static constexpr float initial_height      = 1.4F;
+        inline static constexpr float time_step           = 1.0F / 480.0F;
+        inline static constexpr std::uint32_t frame_count = 384u;
+        inline static constexpr float gravity_y           = -9.81F;
+        inline static constexpr float mass                = 0.04F;
+        inline static constexpr float stretch_stiffness   = 30.0F;
+        inline static constexpr float stretch_damping     = 0.8F;
+        inline static constexpr float bending_stiffness   = 0.6F;
+        inline static constexpr float bending_damping     = 0.2F;
+        inline static constexpr float thickness           = 0.02F;
+        inline static constexpr float plane_offset        = 0.0F;
         inline static constexpr Vector3<float> sphere_center{.x = 0.0F, .y = 0.46F, .z = 0.0F};
         inline static constexpr float sphere_radius           = 0.4F;
         inline static constexpr std::uint32_t center_particle = (rows / 2u) * columns + columns / 2u;
@@ -75,32 +75,24 @@ export namespace physica::examples::cloth::analytic_collision {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(create_configuration(), stream),
-          solver(
-              model,
-              {
-                  .force      = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}},
-                  .integrator = {.time_step = time_step},
-                  .constraint =
-                      {
-                          .thickness = thickness,
-                          .planes =
-                              {
-                                  {.normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F}, .offset = plane_offset, .restitution = 0.0F, .friction = 0.0F},
-                              },
-                          .spheres =
-                              {
-                                  {.center = sphere_center, .radius = sphere_radius, .restitution = 0.0F, .friction = 0.0F},
-                              },
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(create_configuration(), stream), solver(model,
+                                                                                 {
+                                                                                     .force      = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}},
+                                                                                     .integrator = {.time_step = time_step},
+                                                                                     .constraint =
+                                                                                         {
+                                                                                             .thickness = thickness,
+                                                                                             .planes =
+                                                                                                 {
+                                                                                                     {.normal = {.x = 0.0F, .y = 1.0F, .z = 0.0F}, .offset = plane_offset, .restitution = 0.0F, .friction = 0.0F},
+                                                                                                 },
+                                                                                             .spheres =
+                                                                                                 {
+                                                                                                     {.center = sphere_center, .radius = sphere_radius, .restitution = 0.0F, .friction = 0.0F},
+                                                                                                 },
+                                                                                         },
+                                                                                 }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::set_mass_spring_parameters(stream, parameters, {.mass = mass, .stretch_stiffness = stretch_stiffness, .stretch_damping = stretch_damping, .bending_stiffness = bending_stiffness, .bending_damping = bending_damping});
         support::initialize(model, current_state, next_state, control);
     }
@@ -137,8 +129,8 @@ export namespace physica::examples::cloth::analytic_collision {
         ::cuda::copy_bytes(stream, ::cuda::std::span<const float>{current_state.velocities.z.data() + center_particle, 1uz}, ::cuda::std::span<float>{&center_velocity.z, 1uz});
         stream.sync();
 
-        float minimum_plane_clearance          = std::numeric_limits<float>::max();
-        float minimum_sphere_clearance         = std::numeric_limits<float>::max();
+        float minimum_plane_clearance         = std::numeric_limits<float>::max();
+        float minimum_sphere_clearance        = std::numeric_limits<float>::max();
         std::uint32_t plane_contact_vertices  = 0u;
         std::uint32_t sphere_contact_vertices = 0u;
         for (std::size_t particle = 0uz; particle < particle_count; ++particle) {

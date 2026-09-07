@@ -1,8 +1,8 @@
 #ifndef PHYSICA_DEFORMABLES_CLOTH_SOLVERS_BARAFF_WITKIN_SECOND_ORDER_CUH
 #define PHYSICA_DEFORMABLES_CLOTH_SOLVERS_BARAFF_WITKIN_SECOND_ORDER_CUH
 
-#include <cuda_runtime.h>
 #include <cstdint>
+#include <cuda_runtime.h>
 
 namespace physica::deformables::cloth::solvers::baraff_witkin {
     template <std::uint32_t Dimension>
@@ -65,7 +65,7 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
         for (std::uint32_t entry = 0u; entry < Dimension; ++entry) result.gradient[entry] = first.gradient[entry] * second.value + first.value * second.gradient[entry];
         for (std::uint32_t row = 0u; row < Dimension; ++row) {
             for (std::uint32_t column = row; column < Dimension; ++column) {
-                const std::uint32_t entry = SecondOrder<Dimension>::hessian_index(row, column);
+                const std::uint32_t entry   = SecondOrder<Dimension>::hessian_index(row, column);
                 result.upper_hessian[entry] = first.upper_hessian[entry] * second.value + first.value * second.upper_hessian[entry] + first.gradient[row] * second.gradient[column] + second.gradient[row] * first.gradient[column];
             }
         }
@@ -79,7 +79,7 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
         for (std::uint32_t entry = 0u; entry < Dimension; ++entry) result.gradient[entry] = first_derivative * operand.gradient[entry];
         for (std::uint32_t row = 0u; row < Dimension; ++row) {
             for (std::uint32_t column = row; column < Dimension; ++column) {
-                const std::uint32_t entry = SecondOrder<Dimension>::hessian_index(row, column);
+                const std::uint32_t entry   = SecondOrder<Dimension>::hessian_index(row, column);
                 result.upper_hessian[entry] = first_derivative * operand.upper_hessian[entry] + second_derivative * operand.gradient[row] * operand.gradient[column];
             }
         }
@@ -106,18 +106,18 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
     template <std::uint32_t Dimension>
     [[nodiscard]] __device__ SecondOrder<Dimension> atan2(const SecondOrder<Dimension>& y, const SecondOrder<Dimension>& x) {
         SecondOrder<Dimension> result{};
-        const float squared_radius  = x.value * x.value + y.value * y.value;
-        const float fourth_radius   = squared_radius * squared_radius;
-        const float derivative_y    = x.value / squared_radius;
-        const float derivative_x    = -y.value / squared_radius;
-        const float derivative_yy   = -2.0F * x.value * y.value / fourth_radius;
-        const float derivative_xx   = 2.0F * x.value * y.value / fourth_radius;
-        const float derivative_yx   = (y.value * y.value - x.value * x.value) / fourth_radius;
-        result.value = atan2f(y.value, x.value);
+        const float squared_radius = x.value * x.value + y.value * y.value;
+        const float fourth_radius  = squared_radius * squared_radius;
+        const float derivative_y   = x.value / squared_radius;
+        const float derivative_x   = -y.value / squared_radius;
+        const float derivative_yy  = -2.0F * x.value * y.value / fourth_radius;
+        const float derivative_xx  = 2.0F * x.value * y.value / fourth_radius;
+        const float derivative_yx  = (y.value * y.value - x.value * x.value) / fourth_radius;
+        result.value               = atan2f(y.value, x.value);
         for (std::uint32_t entry = 0u; entry < Dimension; ++entry) result.gradient[entry] = derivative_y * y.gradient[entry] + derivative_x * x.gradient[entry];
         for (std::uint32_t row = 0u; row < Dimension; ++row) {
             for (std::uint32_t column = row; column < Dimension; ++column) {
-                const std::uint32_t entry = SecondOrder<Dimension>::hessian_index(row, column);
+                const std::uint32_t entry   = SecondOrder<Dimension>::hessian_index(row, column);
                 result.upper_hessian[entry] = derivative_y * y.upper_hessian[entry] + derivative_x * x.upper_hessian[entry] + derivative_yy * y.gradient[row] * y.gradient[column] + derivative_xx * x.gradient[row] * x.gradient[column] + derivative_yx * (y.gradient[row] * x.gradient[column] + x.gradient[row] * y.gradient[column]);
             }
         }

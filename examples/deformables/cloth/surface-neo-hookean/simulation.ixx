@@ -79,36 +79,28 @@ export namespace physica::examples::cloth::surface_neo_hookean {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step = time_step,
-                  .newton_iteration_count = newton_iteration_count,
-                  .pcg_iteration_count = pcg_iteration_count,
-                  .line_search_candidate_count = line_search_candidate_count,
-                  .gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .young_modulus = young_modulus,
-                  .poisson_ratio = poisson_ratio,
-                  .thickness = thickness,
-                  .hessian_positive_margin = 1.0e-3F,
-                  .armijo_coefficient = 1.0e-4F,
-                  .line_search_contraction = 0.5F,
-                  .domain_safety = domain_safety,
-                  .masses = std::vector<float>(model.particle_count, mass),
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step                   = time_step,
+                                                                                                                                                         .newton_iteration_count      = newton_iteration_count,
+                                                                                                                                                         .pcg_iteration_count         = pcg_iteration_count,
+                                                                                                                                                         .line_search_candidate_count = line_search_candidate_count,
+                                                                                                                                                         .gravity                     = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .young_modulus               = young_modulus,
+                                                                                                                                                         .poisson_ratio               = poisson_ratio,
+                                                                                                                                                         .thickness                   = thickness,
+                                                                                                                                                         .hessian_positive_margin     = 1.0e-3F,
+                                                                                                                                                         .armijo_coefficient          = 1.0e-4F,
+                                                                                                                                                         .line_search_contraction     = 0.5F,
+                                                                                                                                                         .domain_safety               = domain_safety,
+                                                                                                                                                         .masses                      = std::vector<float>(model.particle_count, mass),
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::initialize(model, current_state, next_state, control);
         std::vector<Vector3<float>> positions = model.configuration.rest_positions;
         std::vector<Vector3<float>> velocities(model.particle_count);
@@ -118,9 +110,9 @@ export namespace physica::examples::cloth::surface_neo_hookean {
                 if (particle == fixed_particles[0] || particle == fixed_particles[1]) continue;
                 const float row_phase    = std::numbers::pi_v<float> * static_cast<float>(row) / static_cast<float>(rows - 1u);
                 const float column_phase = 2.0F * std::numbers::pi_v<float> * static_cast<float>(column) / static_cast<float>(columns - 1u);
-                positions[particle].y   *= initial_compression;
-                positions[particle].z    = initial_perturbation * std::sin(row_phase) * std::sin(column_phase);
-                velocities[particle].z   = initial_velocity * std::sin(row_phase) * std::cos(column_phase);
+                positions[particle].y *= initial_compression;
+                positions[particle].z  = initial_perturbation * std::sin(row_phase) * std::sin(column_phase);
+                velocities[particle].z = initial_velocity * std::sin(row_phase) * std::cos(column_phase);
             }
         }
         simulation::upload(stream, positions, current_state.positions);
@@ -173,13 +165,13 @@ export namespace physica::examples::cloth::surface_neo_hookean {
         ::cuda::copy_bytes(stream, step_cache.accepted_candidate.values, ::cuda::std::span<std::uint32_t>{&accepted_candidate, 1uz});
         stream.sync();
 
-        float minimum_surface_jacobian = std::numeric_limits<float>::max();
-        float maximum_surface_jacobian = 0.0F;
+        float minimum_surface_jacobian              = std::numeric_limits<float>::max();
+        float maximum_surface_jacobian              = 0.0F;
         float maximum_absolute_log_surface_jacobian = 0.0F;
-        double total_elastic_energy = 0.0;
+        double total_elastic_energy                 = 0.0;
         for (std::size_t triangle = 0uz; triangle < triangle_count; ++triangle) {
-            minimum_surface_jacobian = std::min(minimum_surface_jacobian, surface_jacobians[triangle]);
-            maximum_surface_jacobian = std::max(maximum_surface_jacobian, surface_jacobians[triangle]);
+            minimum_surface_jacobian              = std::min(minimum_surface_jacobian, surface_jacobians[triangle]);
+            maximum_surface_jacobian              = std::max(maximum_surface_jacobian, surface_jacobians[triangle]);
             maximum_absolute_log_surface_jacobian = std::max(maximum_absolute_log_surface_jacobian, std::abs(log_surface_jacobians[triangle]));
             total_elastic_energy += triangle_energies[triangle];
         }
@@ -200,30 +192,30 @@ export namespace physica::examples::cloth::surface_neo_hookean {
         const Vector3<float> probe_position{.x = state[0][probe_particle], .y = state[1][probe_particle], .z = state[2][probe_particle]};
         const Vector3<float> probe_velocity{.x = state[3][probe_particle], .y = state[4][probe_particle], .z = state[5][probe_particle]};
         Vector3<float> initial_probe_position = model.configuration.rest_positions[probe_particle];
-        const std::uint32_t probe_row = probe_particle / columns;
-        const std::uint32_t probe_column = probe_particle % columns;
-        const float probe_row_phase = std::numbers::pi_v<float> * static_cast<float>(probe_row) / static_cast<float>(rows - 1u);
-        const float probe_column_phase = 2.0F * std::numbers::pi_v<float> * static_cast<float>(probe_column) / static_cast<float>(columns - 1u);
+        const std::uint32_t probe_row         = probe_particle / columns;
+        const std::uint32_t probe_column      = probe_particle % columns;
+        const float probe_row_phase           = std::numbers::pi_v<float> * static_cast<float>(probe_row) / static_cast<float>(rows - 1u);
+        const float probe_column_phase        = 2.0F * std::numbers::pi_v<float> * static_cast<float>(probe_column) / static_cast<float>(columns - 1u);
         initial_probe_position.y *= initial_compression;
         initial_probe_position.z = initial_perturbation * std::sin(probe_row_phase) * std::sin(probe_column_phase);
 
         return {
-            .frames = frame_count,
-            .physical_time = static_cast<double>(frame_count) * time_step,
-            .minimum_surface_jacobian = minimum_surface_jacobian,
-            .maximum_surface_jacobian = maximum_surface_jacobian,
+            .frames                                = frame_count,
+            .physical_time                         = static_cast<double>(frame_count) * time_step,
+            .minimum_surface_jacobian              = minimum_surface_jacobian,
+            .maximum_surface_jacobian              = maximum_surface_jacobian,
             .maximum_absolute_log_surface_jacobian = maximum_absolute_log_surface_jacobian,
-            .total_elastic_energy = total_elastic_energy,
-            .regularization_shift = regularization_shift,
-            .accepted_step_size = accepted_step_size,
-            .maximum_domain_step = maximum_domain_step,
-            .accepted_line_search_candidate = accepted_candidate,
-            .maximum_fixed_position_error = maximum_fixed_position_error,
-            .maximum_position_magnitude = maximum_position_magnitude,
-            .maximum_velocity_magnitude = maximum_velocity_magnitude,
-            .probe_displacement = length(probe_position - initial_probe_position),
-            .probe_position = probe_position,
-            .probe_velocity = probe_velocity,
+            .total_elastic_energy                  = total_elastic_energy,
+            .regularization_shift                  = regularization_shift,
+            .accepted_step_size                    = accepted_step_size,
+            .maximum_domain_step                   = maximum_domain_step,
+            .accepted_line_search_candidate        = accepted_candidate,
+            .maximum_fixed_position_error          = maximum_fixed_position_error,
+            .maximum_position_magnitude            = maximum_position_magnitude,
+            .maximum_velocity_magnitude            = maximum_velocity_magnitude,
+            .probe_displacement                    = length(probe_position - initial_probe_position),
+            .probe_position                        = probe_position,
+            .probe_velocity                        = probe_velocity,
         };
     }
 } // namespace physica::examples::cloth::surface_neo_hookean

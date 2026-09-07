@@ -45,8 +45,8 @@ namespace physica::examples::instant_ngp {
 
     void Module::reset(const std::uint64_t seed) {
         instant_ngp = std::make_unique<reconstruction::instant_ngp::InstantNGP<reconstruction::instant_ngp::nerf_synthetic_network_shape, reconstruction::instant_ngp::nerf_synthetic_sampling_shape, reconstruction::instant_ngp::nerf_synthetic_rendering_shape>>(dataset, 0u, 0u, scene_scale, static_cast<std::uint32_t>(seed));
-        training = {};
-        psnr     = std::numeric_limits<float>::quiet_NaN();
+        training    = {};
+        psnr        = std::numeric_limits<float>::quiet_NaN();
     }
 
     void Module::step(double) {

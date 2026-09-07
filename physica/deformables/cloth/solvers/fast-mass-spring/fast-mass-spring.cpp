@@ -1,7 +1,7 @@
 module;
 
-#include "fast-mass-spring-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "fast-mass-spring-kernels.h"
 #include <cudss.h>
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
@@ -27,7 +27,8 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
     } // namespace
 
     Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step), global_iteration_count(configuration.global_iteration_count), gravity(configuration.gravity), spring_stiffness(configuration.spring_stiffness), free_particle_count(static_cast<std::uint32_t>(model.particle_count - configuration.fixed_vertices.size())), masses(model.stream, model.particle_count), rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count), free_particles(model.stream, free_particle_count), matrix_row_offsets(model.stream, static_cast<std::size_t>(free_particle_count) + 1uz), matrix_column_indices(model.stream, static_cast<std::size_t>(free_particle_count) + count_free_free_edges(model, configuration.fixed_vertices)), matrix_values(model.stream, matrix_column_indices.values.size()), right_hand_sides(model.stream, 3uz * free_particle_count), solutions(model.stream, 3uz * free_particle_count), cudss_handle(nullptr), cudss_configuration(nullptr), cudss_data(nullptr), system_matrix(nullptr), right_hand_side_matrices{}, solution_matrices{} {
+        : time_step(configuration.time_step), global_iteration_count(configuration.global_iteration_count), gravity(configuration.gravity), spring_stiffness(configuration.spring_stiffness), free_particle_count(static_cast<std::uint32_t>(model.particle_count - configuration.fixed_vertices.size())), masses(model.stream, model.particle_count), rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count), free_particles(model.stream, free_particle_count), matrix_row_offsets(model.stream, static_cast<std::size_t>(free_particle_count) + 1uz), matrix_column_indices(model.stream, static_cast<std::size_t>(free_particle_count) + count_free_free_edges(model, configuration.fixed_vertices)), matrix_values(model.stream, matrix_column_indices.values.size()), right_hand_sides(model.stream, 3uz * free_particle_count), solutions(model.stream, 3uz * free_particle_count), cudss_handle(nullptr), cudss_configuration(nullptr),
+          cudss_data(nullptr), system_matrix(nullptr), right_hand_side_matrices{}, solution_matrices{} {
         std::vector<float> host_rest_lengths(model.topology.edges.size());
         for (std::size_t edge_index = 0uz; edge_index < model.topology.edges.size(); ++edge_index) {
             const Edge edge               = model.topology.edges[edge_index];
@@ -38,7 +39,7 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         std::vector<std::uint32_t> host_particle_to_free(model.particle_count);
@@ -46,7 +47,7 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
         std::uint32_t free_particle = 0u;
         for (std::uint32_t particle = 0u; particle < model.particle_count; ++particle) {
             if (host_fixed_vertex_mask[particle] != 0u) continue;
-            host_particle_to_free[particle] = free_particle;
+            host_particle_to_free[particle]      = free_particle;
             host_free_particles[free_particle++] = particle;
         }
 
@@ -71,8 +72,8 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
         host_matrix_column_indices.reserve(matrix_column_indices.values.size());
         host_matrix_values.reserve(matrix_values.values.size());
         for (std::uint32_t row = 0u; row < free_particle_count; ++row) {
-            const std::uint32_t particle   = host_free_particles[row];
-            host_matrix_row_offsets[row]   = static_cast<std::int32_t>(host_matrix_column_indices.size());
+            const std::uint32_t particle = host_free_particles[row];
+            host_matrix_row_offsets[row] = static_cast<std::int32_t>(host_matrix_column_indices.size());
             host_matrix_column_indices.push_back(static_cast<std::int32_t>(row));
             host_matrix_values.push_back(configuration.masses[particle] * inverse_time_step_squared + spring_stiffness * static_cast<float>(degrees[particle]));
             for (const std::int32_t column : upper_neighbors[row]) {
@@ -150,7 +151,7 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
     void Solver::forward(const Model<float>& model, const State<float>& state, const Control<float>& control, const Parameters&, State<float>& next_state, StepCache& cache, Workspace&) const {
         position_dynamics::kernels::predict(model.stream, static_cast<std::uint32_t>(model.particle_count), time_step, gravity, fixed_vertex_mask.values.data(), simulation::view(fixed_positions), simulation::view(state.positions), simulation::view(state.velocities), simulation::view(control.external_forces), masses.values.data(), simulation::view(cache.predicted_positions));
         simulation::copy(model.stream, cache.predicted_positions, next_state.positions);
-        const std::uint32_t edge_count = static_cast<std::uint32_t>(model.topology.edges.size());
+        const std::uint32_t edge_count        = static_cast<std::uint32_t>(model.topology.edges.size());
         const float inverse_time_step_squared = 1.0F / (time_step * time_step);
         for (std::uint32_t iteration = 0u; iteration < global_iteration_count; ++iteration) {
             kernels::project_springs(model.stream, edge_count, model.topology.device.edges.first.values.data(), model.topology.device.edges.second.values.data(), rest_lengths.values.data(), fixed_vertex_mask.values.data(), simulation::view(next_state.positions), simulation::view(cache.projected_springs));
@@ -162,8 +163,10 @@ namespace physica::deformables::cloth::solvers::fast_mass_spring {
     }
 
     void Solver::destroy_cudss() noexcept {
-        for (const cudssMatrix_t solution_matrix : solution_matrices) if (solution_matrix != nullptr) cudssMatrixDestroy(solution_matrix);
-        for (const cudssMatrix_t right_hand_side_matrix : right_hand_side_matrices) if (right_hand_side_matrix != nullptr) cudssMatrixDestroy(right_hand_side_matrix);
+        for (const cudssMatrix_t solution_matrix : solution_matrices)
+            if (solution_matrix != nullptr) cudssMatrixDestroy(solution_matrix);
+        for (const cudssMatrix_t right_hand_side_matrix : right_hand_side_matrices)
+            if (right_hand_side_matrix != nullptr) cudssMatrixDestroy(right_hand_side_matrix);
         if (system_matrix != nullptr) cudssMatrixDestroy(system_matrix);
         if (cudss_data != nullptr && cudss_handle != nullptr) cudssDataDestroy(cudss_handle, cudss_data);
         if (cudss_configuration != nullptr) cudssConfigDestroy(cudss_configuration);

@@ -35,15 +35,15 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const float second_squared         = dot(second_column, second_column);
             const float stretch_trace          = sqrtf(first_squared + second_squared + 2.0F * surface_jacobian);
             return {
-                .first_column = first_column,
-                .second_column = second_column,
-                .polar_first_column = (first_column - cross(normal, second_column)) / stretch_trace,
+                .first_column        = first_column,
+                .second_column       = second_column,
+                .polar_first_column  = (first_column - cross(normal, second_column)) / stretch_trace,
                 .polar_second_column = (second_column + cross(normal, first_column)) / stretch_trace,
-                .stretch_00 = (first_squared + surface_jacobian) / stretch_trace,
-                .stretch_01 = mixed / stretch_trace,
-                .stretch_11 = (second_squared + surface_jacobian) / stretch_trace,
-                .stretch_trace = stretch_trace,
-                .surface_jacobian = surface_jacobian,
+                .stretch_00          = (first_squared + surface_jacobian) / stretch_trace,
+                .stretch_01          = mixed / stretch_trace,
+                .stretch_11          = (second_squared + surface_jacobian) / stretch_trace,
+                .stretch_trace       = stretch_trace,
+                .surface_jacobian    = surface_jacobian,
             };
         }
 
@@ -51,7 +51,7 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const float strain_00 = kinematics.stretch_00 - 1.0F;
             const float strain_01 = kinematics.stretch_01;
             const float strain_11 = kinematics.stretch_11 - 1.0F;
-            const float trace = strain_00 + strain_11;
+            const float trace     = strain_00 + strain_11;
             return weight * (lame_mu * (strain_00 * strain_00 + 2.0F * strain_01 * strain_01 + strain_11 * strain_11) + 0.5F * lame_lambda * trace * trace);
         }
 
@@ -60,12 +60,12 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const float inverse_stretch_01 = -kinematics.stretch_01 / kinematics.surface_jacobian;
             const float inverse_stretch_11 = kinematics.stretch_00 / kinematics.surface_jacobian;
             const float angular_variation  = (dot(kinematics.polar_second_column, first_variation) - dot(kinematics.polar_first_column, second_variation)) / kinematics.stretch_trace;
-            Vector3<float> normal_first = inverse_stretch_00 * first_variation + inverse_stretch_01 * second_variation;
-            Vector3<float> normal_second = inverse_stretch_01 * first_variation + inverse_stretch_11 * second_variation;
-            normal_first = normal_first - dot(kinematics.polar_first_column, normal_first) * kinematics.polar_first_column - dot(kinematics.polar_second_column, normal_first) * kinematics.polar_second_column;
-            normal_second = normal_second - dot(kinematics.polar_first_column, normal_second) * kinematics.polar_first_column - dot(kinematics.polar_second_column, normal_second) * kinematics.polar_second_column;
+            Vector3<float> normal_first    = inverse_stretch_00 * first_variation + inverse_stretch_01 * second_variation;
+            Vector3<float> normal_second   = inverse_stretch_01 * first_variation + inverse_stretch_11 * second_variation;
+            normal_first                   = normal_first - dot(kinematics.polar_first_column, normal_first) * kinematics.polar_first_column - dot(kinematics.polar_second_column, normal_first) * kinematics.polar_second_column;
+            normal_second                  = normal_second - dot(kinematics.polar_first_column, normal_second) * kinematics.polar_first_column - dot(kinematics.polar_second_column, normal_second) * kinematics.polar_second_column;
             return {
-                .first_column = angular_variation * kinematics.polar_second_column + normal_first,
+                .first_column  = angular_variation * kinematics.polar_second_column + normal_first,
                 .second_column = -angular_variation * kinematics.polar_first_column + normal_second,
             };
         }
@@ -86,19 +86,19 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             if (step_size != 0.0F) local_positions[2] = local_positions[2] + step_size * load(direction, vertices[2]);
             const Vector3<float> material_u_gradient = load(material_u_gradients, triangle);
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
-            const double first_x = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
-            const double first_y = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
-            const double first_z = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
-            const double second_x = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
-            const double second_y = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
-            const double second_z = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
-            const double area_x = first_y * second_z - first_z * second_y;
-            const double area_y = first_z * second_x - first_x * second_z;
-            const double area_z = first_x * second_y - first_y * second_x;
-            const double squared_norm = first_x * first_x + first_y * first_y + first_z * first_z + second_x * second_x + second_y * second_y + second_z * second_z;
-            const double surface_jacobian = sqrt(area_x * area_x + area_y * area_y + area_z * area_z);
-            const double stretch_trace = sqrt(squared_norm + 2.0 * surface_jacobian);
-            const double trace_strain = stretch_trace - 2.0;
+            const double first_x                     = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
+            const double first_y                     = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
+            const double first_z                     = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
+            const double second_x                    = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
+            const double second_y                    = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
+            const double second_z                    = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
+            const double area_x                      = first_y * second_z - first_z * second_y;
+            const double area_y                      = first_z * second_x - first_x * second_z;
+            const double area_z                      = first_x * second_y - first_y * second_x;
+            const double squared_norm                = first_x * first_x + first_y * first_y + first_z * first_z + second_x * second_x + second_y * second_y + second_z * second_z;
+            const double surface_jacobian            = sqrt(area_x * area_x + area_y * area_y + area_z * area_z);
+            const double stretch_trace               = sqrt(squared_norm + 2.0 * surface_jacobian);
+            const double trace_strain                = stretch_trace - 2.0;
             return static_cast<double>(triangle_weights[triangle]) * (static_cast<double>(lame_mu) * (squared_norm - 2.0 * stretch_trace + 2.0) + 0.5 * static_cast<double>(lame_lambda) * trace_strain * trace_strain);
         }
 
@@ -111,16 +111,16 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
             const float material_u[]{material_u_gradient.x, material_u_gradient.y, material_u_gradient.z};
             const float material_v[]{material_v_gradient.x, material_v_gradient.y, material_v_gradient.z};
-            const float weight = triangle_weights[triangle];
+            const float weight                 = triangle_weights[triangle];
             const ElementKinematics kinematics = evaluate_kinematics(local_positions, material_u_gradient, material_v_gradient);
             store(deformation_gradient_first_columns, triangle, kinematics.first_column);
             store(deformation_gradient_second_columns, triangle, kinematics.second_column);
             store(biot_strains, triangle, {.x = kinematics.stretch_00 - 1.0F, .y = kinematics.stretch_01, .z = kinematics.stretch_11 - 1.0F});
             triangle_energies[triangle] = element_energy(kinematics, lame_lambda, lame_mu, weight);
 
-            const float trace_strain = kinematics.stretch_trace - 2.0F;
-            const float polar_coefficient = lame_lambda * trace_strain - 2.0F * lame_mu;
-            const Vector3<float> first_piola_column = 2.0F * lame_mu * kinematics.first_column + polar_coefficient * kinematics.polar_first_column;
+            const float trace_strain                 = kinematics.stretch_trace - 2.0F;
+            const float polar_coefficient            = lame_lambda * trace_strain - 2.0F * lame_mu;
+            const Vector3<float> first_piola_column  = 2.0F * lame_mu * kinematics.first_column + polar_coefficient * kinematics.polar_first_column;
             const Vector3<float> second_piola_column = 2.0F * lame_mu * kinematics.second_column + polar_coefficient * kinematics.polar_second_column;
             for (std::uint32_t local = 0u; local < 3u; ++local) store(triangle_gradients, 3u * triangle + local, weight * (material_u[local] * first_piola_column + material_v[local] * second_piola_column));
 
@@ -128,19 +128,19 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
                 for (std::uint32_t column_component = 0u; column_component < 3u; ++column_component) {
                     Vector3<float> first_variation{};
                     Vector3<float> second_variation{};
-                    first_variation[column_component]  = material_u[local_column];
-                    second_variation[column_component] = material_v[local_column];
-                    const PolarDifferential differential = polar_differential(kinematics, first_variation, second_variation);
-                    const float stretch_trace_variation = dot(kinematics.polar_first_column, first_variation) + dot(kinematics.polar_second_column, second_variation);
-                    const Vector3<float> first_piola_variation = 2.0F * lame_mu * first_variation + lame_lambda * stretch_trace_variation * kinematics.polar_first_column + polar_coefficient * differential.first_column;
+                    first_variation[column_component]           = material_u[local_column];
+                    second_variation[column_component]          = material_v[local_column];
+                    const PolarDifferential differential        = polar_differential(kinematics, first_variation, second_variation);
+                    const float stretch_trace_variation         = dot(kinematics.polar_first_column, first_variation) + dot(kinematics.polar_second_column, second_variation);
+                    const Vector3<float> first_piola_variation  = 2.0F * lame_mu * first_variation + lame_lambda * stretch_trace_variation * kinematics.polar_first_column + polar_coefficient * differential.first_column;
                     const Vector3<float> second_piola_variation = 2.0F * lame_mu * second_variation + lame_lambda * stretch_trace_variation * kinematics.polar_second_column + polar_coefficient * differential.second_column;
-                    const std::uint32_t global_column = 3u * local_column + column_component;
+                    const std::uint32_t global_column           = 3u * local_column + column_component;
                     for (std::uint32_t local_row = 0u; local_row < 3u; ++local_row) {
                         const Vector3<float> gradient_variation = weight * (material_u[local_row] * first_piola_variation + material_v[local_row] * second_piola_variation);
                         for (std::uint32_t row_component = 0u; row_component < 3u; ++row_component) {
                             const std::uint32_t global_row = 3u * local_row + row_component;
                             if (global_row > global_column) continue;
-                            const float value = gradient_variation[row_component];
+                            const float value                                                                                               = gradient_variation[row_component];
                             triangle_hessians[81u * triangle + 27u * local_row + 9u * local_column + 3u * row_component + column_component] = value;
                             triangle_hessians[81u * triangle + 27u * local_column + 9u * local_row + 3u * column_component + row_component] = value;
                         }
@@ -155,8 +155,8 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             Vector3<float> value = masses[row] * inverse_time_step_squared * (load(positions, row) - load(predicted_positions, row));
             for (std::uint32_t incidence = vertex_triangle_offsets[row]; incidence < vertex_triangle_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t triangle = vertex_triangles[incidence];
-                const std::uint32_t local = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
-                value = value + load(triangle_gradients, 3u * triangle + local);
+                const std::uint32_t local    = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
+                value                        = value + load(triangle_gradients, 3u * triangle + local);
             }
             store(gradient, row, value);
 
@@ -185,7 +185,7 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             }
             float minimum = FLT_MAX;
             for (std::uint32_t component = 0u; component < 3u; ++component) {
-                float diagonal = 0.0F;
+                float diagonal         = 0.0F;
                 float off_diagonal_sum = 0.0F;
                 for (std::uint32_t block = row_offsets[row]; block < row_offsets[row + 1u]; ++block) {
                     const std::uint32_t column = column_indices[block];
@@ -264,33 +264,33 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
             const Vector3<float> local_positions[]{load(positions, vertices[0]), load(positions, vertices[1]), load(positions, vertices[2])};
             const Vector3<float> local_directions[]{load(direction, vertices[0]), load(direction, vertices[1]), load(direction, vertices[2])};
-            const double first_x = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
-            const double first_y = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
-            const double first_z = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
-            const double second_x = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
-            const double second_y = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
-            const double second_z = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
-            const double first_squared = first_x * first_x + first_y * first_y + first_z * first_z;
-            const double second_squared = second_x * second_x + second_y * second_y + second_z * second_z;
-            const double mixed = first_x * second_x + first_y * second_y + first_z * second_z;
-            const double spectral_difference = sqrt((first_squared - second_squared) * (first_squared - second_squared) + 4.0 * mixed * mixed);
-            const double maximum_stretch = sqrt(0.5 * (first_squared + second_squared + spectral_difference));
-            const double area_x = first_y * second_z - first_z * second_y;
-            const double area_y = first_z * second_x - first_x * second_z;
-            const double area_z = first_x * second_y - first_y * second_x;
-            const double minimum_stretch = sqrt(area_x * area_x + area_y * area_y + area_z * area_z) / maximum_stretch;
-            const double first_variation_x = static_cast<double>(material_u_gradient.x) * local_directions[0].x + static_cast<double>(material_u_gradient.y) * local_directions[1].x + static_cast<double>(material_u_gradient.z) * local_directions[2].x;
-            const double first_variation_y = static_cast<double>(material_u_gradient.x) * local_directions[0].y + static_cast<double>(material_u_gradient.y) * local_directions[1].y + static_cast<double>(material_u_gradient.z) * local_directions[2].y;
-            const double first_variation_z = static_cast<double>(material_u_gradient.x) * local_directions[0].z + static_cast<double>(material_u_gradient.y) * local_directions[1].z + static_cast<double>(material_u_gradient.z) * local_directions[2].z;
-            const double second_variation_x = static_cast<double>(material_v_gradient.x) * local_directions[0].x + static_cast<double>(material_v_gradient.y) * local_directions[1].x + static_cast<double>(material_v_gradient.z) * local_directions[2].x;
-            const double second_variation_y = static_cast<double>(material_v_gradient.x) * local_directions[0].y + static_cast<double>(material_v_gradient.y) * local_directions[1].y + static_cast<double>(material_v_gradient.z) * local_directions[2].y;
-            const double second_variation_z = static_cast<double>(material_v_gradient.x) * local_directions[0].z + static_cast<double>(material_v_gradient.y) * local_directions[1].z + static_cast<double>(material_v_gradient.z) * local_directions[2].z;
-            const double first_variation_squared = first_variation_x * first_variation_x + first_variation_y * first_variation_y + first_variation_z * first_variation_z;
-            const double second_variation_squared = second_variation_x * second_variation_x + second_variation_y * second_variation_y + second_variation_z * second_variation_z;
-            const double variation_mixed = first_variation_x * second_variation_x + first_variation_y * second_variation_y + first_variation_z * second_variation_z;
+            const double first_x                       = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
+            const double first_y                       = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
+            const double first_z                       = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
+            const double second_x                      = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
+            const double second_y                      = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
+            const double second_z                      = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
+            const double first_squared                 = first_x * first_x + first_y * first_y + first_z * first_z;
+            const double second_squared                = second_x * second_x + second_y * second_y + second_z * second_z;
+            const double mixed                         = first_x * second_x + first_y * second_y + first_z * second_z;
+            const double spectral_difference           = sqrt((first_squared - second_squared) * (first_squared - second_squared) + 4.0 * mixed * mixed);
+            const double maximum_stretch               = sqrt(0.5 * (first_squared + second_squared + spectral_difference));
+            const double area_x                        = first_y * second_z - first_z * second_y;
+            const double area_y                        = first_z * second_x - first_x * second_z;
+            const double area_z                        = first_x * second_y - first_y * second_x;
+            const double minimum_stretch               = sqrt(area_x * area_x + area_y * area_y + area_z * area_z) / maximum_stretch;
+            const double first_variation_x             = static_cast<double>(material_u_gradient.x) * local_directions[0].x + static_cast<double>(material_u_gradient.y) * local_directions[1].x + static_cast<double>(material_u_gradient.z) * local_directions[2].x;
+            const double first_variation_y             = static_cast<double>(material_u_gradient.x) * local_directions[0].y + static_cast<double>(material_u_gradient.y) * local_directions[1].y + static_cast<double>(material_u_gradient.z) * local_directions[2].y;
+            const double first_variation_z             = static_cast<double>(material_u_gradient.x) * local_directions[0].z + static_cast<double>(material_u_gradient.y) * local_directions[1].z + static_cast<double>(material_u_gradient.z) * local_directions[2].z;
+            const double second_variation_x            = static_cast<double>(material_v_gradient.x) * local_directions[0].x + static_cast<double>(material_v_gradient.y) * local_directions[1].x + static_cast<double>(material_v_gradient.z) * local_directions[2].x;
+            const double second_variation_y            = static_cast<double>(material_v_gradient.x) * local_directions[0].y + static_cast<double>(material_v_gradient.y) * local_directions[1].y + static_cast<double>(material_v_gradient.z) * local_directions[2].y;
+            const double second_variation_z            = static_cast<double>(material_v_gradient.x) * local_directions[0].z + static_cast<double>(material_v_gradient.y) * local_directions[1].z + static_cast<double>(material_v_gradient.z) * local_directions[2].z;
+            const double first_variation_squared       = first_variation_x * first_variation_x + first_variation_y * first_variation_y + first_variation_z * first_variation_z;
+            const double second_variation_squared      = second_variation_x * second_variation_x + second_variation_y * second_variation_y + second_variation_z * second_variation_z;
+            const double variation_mixed               = first_variation_x * second_variation_x + first_variation_y * second_variation_y + first_variation_z * second_variation_z;
             const double variation_spectral_difference = sqrt((first_variation_squared - second_variation_squared) * (first_variation_squared - second_variation_squared) + 4.0 * variation_mixed * variation_mixed);
-            const double maximum_variation = sqrt(0.5 * (first_variation_squared + second_variation_squared + variation_spectral_difference));
-            limits[triangle] = maximum_variation == 0.0 ? FLT_MAX : static_cast<float>(static_cast<double>(rank_safety_fraction) * minimum_stretch / maximum_variation);
+            const double maximum_variation             = sqrt(0.5 * (first_variation_squared + second_variation_squared + variation_spectral_difference));
+            limits[triangle]                           = maximum_variation == 0.0 ? FLT_MAX : static_cast<float>(static_cast<double>(rank_safety_fraction) * minimum_stretch / maximum_variation);
         }
 
         __global__ void reduce_minimum_float_kernel(const std::uint32_t count, const float* values, float* result) {
@@ -309,7 +309,7 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
         __global__ void evaluate_potential_kernel(const std::uint32_t particle_count, const std::uint32_t triangle_count, const float inverse_time_step_squared, const float lame_lambda, const float lame_mu, const std::uint32_t* triangle_first, const std::uint32_t* triangle_second, const std::uint32_t* triangle_third, const simulation::VectorView<const float> material_u_gradients, const simulation::VectorView<const float> material_v_gradients, const float* triangle_weights, const float* masses, const simulation::VectorView<const float> predicted_positions, const simulation::VectorView<const float> positions, double* potential) {
             __shared__ double partial[block_size];
             const std::uint32_t term_count = particle_count + triangle_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, 0.0F, inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, positions);
             partial[threadIdx.x] = value;
             __syncthreads();
@@ -325,8 +325,8 @@ namespace physica::deformables::cloth::solvers::corotated_fem::kernels {
             const std::uint32_t candidate = blockIdx.x;
             if (candidate >= candidate_count) return;
             const std::uint32_t term_count = particle_count + triangle_count;
-            const float step_size = maximum_rank_safe_step[0] * candidate_contractions[candidate];
-            double value = 0.0;
+            const float step_size          = maximum_rank_safe_step[0] * candidate_contractions[candidate];
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, step_size, inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, direction);
             partial[threadIdx.x] = value;
             __syncthreads();

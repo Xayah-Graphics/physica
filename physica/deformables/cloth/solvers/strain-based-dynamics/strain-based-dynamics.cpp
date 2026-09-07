@@ -1,7 +1,7 @@
 module;
 
-#include "strain-based-dynamics-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "strain-based-dynamics-kernels.h"
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
 
@@ -10,30 +10,29 @@ module physica.deformables.cloth.solvers.strain_based_dynamics;
 import std;
 
 namespace physica::deformables::cloth::solvers::strain_based_dynamics {
-    Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step), iteration_count(configuration.iteration_count), gravity(configuration.gravity), stretch_stiffness_u(configuration.stretch_stiffness_u), stretch_stiffness_v(configuration.stretch_stiffness_v), shear_stiffness(configuration.shear_stiffness), coloring(build_triangle_coloring(model.configuration.triangles, model.particle_count)), colored_triangles(model.stream, coloring.triangles.size()), inverse_rest_00(model.stream, model.configuration.triangles.size()), inverse_rest_01(model.stream, model.configuration.triangles.size()), inverse_rest_10(model.stream, model.configuration.triangles.size()), inverse_rest_11(model.stream, model.configuration.triangles.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
+    Solver::Solver(const Model<float>& model, Configuration configuration) : time_step(configuration.time_step), iteration_count(configuration.iteration_count), gravity(configuration.gravity), stretch_stiffness_u(configuration.stretch_stiffness_u), stretch_stiffness_v(configuration.stretch_stiffness_v), shear_stiffness(configuration.shear_stiffness), coloring(build_triangle_coloring(model.configuration.triangles, model.particle_count)), colored_triangles(model.stream, coloring.triangles.size()), inverse_rest_00(model.stream, model.configuration.triangles.size()), inverse_rest_01(model.stream, model.configuration.triangles.size()), inverse_rest_10(model.stream, model.configuration.triangles.size()), inverse_rest_11(model.stream, model.configuration.triangles.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         std::vector<float> host_inverse_rest_00(model.configuration.triangles.size());
         std::vector<float> host_inverse_rest_01(model.configuration.triangles.size());
         std::vector<float> host_inverse_rest_10(model.configuration.triangles.size());
         std::vector<float> host_inverse_rest_11(model.configuration.triangles.size());
         for (std::size_t triangle = 0uz; triangle < model.configuration.triangles.size(); ++triangle) {
             const TriangleMaterialCoordinates<float> coordinates = model.configuration.material_coordinates[triangle];
-            const float rest_00 = coordinates.second.u - coordinates.first.u;
-            const float rest_01 = coordinates.third.u - coordinates.first.u;
-            const float rest_10 = coordinates.second.v - coordinates.first.v;
-            const float rest_11 = coordinates.third.v - coordinates.first.v;
-            const float inverse_determinant = 1.0F / (rest_00 * rest_11 - rest_01 * rest_10);
-            host_inverse_rest_00[triangle] = rest_11 * inverse_determinant;
-            host_inverse_rest_01[triangle] = -rest_01 * inverse_determinant;
-            host_inverse_rest_10[triangle] = -rest_10 * inverse_determinant;
-            host_inverse_rest_11[triangle] = rest_00 * inverse_determinant;
+            const float rest_00                                  = coordinates.second.u - coordinates.first.u;
+            const float rest_01                                  = coordinates.third.u - coordinates.first.u;
+            const float rest_10                                  = coordinates.second.v - coordinates.first.v;
+            const float rest_11                                  = coordinates.third.v - coordinates.first.v;
+            const float inverse_determinant                      = 1.0F / (rest_00 * rest_11 - rest_01 * rest_10);
+            host_inverse_rest_00[triangle]                       = rest_11 * inverse_determinant;
+            host_inverse_rest_01[triangle]                       = -rest_01 * inverse_determinant;
+            host_inverse_rest_10[triangle]                       = -rest_10 * inverse_determinant;
+            host_inverse_rest_11[triangle]                       = rest_00 * inverse_determinant;
         }
 
         std::vector<std::uint32_t> host_fixed_vertex_mask(model.particle_count);
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         ::cuda::copy_bytes(model.stream, coloring.triangles, colored_triangles.values);

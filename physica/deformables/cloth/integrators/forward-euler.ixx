@@ -23,6 +23,5 @@ export namespace physica::deformables::cloth::integrators {
         [[nodiscard]] Workspace allocate_workspace(const Model<float>& model) const;
 
         void forward(const Model<float>& model, const simulation::VectorField<float>& positions, const simulation::VectorField<float>& velocities, const simulation::ScalarField<float>& masses, const simulation::VectorField<float>& forces, simulation::VectorField<float>& integrated_positions, simulation::VectorField<float>& integrated_velocities, Cache& cache, Workspace& workspace) const;
-
     };
 } // namespace physica::deformables::cloth::integrators

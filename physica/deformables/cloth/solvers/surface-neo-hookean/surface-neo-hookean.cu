@@ -24,16 +24,16 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
             if (step_size != 0.0F) local_positions[2] = local_positions[2] + step_size * load(direction, vertices[2]);
             const Vector3<float> material_u_gradient = load(material_u_gradients, triangle);
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
-            const double first_x = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
-            const double first_y = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
-            const double first_z = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
-            const double second_x = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
-            const double second_y = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
-            const double second_z = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
-            const double metric_00 = first_x * first_x + first_y * first_y + first_z * first_z;
-            const double metric_01 = first_x * second_x + first_y * second_y + first_z * second_z;
-            const double metric_11 = second_x * second_x + second_y * second_y + second_z * second_z;
-            const double determinant = metric_00 * metric_11 - metric_01 * metric_01;
+            const double first_x                     = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
+            const double first_y                     = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
+            const double first_z                     = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
+            const double second_x                    = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
+            const double second_y                    = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
+            const double second_z                    = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
+            const double metric_00                   = first_x * first_x + first_y * first_y + first_z * first_z;
+            const double metric_01                   = first_x * second_x + first_y * second_y + first_z * second_z;
+            const double metric_11                   = second_x * second_x + second_y * second_y + second_z * second_z;
+            const double determinant                 = metric_00 * metric_11 - metric_01 * metric_01;
             if (determinant <= 0.0) return ::cuda::std::numeric_limits<double>::infinity();
             const double log_jacobian = 0.5 * ::log(determinant);
             return static_cast<double>(triangle_weights[triangle]) * (0.5 * static_cast<double>(lame_mu) * (metric_00 + metric_11 - 2.0) - static_cast<double>(lame_mu) * log_jacobian + 0.5 * static_cast<double>(lame_lambda) * log_jacobian * log_jacobian);
@@ -48,18 +48,18 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
             const float material_u[]{material_u_gradient.x, material_u_gradient.y, material_u_gradient.z};
             const float material_v[]{material_v_gradient.x, material_v_gradient.y, material_v_gradient.z};
-            const float weight = triangle_weights[triangle];
+            const float weight                 = triangle_weights[triangle];
             const Vector3<float> first_column  = material_u[0] * local_positions[0] + material_u[1] * local_positions[1] + material_u[2] * local_positions[2];
             const Vector3<float> second_column = material_v[0] * local_positions[0] + material_v[1] * local_positions[1] + material_v[2] * local_positions[2];
-            const float metric_00 = dot(first_column, first_column);
-            const float metric_01 = dot(first_column, second_column);
-            const float metric_11 = dot(second_column, second_column);
-            const float determinant = metric_00 * metric_11 - metric_01 * metric_01;
-            const float jacobian = sqrtf(determinant);
-            const float log_jacobian = 0.5F * logf(determinant);
-            const float inverse_00 = metric_11 / determinant;
-            const float inverse_01 = -metric_01 / determinant;
-            const float inverse_11 = metric_00 / determinant;
+            const float metric_00              = dot(first_column, first_column);
+            const float metric_01              = dot(first_column, second_column);
+            const float metric_11              = dot(second_column, second_column);
+            const float determinant            = metric_00 * metric_11 - metric_01 * metric_01;
+            const float jacobian               = sqrtf(determinant);
+            const float log_jacobian           = 0.5F * logf(determinant);
+            const float inverse_00             = metric_11 / determinant;
+            const float inverse_01             = -metric_01 / determinant;
+            const float inverse_11             = metric_00 / determinant;
             const Vector3<float> inverse_columns[]{inverse_00 * first_column + inverse_01 * second_column, inverse_01 * first_column + inverse_11 * second_column};
             const Vector3<float> deformation_columns[]{first_column, second_column};
             const float inverse_metric[]{inverse_00, inverse_01, inverse_01, inverse_11};
@@ -71,30 +71,30 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
 
             store(deformation_gradient_first_columns, triangle, first_column);
             store(deformation_gradient_second_columns, triangle, second_column);
-            surface_jacobians[triangle] = jacobian;
+            surface_jacobians[triangle]     = jacobian;
             log_surface_jacobians[triangle] = log_jacobian;
-            triangle_energies[triangle] = weight * (0.5F * lame_mu * (metric_00 + metric_11 - 2.0F) - lame_mu * log_jacobian + 0.5F * lame_lambda * log_jacobian * log_jacobian);
+            triangle_energies[triangle]     = weight * (0.5F * lame_mu * (metric_00 + metric_11 - 2.0F) - lame_mu * log_jacobian + 0.5F * lame_lambda * log_jacobian * log_jacobian);
             for (std::uint32_t local = 0u; local < 3u; ++local) store(triangle_gradients, 3u * triangle + local, weight * (material_u[local] * piola_columns[0] + material_v[local] * piola_columns[1]));
 
             for (std::uint32_t row_dof = 0u; row_dof < 9u; ++row_dof) {
                 const std::uint32_t local_row = row_dof / 3u;
-                const std::uint32_t row = row_dof % 3u;
+                const std::uint32_t row       = row_dof % 3u;
                 const float row_material[]{material_u[local_row], material_v[local_row]};
                 for (std::uint32_t column_dof = row_dof; column_dof < 9u; ++column_dof) {
                     const std::uint32_t local_column = column_dof / 3u;
-                    const std::uint32_t column = column_dof % 3u;
+                    const std::uint32_t column       = column_dof % 3u;
                     const float column_material[]{material_u[local_column], material_v[local_column]};
                     float value{};
                     for (std::uint32_t alpha = 0u; alpha < 2u; ++alpha) {
                         for (std::uint32_t beta = 0u; beta < 2u; ++beta) {
-                            const float spatial_identity = row == column ? 1.0F : 0.0F;
+                            const float spatial_identity  = row == column ? 1.0F : 0.0F;
                             const float material_identity = alpha == beta ? 1.0F : 0.0F;
-                            const float log_hessian = (spatial_identity - tangent_projector[3u * row + column]) * inverse_metric[2u * alpha + beta] - inverse_columns[beta][row] * inverse_columns[alpha][column];
-                            const float material_hessian = lame_mu * spatial_identity * material_identity + lame_lambda * inverse_columns[alpha][row] * inverse_columns[beta][column] + coefficient * log_hessian;
+                            const float log_hessian       = (spatial_identity - tangent_projector[3u * row + column]) * inverse_metric[2u * alpha + beta] - inverse_columns[beta][row] * inverse_columns[alpha][column];
+                            const float material_hessian  = lame_mu * spatial_identity * material_identity + lame_lambda * inverse_columns[alpha][row] * inverse_columns[beta][column] + coefficient * log_hessian;
                             value += row_material[alpha] * material_hessian * column_material[beta];
                         }
                     }
-                    const float weighted = weight * value;
+                    const float weighted                                                                        = weight * value;
                     triangle_hessians[81u * triangle + 27u * local_row + 9u * local_column + 3u * row + column] = weighted;
                     triangle_hessians[81u * triangle + 27u * local_column + 9u * local_row + 3u * column + row] = weighted;
                 }
@@ -107,8 +107,8 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
             Vector3<float> value = masses[row] * inverse_time_step_squared * (load(positions, row) - load(predicted_positions, row));
             for (std::uint32_t incidence = vertex_triangle_offsets[row]; incidence < vertex_triangle_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t triangle = vertex_triangles[incidence];
-                const std::uint32_t local = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
-                value = value + load(triangle_gradients, 3u * triangle + local);
+                const std::uint32_t local    = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
+                value                        = value + load(triangle_gradients, 3u * triangle + local);
             }
             store(gradient, row, value);
 
@@ -137,7 +137,7 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
             }
             float minimum = FLT_MAX;
             for (std::uint32_t component = 0u; component < 3u; ++component) {
-                float diagonal = 0.0F;
+                float diagonal         = 0.0F;
                 float off_diagonal_sum = 0.0F;
                 for (std::uint32_t block = row_offsets[row]; block < row_offsets[row + 1u]; ++block) {
                     const std::uint32_t column = column_indices[block];
@@ -230,21 +230,21 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
                     delta_second[component] += material_v[local] * static_cast<double>(local_direction[local][component]);
                 }
             }
-            const double metric_00 = first[0] * first[0] + first[1] * first[1] + first[2] * first[2];
-            const double metric_01 = first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
-            const double metric_11 = second[0] * second[0] + second[1] * second[1] + second[2] * second[2];
-            const double metric_difference = metric_00 - metric_11;
-            const double maximum_squared = 0.5 * (metric_00 + metric_11 + ::sqrt(metric_difference * metric_difference + 4.0 * metric_01 * metric_01));
-            const double cross_x = first[1] * second[2] - first[2] * second[1];
-            const double cross_y = first[2] * second[0] - first[0] * second[2];
-            const double cross_z = first[0] * second[1] - first[1] * second[0];
-            const double minimum_singular_value = ::sqrt(cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) / ::sqrt(maximum_squared);
-            const double direction_metric_00 = delta_first[0] * delta_first[0] + delta_first[1] * delta_first[1] + delta_first[2] * delta_first[2];
-            const double direction_metric_01 = delta_first[0] * delta_second[0] + delta_first[1] * delta_second[1] + delta_first[2] * delta_second[2];
-            const double direction_metric_11 = delta_second[0] * delta_second[0] + delta_second[1] * delta_second[1] + delta_second[2] * delta_second[2];
+            const double metric_00                   = first[0] * first[0] + first[1] * first[1] + first[2] * first[2];
+            const double metric_01                   = first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
+            const double metric_11                   = second[0] * second[0] + second[1] * second[1] + second[2] * second[2];
+            const double metric_difference           = metric_00 - metric_11;
+            const double maximum_squared             = 0.5 * (metric_00 + metric_11 + ::sqrt(metric_difference * metric_difference + 4.0 * metric_01 * metric_01));
+            const double cross_x                     = first[1] * second[2] - first[2] * second[1];
+            const double cross_y                     = first[2] * second[0] - first[0] * second[2];
+            const double cross_z                     = first[0] * second[1] - first[1] * second[0];
+            const double minimum_singular_value      = ::sqrt(cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) / ::sqrt(maximum_squared);
+            const double direction_metric_00         = delta_first[0] * delta_first[0] + delta_first[1] * delta_first[1] + delta_first[2] * delta_first[2];
+            const double direction_metric_01         = delta_first[0] * delta_second[0] + delta_first[1] * delta_second[1] + delta_first[2] * delta_second[2];
+            const double direction_metric_11         = delta_second[0] * delta_second[0] + delta_second[1] * delta_second[1] + delta_second[2] * delta_second[2];
             const double direction_metric_difference = direction_metric_00 - direction_metric_11;
-            const double direction_maximum_squared = 0.5 * (direction_metric_00 + direction_metric_11 + ::sqrt(direction_metric_difference * direction_metric_difference + 4.0 * direction_metric_01 * direction_metric_01));
-            triangle_domain_steps[triangle] = direction_maximum_squared == 0.0 ? 1.0F : fminf(1.0F, domain_safety * static_cast<float>(minimum_singular_value / ::sqrt(direction_maximum_squared)));
+            const double direction_maximum_squared   = 0.5 * (direction_metric_00 + direction_metric_11 + ::sqrt(direction_metric_difference * direction_metric_difference + 4.0 * direction_metric_01 * direction_metric_01));
+            triangle_domain_steps[triangle]          = direction_maximum_squared == 0.0 ? 1.0F : fminf(1.0F, domain_safety * static_cast<float>(minimum_singular_value / ::sqrt(direction_maximum_squared)));
         }
 
         __global__ void reduce_domain_step_kernel(const std::uint32_t triangle_count, const float* triangle_domain_steps, float* maximum_domain_step) {
@@ -263,7 +263,7 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
         __global__ void evaluate_potential_kernel(const std::uint32_t particle_count, const std::uint32_t triangle_count, const float inverse_time_step_squared, const float lame_lambda, const float lame_mu, const std::uint32_t* triangle_first, const std::uint32_t* triangle_second, const std::uint32_t* triangle_third, const simulation::VectorView<const float> material_u_gradients, const simulation::VectorView<const float> material_v_gradients, const float* triangle_weights, const float* masses, const simulation::VectorView<const float> predicted_positions, const simulation::VectorView<const float> positions, double* potential) {
             __shared__ double partial[block_size];
             const std::uint32_t term_count = particle_count + triangle_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, 0.0F, inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, positions);
             partial[threadIdx.x] = value;
             __syncthreads();
@@ -279,8 +279,8 @@ namespace physica::deformables::cloth::solvers::surface_neo_hookean::kernels {
             const std::uint32_t candidate = blockIdx.x;
             if (candidate >= candidate_count) return;
             const std::uint32_t term_count = particle_count + triangle_count;
-            double value = 0.0;
-            const float step_size = maximum_domain_step[0] * candidate_contractions[candidate];
+            double value                   = 0.0;
+            const float step_size          = maximum_domain_step[0] * candidate_contractions[candidate];
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, step_size, inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, direction);
             partial[threadIdx.x] = value;
             __syncthreads();

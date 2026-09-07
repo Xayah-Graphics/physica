@@ -70,42 +70,41 @@ namespace physica::deformables::cloth {
     }
 
     Topology::Topology(HostTopology topology, const std::span<const Triangle> triangles, const ::cuda::stream_ref stream)
-        : edges(std::move(topology.edges)), hinges(std::move(topology.hinges)),
-          device{
-              .triangles =
-                  {
-                      .first  = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
-                      .second = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
-                      .third  = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
-                  },
-              .edges =
-                  {
-                      .first  = simulation::ScalarField<std::uint32_t>(stream, edges.size()),
-                      .second = simulation::ScalarField<std::uint32_t>(stream, edges.size()),
-                  },
-              .hinges =
-                  {
-                      .edge_first       = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
-                      .edge_second      = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
-                      .first_opposite   = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
-                      .second_opposite  = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
-                  },
-              .vertex_triangles =
-                  {
-                      .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_triangles.offsets.size()),
-                      .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_triangles.indices.size()),
-                  },
-              .vertex_edges =
-                  {
-                      .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_edges.offsets.size()),
-                      .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_edges.indices.size()),
-                  },
-              .vertex_hinges =
-                  {
-                      .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_hinges.offsets.size()),
-                      .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_hinges.indices.size()),
-                  },
-          } {
+        : edges(std::move(topology.edges)), hinges(std::move(topology.hinges)), device{
+                                                                                    .triangles =
+                                                                                        {
+                                                                                            .first  = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
+                                                                                            .second = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
+                                                                                            .third  = simulation::ScalarField<std::uint32_t>(stream, triangles.size()),
+                                                                                        },
+                                                                                    .edges =
+                                                                                        {
+                                                                                            .first  = simulation::ScalarField<std::uint32_t>(stream, edges.size()),
+                                                                                            .second = simulation::ScalarField<std::uint32_t>(stream, edges.size()),
+                                                                                        },
+                                                                                    .hinges =
+                                                                                        {
+                                                                                            .edge_first      = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
+                                                                                            .edge_second     = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
+                                                                                            .first_opposite  = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
+                                                                                            .second_opposite = simulation::ScalarField<std::uint32_t>(stream, hinges.size()),
+                                                                                        },
+                                                                                    .vertex_triangles =
+                                                                                        {
+                                                                                            .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_triangles.offsets.size()),
+                                                                                            .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_triangles.indices.size()),
+                                                                                        },
+                                                                                    .vertex_edges =
+                                                                                        {
+                                                                                            .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_edges.offsets.size()),
+                                                                                            .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_edges.indices.size()),
+                                                                                        },
+                                                                                    .vertex_hinges =
+                                                                                        {
+                                                                                            .offsets = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_hinges.offsets.size()),
+                                                                                            .indices = simulation::ScalarField<std::uint32_t>(stream, topology.vertex_hinges.indices.size()),
+                                                                                        },
+                                                                                } {
         std::vector<std::uint32_t> triangle_first(triangles.size());
         std::vector<std::uint32_t> triangle_second(triangles.size());
         std::vector<std::uint32_t> triangle_third(triangles.size());

@@ -8,27 +8,27 @@ namespace physica::deformables::cloth::solvers::fast_projection::kernels {
         __global__ void linearize_constraints_kernel(const std::uint32_t constraint_count, const std::uint32_t* edge_first, const std::uint32_t* edge_second, const float* rest_lengths, const std::uint32_t* fixed_vertex_mask, const float* masses, const simulation::VectorView<const float> positions, float* constraint_values, const simulation::VectorView<float> jacobian_directions, float* jacobi_inverse_diagonal) {
             const std::uint32_t constraint = blockIdx.x * blockDim.x + threadIdx.x;
             if (constraint >= constraint_count) return;
-            const std::uint32_t first            = edge_first[constraint];
-            const std::uint32_t second           = edge_second[constraint];
-            const Vector3<float> displacement    = load(positions, second) - load(positions, first);
-            const float distance                 = length(displacement);
-            const float first_inverse_mass       = fixed_vertex_mask[first] == 0u ? 1.0F / masses[first] : 0.0F;
-            const float second_inverse_mass      = fixed_vertex_mask[second] == 0u ? 1.0F / masses[second] : 0.0F;
-            const float diagonal                 = first_inverse_mass + second_inverse_mass;
-            constraint_values[constraint]        = distance - rest_lengths[constraint];
-            jacobi_inverse_diagonal[constraint]  = diagonal != 0.0F ? 1.0F / diagonal : 0.0F;
+            const std::uint32_t first           = edge_first[constraint];
+            const std::uint32_t second          = edge_second[constraint];
+            const Vector3<float> displacement   = load(positions, second) - load(positions, first);
+            const float distance                = length(displacement);
+            const float first_inverse_mass      = fixed_vertex_mask[first] == 0u ? 1.0F / masses[first] : 0.0F;
+            const float second_inverse_mass     = fixed_vertex_mask[second] == 0u ? 1.0F / masses[second] : 0.0F;
+            const float diagonal                = first_inverse_mass + second_inverse_mass;
+            constraint_values[constraint]       = distance - rest_lengths[constraint];
+            jacobi_inverse_diagonal[constraint] = diagonal != 0.0F ? 1.0F / diagonal : 0.0F;
             store(jacobian_directions, constraint, displacement / distance);
         }
 
         __global__ void initialize_pcg_kernel(const std::uint32_t constraint_count, const float* constraint_values, const float* jacobi_inverse_diagonal, float* lambdas, float* residual, float* preconditioned_residual, float* search_direction) {
             const std::uint32_t constraint = blockIdx.x * blockDim.x + threadIdx.x;
             if (constraint >= constraint_count) return;
-            const float initial_residual       = -constraint_values[constraint];
-            const float initial_preconditioned = jacobi_inverse_diagonal[constraint] * initial_residual;
-            lambdas[constraint]                = 0.0F;
-            residual[constraint]               = initial_residual;
+            const float initial_residual        = -constraint_values[constraint];
+            const float initial_preconditioned  = jacobi_inverse_diagonal[constraint] * initial_residual;
+            lambdas[constraint]                 = 0.0F;
+            residual[constraint]                = initial_residual;
             preconditioned_residual[constraint] = initial_preconditioned;
-            search_direction[constraint]       = initial_preconditioned;
+            search_direction[constraint]        = initial_preconditioned;
         }
 
         __global__ void scatter_jacobian_transpose_kernel(const std::uint32_t constraint_count, const std::uint32_t* edge_first, const std::uint32_t* edge_second, const simulation::VectorView<const float> jacobian_directions, const float* constraint_vector, const simulation::VectorView<float> vertex_vector) {

@@ -68,7 +68,7 @@ jobs:
 
       - name: Configure
         shell: pwsh
-        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release "-Dcudss_DIR=$env:CUDSS_DIR" -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF -DBUILD_TESTING=ON
+        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release "-Dcudss_DIR=$env:CUDSS_DIR" -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF
 
       - name: Build
         run: cmake --build cmake-build-release --parallel

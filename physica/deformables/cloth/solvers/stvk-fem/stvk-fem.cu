@@ -47,16 +47,16 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             if (step_size != 0.0F) local_positions[2] = local_positions[2] + step_size * load(direction, vertices[2]);
             const Vector3<float> material_u_gradient = load(material_u_gradients, triangle);
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
-            const double first_x = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
-            const double first_y = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
-            const double first_z = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
-            const double second_x = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
-            const double second_y = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
-            const double second_z = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
-            const double strain_00 = 0.5 * (first_x * first_x + first_y * first_y + first_z * first_z - 1.0);
-            const double strain_01 = 0.5 * (first_x * second_x + first_y * second_y + first_z * second_z);
-            const double strain_11 = 0.5 * (second_x * second_x + second_y * second_y + second_z * second_z - 1.0);
-            const double trace = strain_00 + strain_11;
+            const double first_x                     = static_cast<double>(material_u_gradient.x) * local_positions[0].x + static_cast<double>(material_u_gradient.y) * local_positions[1].x + static_cast<double>(material_u_gradient.z) * local_positions[2].x;
+            const double first_y                     = static_cast<double>(material_u_gradient.x) * local_positions[0].y + static_cast<double>(material_u_gradient.y) * local_positions[1].y + static_cast<double>(material_u_gradient.z) * local_positions[2].y;
+            const double first_z                     = static_cast<double>(material_u_gradient.x) * local_positions[0].z + static_cast<double>(material_u_gradient.y) * local_positions[1].z + static_cast<double>(material_u_gradient.z) * local_positions[2].z;
+            const double second_x                    = static_cast<double>(material_v_gradient.x) * local_positions[0].x + static_cast<double>(material_v_gradient.y) * local_positions[1].x + static_cast<double>(material_v_gradient.z) * local_positions[2].x;
+            const double second_y                    = static_cast<double>(material_v_gradient.x) * local_positions[0].y + static_cast<double>(material_v_gradient.y) * local_positions[1].y + static_cast<double>(material_v_gradient.z) * local_positions[2].y;
+            const double second_z                    = static_cast<double>(material_v_gradient.x) * local_positions[0].z + static_cast<double>(material_v_gradient.y) * local_positions[1].z + static_cast<double>(material_v_gradient.z) * local_positions[2].z;
+            const double strain_00                   = 0.5 * (first_x * first_x + first_y * first_y + first_z * first_z - 1.0);
+            const double strain_01                   = 0.5 * (first_x * second_x + first_y * second_y + first_z * second_z);
+            const double strain_11                   = 0.5 * (second_x * second_x + second_y * second_y + second_z * second_z - 1.0);
+            const double trace                       = strain_00 + strain_11;
             return static_cast<double>(triangle_weights[triangle]) * (static_cast<double>(lame_mu) * (strain_00 * strain_00 + 2.0 * strain_01 * strain_01 + strain_11 * strain_11) + 0.5 * static_cast<double>(lame_lambda) * trace * trace);
         }
 
@@ -69,17 +69,17 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             const Vector3<float> material_v_gradient = load(material_v_gradients, triangle);
             const float material_u[]{material_u_gradient.x, material_u_gradient.y, material_u_gradient.z};
             const float material_v[]{material_v_gradient.x, material_v_gradient.y, material_v_gradient.z};
-            const float weight = triangle_weights[triangle];
+            const float weight                 = triangle_weights[triangle];
             const ElementKinematics kinematics = evaluate_kinematics(local_positions, material_u_gradient, material_v_gradient);
             store(deformation_gradient_first_columns, triangle, kinematics.first_column);
             store(deformation_gradient_second_columns, triangle, kinematics.second_column);
             store(green_strains, triangle, {.x = kinematics.strain_00, .y = kinematics.strain_01, .z = kinematics.strain_11});
             triangle_energies[triangle] = element_energy(kinematics, lame_lambda, lame_mu, weight);
 
-            const float trace = kinematics.strain_00 + kinematics.strain_11;
-            const float stress_00 = 2.0F * lame_mu * kinematics.strain_00 + lame_lambda * trace;
-            const float stress_01 = 2.0F * lame_mu * kinematics.strain_01;
-            const float stress_11 = 2.0F * lame_mu * kinematics.strain_11 + lame_lambda * trace;
+            const float trace                        = kinematics.strain_00 + kinematics.strain_11;
+            const float stress_00                    = 2.0F * lame_mu * kinematics.strain_00 + lame_lambda * trace;
+            const float stress_01                    = 2.0F * lame_mu * kinematics.strain_01;
+            const float stress_11                    = 2.0F * lame_mu * kinematics.strain_11 + lame_lambda * trace;
             const Vector3<float> first_piola_column  = stress_00 * kinematics.first_column + stress_01 * kinematics.second_column;
             const Vector3<float> second_piola_column = stress_01 * kinematics.first_column + stress_11 * kinematics.second_column;
             Vector3<float> spatial_gradients[3];
@@ -94,11 +94,11 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             for (std::uint32_t local_row = 0u; local_row < 3u; ++local_row) {
                 for (std::uint32_t local_column = local_row; local_column < 3u; ++local_column) {
                     const float stress_contraction = material_u[local_column] * (stress_00 * material_u[local_row] + stress_01 * material_v[local_row]) + material_v[local_column] * (stress_01 * material_u[local_row] + stress_11 * material_v[local_row]);
-                    const float material_dot = material_u[local_row] * material_u[local_column] + material_v[local_row] * material_v[local_column];
+                    const float material_dot       = material_u[local_row] * material_u[local_column] + material_v[local_row] * material_v[local_column];
                     for (std::uint32_t row = 0u; row < 3u; ++row) {
                         for (std::uint32_t column = 0u; column < 3u; ++column) {
-                            const float identity = row == column ? stress_contraction : 0.0F;
-                            const float value = weight * (identity + lame_mu * (spatial_gradients[local_column][row] * spatial_gradients[local_row][column] + material_dot * deformation_product[3u * row + column]) + lame_lambda * spatial_gradients[local_row][row] * spatial_gradients[local_column][column]);
+                            const float identity                                                                        = row == column ? stress_contraction : 0.0F;
+                            const float value                                                                           = weight * (identity + lame_mu * (spatial_gradients[local_column][row] * spatial_gradients[local_row][column] + material_dot * deformation_product[3u * row + column]) + lame_lambda * spatial_gradients[local_row][row] * spatial_gradients[local_column][column]);
                             triangle_hessians[81u * triangle + 27u * local_row + 9u * local_column + 3u * row + column] = value;
                             if (local_row != local_column) triangle_hessians[81u * triangle + 27u * local_column + 9u * local_row + 3u * column + row] = value;
                         }
@@ -113,8 +113,8 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             Vector3<float> value = masses[row] * inverse_time_step_squared * (load(positions, row) - load(predicted_positions, row));
             for (std::uint32_t incidence = vertex_triangle_offsets[row]; incidence < vertex_triangle_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t triangle = vertex_triangles[incidence];
-                const std::uint32_t local = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
-                value = value + load(triangle_gradients, 3u * triangle + local);
+                const std::uint32_t local    = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
+                value                        = value + load(triangle_gradients, 3u * triangle + local);
             }
             store(gradient, row, value);
 
@@ -143,7 +143,7 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             }
             float minimum = FLT_MAX;
             for (std::uint32_t component = 0u; component < 3u; ++component) {
-                float diagonal = 0.0F;
+                float diagonal         = 0.0F;
                 float off_diagonal_sum = 0.0F;
                 for (std::uint32_t block = row_offsets[row]; block < row_offsets[row + 1u]; ++block) {
                     const std::uint32_t column = column_indices[block];
@@ -217,7 +217,7 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
         __global__ void evaluate_potential_kernel(const std::uint32_t particle_count, const std::uint32_t triangle_count, const float inverse_time_step_squared, const float lame_lambda, const float lame_mu, const std::uint32_t* triangle_first, const std::uint32_t* triangle_second, const std::uint32_t* triangle_third, const simulation::VectorView<const float> material_u_gradients, const simulation::VectorView<const float> material_v_gradients, const float* triangle_weights, const float* masses, const simulation::VectorView<const float> predicted_positions, const simulation::VectorView<const float> positions, double* potential) {
             __shared__ double partial[block_size];
             const std::uint32_t term_count = particle_count + triangle_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, 0.0F, inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, positions);
             partial[threadIdx.x] = value;
             __syncthreads();
@@ -233,7 +233,7 @@ namespace physica::deformables::cloth::solvers::stvk_fem::kernels {
             const std::uint32_t candidate = blockIdx.x;
             if (candidate >= candidate_count) return;
             const std::uint32_t term_count = particle_count + triangle_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, triangle_count, candidate_steps[candidate], inverse_time_step_squared, lame_lambda, lame_mu, triangle_first, triangle_second, triangle_third, material_u_gradients, material_v_gradients, triangle_weights, masses, predicted_positions, positions, direction);
             partial[threadIdx.x] = value;
             __syncthreads();

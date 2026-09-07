@@ -63,28 +63,20 @@ export namespace physica::examples::cloth::xpbd {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step          = time_step,
-                  .iteration_count    = projection_iterations,
-                  .gravity            = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .stretch_compliance = stretch_compliance,
-                  .bending_compliance = bending_compliance,
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step          = time_step,
+                                                                                                                                                         .iteration_count    = projection_iterations,
+                                                                                                                                                         .gravity            = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .stretch_compliance = stretch_compliance,
+                                                                                                                                                         .bending_compliance = bending_compliance,
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         const std::vector<float> masses(model.particle_count, mass);
         ::cuda::copy_bytes(stream, masses, parameters.masses.values);
         support::initialize(model, current_state, next_state, control);

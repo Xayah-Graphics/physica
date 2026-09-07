@@ -58,8 +58,8 @@ namespace physica::deformables::cloth::solvers::baraff_witkin::kernels {
             for (std::uint32_t local_vertex = 0u; local_vertex < 3u; ++local_vertex) accumulate_force(forces, vertices[local_vertex], -stiffness * condition * gradients[local_vertex] - damping * condition_rate * gradients[local_vertex]);
             for (std::uint32_t local_row = 0u; local_row < 3u; ++local_row) {
                 for (std::uint32_t local_column = 0u; local_column < 3u; ++local_column) {
-                    const std::uint32_t block              = block_indices[3u * local_row + local_column];
-                    const float scalar_hessian             = area * (local_u_coefficients[local_row] * local_v_coefficients[local_column] + local_v_coefficients[local_row] * local_u_coefficients[local_column]);
+                    const std::uint32_t block  = block_indices[3u * local_row + local_column];
+                    const float scalar_hessian = area * (local_u_coefficients[local_row] * local_v_coefficients[local_column] + local_v_coefficients[local_row] * local_u_coefficients[local_column]);
                     for (std::uint32_t row = 0u; row < 3u; ++row) {
                         for (std::uint32_t column = 0u; column < 3u; ++column) {
                             const float hessian = row == column ? scalar_hessian : 0.0F;
@@ -140,8 +140,8 @@ namespace physica::deformables::cloth::solvers::baraff_witkin::kernels {
             const SecondVector3<12u> edge          = normalized(variables[1] - variables[0]);
             const SecondVector3<12u> first_normal  = normalized(cross(variables[1] - variables[0], variables[2] - variables[0]));
             const SecondVector3<12u> second_normal = normalized(cross(variables[0] - variables[1], variables[3] - variables[1]));
-            SecondOrder<12u> angle = atan2(dot(cross(first_normal, second_normal), edge), dot(first_normal, second_normal));
-            bending_angles[hinge] = angle.value;
+            SecondOrder<12u> angle                 = atan2(dot(cross(first_normal, second_normal), edge), dot(first_normal, second_normal));
+            bending_angles[hinge]                  = angle.value;
             angle.value -= rest_angles[hinge];
             assemble_bending_condition(vertices, hinge_block_indices + 16u * hinge, local_velocities, angle, stiffnesses[hinge], dampings[hinge], forces, force_position_derivative, force_velocity_derivative);
         }
@@ -162,7 +162,7 @@ namespace physica::deformables::cloth::solvers::baraff_witkin::kernels {
                 for (std::uint32_t local_row = 0u; local_row < 3u; ++local_row) {
                     for (std::uint32_t local_column = 0u; local_column < 3u; ++local_column) {
                         const std::uint32_t entry = 3u * local_row + local_column;
-                        system_block[entry] = -time_step * velocity_block[entry] - time_step * time_step * position_block[entry];
+                        system_block[entry]       = -time_step * velocity_block[entry] - time_step * time_step * position_block[entry];
                         if (column == row && local_column == local_row) system_block[entry] += masses[row];
                     }
                 }

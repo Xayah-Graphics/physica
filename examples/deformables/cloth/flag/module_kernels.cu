@@ -16,10 +16,10 @@ namespace physica::examples::cloth_flag::module_cuda {
             if (edge >= edge_count) return;
             const std::uint32_t a = first[edge];
             const std::uint32_t b = second[edge];
-            const float x = position_x[b] - position_x[a];
-            const float y = position_y[b] - position_y[a];
-            const float z = position_z[b] - position_z[a];
-            const float value = fabsf(sqrtf(x * x + y * y + z * z) / rest_lengths[edge] - 1.0F);
+            const float x         = position_x[b] - position_x[a];
+            const float y         = position_y[b] - position_y[a];
+            const float z         = position_z[b] - position_z[a];
+            const float value     = fabsf(sqrtf(x * x + y * y + z * z) / rest_lengths[edge] - 1.0F);
             atomicMax(reinterpret_cast<unsigned int*>(strain + a), __float_as_uint(value));
             atomicMax(reinterpret_cast<unsigned int*>(strain + b), __float_as_uint(value));
         }

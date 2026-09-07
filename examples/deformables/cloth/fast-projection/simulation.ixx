@@ -21,17 +21,17 @@ export namespace physica::examples::cloth::fast_projection {
     };
 
     struct Simulation final {
-        inline static constexpr std::uint32_t rows                   = 8u;
-        inline static constexpr std::uint32_t columns                = 12u;
-        inline static constexpr float width                          = 1.4F;
-        inline static constexpr float height                         = 0.9F;
-        inline static constexpr float time_step                      = 1.0F / 120.0F;
-        inline static constexpr std::uint32_t frame_count            = 120u;
-        inline static constexpr std::uint32_t outer_iteration_count  = 8u;
-        inline static constexpr std::uint32_t pcg_iteration_count    = 64u;
-        inline static constexpr float gravity_y                      = -9.81F;
-        inline static constexpr float mass                           = 0.04F;
-        inline static constexpr std::uint32_t probe_particle         = (rows - 1u) * columns + columns / 2u;
+        inline static constexpr std::uint32_t rows                  = 8u;
+        inline static constexpr std::uint32_t columns               = 12u;
+        inline static constexpr float width                         = 1.4F;
+        inline static constexpr float height                        = 0.9F;
+        inline static constexpr float time_step                     = 1.0F / 120.0F;
+        inline static constexpr std::uint32_t frame_count           = 120u;
+        inline static constexpr std::uint32_t outer_iteration_count = 8u;
+        inline static constexpr std::uint32_t pcg_iteration_count   = 64u;
+        inline static constexpr float gravity_y                     = -9.81F;
+        inline static constexpr float mass                          = 0.04F;
+        inline static constexpr std::uint32_t probe_particle        = (rows - 1u) * columns + columns / 2u;
         inline static constexpr std::array<std::uint32_t, 2u> fixed_particles{0u, columns - 1u};
 
         ::cuda::stream stream;
@@ -62,27 +62,19 @@ export namespace physica::examples::cloth::fast_projection {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step             = time_step,
-                  .outer_iteration_count = outer_iteration_count,
-                  .pcg_iteration_count   = pcg_iteration_count,
-                  .gravity               = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step             = time_step,
+                                                                                                                                                         .outer_iteration_count = outer_iteration_count,
+                                                                                                                                                         .pcg_iteration_count   = pcg_iteration_count,
+                                                                                                                                                         .gravity               = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         const std::vector<float> masses(model.particle_count, mass);
         ::cuda::copy_bytes(stream, masses, parameters.masses.values);
         support::initialize(model, current_state, next_state, control);
@@ -116,14 +108,14 @@ export namespace physica::examples::cloth::fast_projection {
         stream.sync();
 
         float maximum_absolute_edge_constraint_error = 0.0F;
-        float maximum_stretch_ratio                   = 0.0F;
+        float maximum_stretch_ratio                  = 0.0F;
         for (const deformables::cloth::Edge edge : model.topology.edges) {
             const Vector3<float> first{.x = positions[0][edge.first], .y = positions[1][edge.first], .z = positions[2][edge.first]};
             const Vector3<float> second{.x = positions[0][edge.second], .y = positions[1][edge.second], .z = positions[2][edge.second]};
-            const float rest_length    = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
-            const float current_length = length(second - first);
+            const float rest_length                = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
+            const float current_length             = length(second - first);
             maximum_absolute_edge_constraint_error = std::max(maximum_absolute_edge_constraint_error, std::abs(current_length - rest_length));
-            maximum_stretch_ratio                   = std::max(maximum_stretch_ratio, current_length / rest_length);
+            maximum_stretch_ratio                  = std::max(maximum_stretch_ratio, current_length / rest_length);
         }
 
         float maximum_fixed_position_error = 0.0F;

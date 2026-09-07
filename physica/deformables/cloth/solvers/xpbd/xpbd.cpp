@@ -1,7 +1,7 @@
 module;
 
-#include "xpbd-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "xpbd-kernels.h"
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
 
@@ -10,36 +10,24 @@ module physica.deformables.cloth.solvers.xpbd;
 import std;
 
 namespace physica::deformables::cloth::solvers::xpbd {
-    Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step),
-          iteration_count(configuration.iteration_count),
-          gravity(configuration.gravity),
-          constraints(build_constraints(model)),
-          coloring(build_edge_coloring(constraints, model.particle_count)),
-          colored_constraints(model.stream, coloring.edges.size()),
-          constraint_first(model.stream, constraints.size()),
-          constraint_second(model.stream, constraints.size()),
-          rest_lengths(model.stream, constraints.size()),
-          compliances(model.stream, constraints.size()),
-          fixed_vertex_mask(model.stream, model.particle_count),
-          fixed_positions(model.stream, model.particle_count) {
+    Solver::Solver(const Model<float>& model, Configuration configuration) : time_step(configuration.time_step), iteration_count(configuration.iteration_count), gravity(configuration.gravity), constraints(build_constraints(model)), coloring(build_edge_coloring(constraints, model.particle_count)), colored_constraints(model.stream, coloring.edges.size()), constraint_first(model.stream, constraints.size()), constraint_second(model.stream, constraints.size()), rest_lengths(model.stream, constraints.size()), compliances(model.stream, constraints.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         std::vector<std::uint32_t> host_first(constraints.size());
         std::vector<std::uint32_t> host_second(constraints.size());
         std::vector<float> host_rest_lengths(constraints.size());
         std::vector<float> host_compliances(constraints.size());
         for (std::size_t constraint = 0uz; constraint < constraints.size(); ++constraint) {
-            const Edge edge                 = constraints[constraint];
-            host_first[constraint]          = edge.first;
-            host_second[constraint]         = edge.second;
-            host_rest_lengths[constraint]   = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
-            host_compliances[constraint]    = constraint < model.topology.edges.size() ? configuration.stretch_compliance : configuration.bending_compliance;
+            const Edge edge               = constraints[constraint];
+            host_first[constraint]        = edge.first;
+            host_second[constraint]       = edge.second;
+            host_rest_lengths[constraint] = length(model.configuration.rest_positions[edge.second] - model.configuration.rest_positions[edge.first]);
+            host_compliances[constraint]  = constraint < model.topology.edges.size() ? configuration.stretch_compliance : configuration.bending_compliance;
         }
 
         std::vector<std::uint32_t> host_fixed_vertex_mask(model.particle_count);
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         ::cuda::copy_bytes(model.stream, coloring.edges, colored_constraints.values);

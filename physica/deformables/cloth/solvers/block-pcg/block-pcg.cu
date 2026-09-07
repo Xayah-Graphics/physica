@@ -36,18 +36,18 @@ namespace physica::deformables::cloth::solvers::block_pcg::kernels {
                 diagonal_block = block;
                 break;
             }
-            const float* const diagonal = values + 9u * diagonal_block;
-            const float determinant = diagonal[0] * (diagonal[4] * diagonal[8] - diagonal[5] * diagonal[7]) + diagonal[1] * (diagonal[5] * diagonal[6] - diagonal[3] * diagonal[8]) + diagonal[2] * (diagonal[3] * diagonal[7] - diagonal[4] * diagonal[6]);
+            const float* const diagonal     = values + 9u * diagonal_block;
+            const float determinant         = diagonal[0] * (diagonal[4] * diagonal[8] - diagonal[5] * diagonal[7]) + diagonal[1] * (diagonal[5] * diagonal[6] - diagonal[3] * diagonal[8]) + diagonal[2] * (diagonal[3] * diagonal[7] - diagonal[4] * diagonal[6]);
             const float inverse_determinant = 1.0F / determinant;
-            row_inverse[0] = inverse_determinant * (diagonal[4] * diagonal[8] - diagonal[5] * diagonal[7]);
-            row_inverse[1] = inverse_determinant * (diagonal[2] * diagonal[7] - diagonal[1] * diagonal[8]);
-            row_inverse[2] = inverse_determinant * (diagonal[1] * diagonal[5] - diagonal[2] * diagonal[4]);
-            row_inverse[3] = inverse_determinant * (diagonal[5] * diagonal[6] - diagonal[3] * diagonal[8]);
-            row_inverse[4] = inverse_determinant * (diagonal[0] * diagonal[8] - diagonal[2] * diagonal[6]);
-            row_inverse[5] = inverse_determinant * (diagonal[2] * diagonal[3] - diagonal[0] * diagonal[5]);
-            row_inverse[6] = inverse_determinant * (diagonal[3] * diagonal[7] - diagonal[4] * diagonal[6]);
-            row_inverse[7] = inverse_determinant * (diagonal[1] * diagonal[6] - diagonal[0] * diagonal[7]);
-            row_inverse[8] = inverse_determinant * (diagonal[0] * diagonal[4] - diagonal[1] * diagonal[3]);
+            row_inverse[0]                  = inverse_determinant * (diagonal[4] * diagonal[8] - diagonal[5] * diagonal[7]);
+            row_inverse[1]                  = inverse_determinant * (diagonal[2] * diagonal[7] - diagonal[1] * diagonal[8]);
+            row_inverse[2]                  = inverse_determinant * (diagonal[1] * diagonal[5] - diagonal[2] * diagonal[4]);
+            row_inverse[3]                  = inverse_determinant * (diagonal[5] * diagonal[6] - diagonal[3] * diagonal[8]);
+            row_inverse[4]                  = inverse_determinant * (diagonal[0] * diagonal[8] - diagonal[2] * diagonal[6]);
+            row_inverse[5]                  = inverse_determinant * (diagonal[2] * diagonal[3] - diagonal[0] * diagonal[5]);
+            row_inverse[6]                  = inverse_determinant * (diagonal[3] * diagonal[7] - diagonal[4] * diagonal[6]);
+            row_inverse[7]                  = inverse_determinant * (diagonal[1] * diagonal[6] - diagonal[0] * diagonal[7]);
+            row_inverse[8]                  = inverse_determinant * (diagonal[0] * diagonal[4] - diagonal[1] * diagonal[3]);
         }
 
         __global__ void initialize_pcg_kernel(const std::uint32_t row_count, const float* block_jacobi_inverse, const std::uint32_t* fixed_vertex_mask, const simulation::VectorView<const float> right_hand_side, const simulation::VectorView<float> solution, const simulation::VectorView<float> residual, const simulation::VectorView<float> preconditioned_residual, const simulation::VectorView<float> search_direction) {
@@ -60,7 +60,7 @@ namespace physica::deformables::cloth::solvers::block_pcg::kernels {
                 store(search_direction, row, {});
                 return;
             }
-            const Vector3<float> initial_residual = load(right_hand_side, row);
+            const Vector3<float> initial_residual                = load(right_hand_side, row);
             const Vector3<float> initial_preconditioned_residual = multiply_block(block_jacobi_inverse + 9u * row, initial_residual);
             store(solution, row, {});
             store(residual, row, initial_residual);

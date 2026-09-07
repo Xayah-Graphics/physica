@@ -10,51 +10,27 @@ import std;
 
 namespace physica::deformables::cloth::solvers::baraff_witkin {
     Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step),
-          gravity(configuration.gravity),
-          stretch_u_target(configuration.stretch_u_target),
-          stretch_v_target(configuration.stretch_v_target),
-          stretch_u_stiffness(configuration.stretch_u_stiffness),
-          stretch_v_stiffness(configuration.stretch_v_stiffness),
-          shear_stiffness(configuration.shear_stiffness),
-          stretch_u_damping(configuration.stretch_u_damping),
-          stretch_v_damping(configuration.stretch_v_damping),
-          shear_damping(configuration.shear_damping),
-          pattern(build_pattern(model)),
-          triangle_coloring(build_triangle_coloring(model.configuration.triangles, model.particle_count)),
-          hinge_coloring(build_hinge_coloring(model)),
-          block_solver(model, {.iteration_count = configuration.pcg_iteration_count}),
-          triangle_u_coefficients(model.stream, model.configuration.triangles.size()),
-          triangle_v_coefficients(model.stream, model.configuration.triangles.size()),
-          triangle_areas(model.stream, model.configuration.triangles.size()),
-          hinge_rest_angles(model.stream, model.topology.hinges.size()),
-          hinge_stiffnesses(model.stream, model.topology.hinges.size()),
-          hinge_dampings(model.stream, model.topology.hinges.size()),
-          colored_triangles(model.stream, model.configuration.triangles.size()),
-          colored_hinges(model.stream, model.topology.hinges.size()),
-          triangle_block_indices(model.stream, 9uz * model.configuration.triangles.size()),
-          hinge_block_indices(model.stream, 16uz * model.topology.hinges.size()),
-          fixed_vertex_mask(model.stream, model.particle_count),
-          fixed_positions(model.stream, model.particle_count) {
+        : time_step(configuration.time_step), gravity(configuration.gravity), stretch_u_target(configuration.stretch_u_target), stretch_v_target(configuration.stretch_v_target), stretch_u_stiffness(configuration.stretch_u_stiffness), stretch_v_stiffness(configuration.stretch_v_stiffness), shear_stiffness(configuration.shear_stiffness), stretch_u_damping(configuration.stretch_u_damping), stretch_v_damping(configuration.stretch_v_damping), shear_damping(configuration.shear_damping), pattern(build_pattern(model)), triangle_coloring(build_triangle_coloring(model.configuration.triangles, model.particle_count)), hinge_coloring(build_hinge_coloring(model)), block_solver(model, {.iteration_count = configuration.pcg_iteration_count}), triangle_u_coefficients(model.stream, model.configuration.triangles.size()), triangle_v_coefficients(model.stream, model.configuration.triangles.size()), triangle_areas(model.stream, model.configuration.triangles.size()), hinge_rest_angles(model.stream, model.topology.hinges.size()),
+          hinge_stiffnesses(model.stream, model.topology.hinges.size()), hinge_dampings(model.stream, model.topology.hinges.size()), colored_triangles(model.stream, model.configuration.triangles.size()), colored_hinges(model.stream, model.topology.hinges.size()), triangle_block_indices(model.stream, 9uz * model.configuration.triangles.size()), hinge_block_indices(model.stream, 16uz * model.topology.hinges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         std::vector<Vector3<float>> host_triangle_u_coefficients(model.configuration.triangles.size());
         std::vector<Vector3<float>> host_triangle_v_coefficients(model.configuration.triangles.size());
         std::vector<float> host_triangle_areas(model.configuration.triangles.size());
         std::vector<std::uint32_t> host_triangle_block_indices(9uz * model.configuration.triangles.size());
         for (std::size_t triangle_index = 0uz; triangle_index < model.configuration.triangles.size(); ++triangle_index) {
-            const Triangle triangle                                = model.configuration.triangles[triangle_index];
-            const TriangleMaterialCoordinates<float> coordinates  = model.configuration.material_coordinates[triangle_index];
-            const float delta_u_first                              = coordinates.second.u - coordinates.first.u;
-            const float delta_v_first                              = coordinates.second.v - coordinates.first.v;
-            const float delta_u_second                             = coordinates.third.u - coordinates.first.u;
-            const float delta_v_second                             = coordinates.third.v - coordinates.first.v;
-            const float determinant                                = delta_u_first * delta_v_second - delta_u_second * delta_v_first;
-            const float inverse_00                                 = delta_v_second / determinant;
-            const float inverse_01                                 = -delta_u_second / determinant;
-            const float inverse_10                                 = -delta_v_first / determinant;
-            const float inverse_11                                 = delta_u_first / determinant;
-            host_triangle_u_coefficients[triangle_index]           = {.x = -inverse_00 - inverse_10, .y = inverse_00, .z = inverse_10};
-            host_triangle_v_coefficients[triangle_index]           = {.x = -inverse_01 - inverse_11, .y = inverse_01, .z = inverse_11};
-            host_triangle_areas[triangle_index]                    = 0.5F * std::abs(determinant);
+            const Triangle triangle                              = model.configuration.triangles[triangle_index];
+            const TriangleMaterialCoordinates<float> coordinates = model.configuration.material_coordinates[triangle_index];
+            const float delta_u_first                            = coordinates.second.u - coordinates.first.u;
+            const float delta_v_first                            = coordinates.second.v - coordinates.first.v;
+            const float delta_u_second                           = coordinates.third.u - coordinates.first.u;
+            const float delta_v_second                           = coordinates.third.v - coordinates.first.v;
+            const float determinant                              = delta_u_first * delta_v_second - delta_u_second * delta_v_first;
+            const float inverse_00                               = delta_v_second / determinant;
+            const float inverse_01                               = -delta_u_second / determinant;
+            const float inverse_10                               = -delta_v_first / determinant;
+            const float inverse_11                               = delta_u_first / determinant;
+            host_triangle_u_coefficients[triangle_index]         = {.x = -inverse_00 - inverse_10, .y = inverse_00, .z = inverse_10};
+            host_triangle_v_coefficients[triangle_index]         = {.x = -inverse_01 - inverse_11, .y = inverse_01, .z = inverse_11};
+            host_triangle_areas[triangle_index]                  = 0.5F * std::abs(determinant);
             const std::array vertices{triangle.first, triangle.second, triangle.third};
             for (std::size_t local_row = 0uz; local_row < 3uz; ++local_row)
                 for (std::size_t local_column = 0uz; local_column < 3uz; ++local_column) host_triangle_block_indices[9uz * triangle_index + 3uz * local_row + local_column] = find_block(pattern, vertices[local_row], vertices[local_column]);
@@ -65,8 +41,8 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
         std::vector<float> host_hinge_dampings(model.topology.hinges.size());
         std::vector<std::uint32_t> host_hinge_block_indices(16uz * model.topology.hinges.size());
         for (std::size_t hinge_index = 0uz; hinge_index < model.topology.hinges.size(); ++hinge_index) {
-            const Hinge hinge = model.topology.hinges[hinge_index];
-            host_hinge_rest_angles[hinge_index] = signed_dihedral(model.configuration.rest_positions, hinge);
+            const Hinge hinge                                      = model.topology.hinges[hinge_index];
+            host_hinge_rest_angles[hinge_index]                    = signed_dihedral(model.configuration.rest_positions, hinge);
             const MaterialCoordinate<float> edge_first_coordinate  = material_coordinate(model, hinge.first_triangle, hinge.edge_first);
             const MaterialCoordinate<float> edge_second_coordinate = material_coordinate(model, hinge.first_triangle, hinge.edge_second);
             const float delta_u                                    = edge_first_coordinate.u - edge_second_coordinate.u;
@@ -83,7 +59,7 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         simulation::upload(model.stream, host_triangle_u_coefficients, triangle_u_coefficients);
@@ -138,9 +114,9 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
         block_pcg::BlockCsrMatrix matrix(model, pattern.row_offsets, pattern.column_indices);
         return {
             .matrix_times_constraint_velocity_change = simulation::VectorField<float>(model.stream, model.particle_count),
-            .reduced_right_hand_side                  = simulation::VectorField<float>(model.stream, model.particle_count),
-            .free_velocity_change                     = simulation::VectorField<float>(model.stream, model.particle_count),
-            .pcg                                      = block_solver.allocate_workspace(model, matrix),
+            .reduced_right_hand_side                 = simulation::VectorField<float>(model.stream, model.particle_count),
+            .free_velocity_change                    = simulation::VectorField<float>(model.stream, model.particle_count),
+            .pcg                                     = block_solver.allocate_workspace(model, matrix),
         };
     }
 
@@ -210,7 +186,7 @@ namespace physica::deformables::cloth::solvers::baraff_witkin {
     }
 
     MaterialCoordinate<float> Solver::material_coordinate(const Model<float>& model, const std::uint32_t triangle_index, const std::uint32_t particle) {
-        const Triangle triangle                               = model.configuration.triangles[triangle_index];
+        const Triangle triangle                              = model.configuration.triangles[triangle_index];
         const TriangleMaterialCoordinates<float> coordinates = model.configuration.material_coordinates[triangle_index];
         if (particle == triangle.first) return coordinates.first;
         if (particle == triangle.second) return coordinates.second;

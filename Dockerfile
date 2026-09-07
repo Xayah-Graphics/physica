@@ -27,7 +27,6 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
         -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
-        -DBUILD_TESTING=ON \
     && cmake --build cmake-build-release --parallel
 
 

@@ -9,8 +9,7 @@ module physica.deformables.cloth.constraints.provot_strain_limit;
 import std;
 
 namespace physica::deformables::cloth::constraints {
-    ProvotStrainLimitConstraint::ProvotStrainLimitConstraint(const Model<float>& model, Configuration configuration)
-        : iteration_count(configuration.iteration_count), coloring(build_edge_coloring(model.topology.edges, model.particle_count)), colored_edges(model.stream, coloring.edges.size()), maximum_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
+    ProvotStrainLimitConstraint::ProvotStrainLimitConstraint(const Model<float>& model, Configuration configuration) : iteration_count(configuration.iteration_count), coloring(build_edge_coloring(model.topology.edges, model.particle_count)), colored_edges(model.stream, coloring.edges.size()), maximum_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         std::vector<float> host_maximum_lengths(model.topology.edges.size());
         for (std::size_t edge_index = 0uz; edge_index < model.topology.edges.size(); ++edge_index) {
             const Edge edge                  = model.topology.edges[edge_index];
@@ -21,7 +20,7 @@ namespace physica::deformables::cloth::constraints {
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         ::cuda::copy_bytes(model.stream, coloring.edges, colored_edges.values);

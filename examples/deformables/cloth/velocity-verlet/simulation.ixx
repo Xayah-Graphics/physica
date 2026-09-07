@@ -27,7 +27,7 @@ export namespace physica::examples::cloth::velocity_verlet {
         inline static constexpr float width                  = 1.0F;
         inline static constexpr float height                 = 0.6F;
         inline static constexpr float time_step              = 1.0F / 600.0F;
-        inline static constexpr std::uint32_t frame_count     = 120u;
+        inline static constexpr std::uint32_t frame_count    = 120u;
         inline static constexpr float gravity_y              = -9.81F;
         inline static constexpr float mass                   = 0.05F;
         inline static constexpr float stretch_stiffness      = 25.0F;
@@ -64,16 +64,7 @@ export namespace physica::examples::cloth::velocity_verlet {
         [[nodiscard]] Summary summarize(float initial_probe_y, float first_frame_probe_y);
     };
 
-    Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(model, {.time_step = time_step, .force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .constraint = support::create_anchors(model.configuration, anchor_particles)}),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+    Simulation::Simulation() : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model, {.time_step = time_step, .force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .constraint = support::create_anchors(model.configuration, anchor_particles)}), current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::set_mass_spring_parameters(stream, parameters, {.mass = mass, .stretch_stiffness = stretch_stiffness, .stretch_damping = stretch_damping, .bending_stiffness = bending_stiffness, .bending_damping = bending_damping});
         support::initialize(model, current_state, next_state, control);
     }

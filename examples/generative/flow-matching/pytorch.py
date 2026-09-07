@@ -21,7 +21,6 @@ import torch.nn.functional as functional
 from PIL import Image
 from safetensors.torch import save_file
 
-
 WIDTH = 256
 SEQUENCE = 256
 HEADS = 8

@@ -49,21 +49,21 @@ namespace physica::deformables::cloth::solvers::strain_based_dynamics::kernels {
             Vector3<float> third_gradient      = (2.0F * u_third_coefficient) * deformation_u;
             project_constraint(dot(deformation_u, deformation_u) - 1.0F, stretch_stiffness_u, first_inverse_mass, second_inverse_mass, third_inverse_mass, first_gradient, second_gradient, third_gradient, first_position, second_position, third_position);
 
-            first_displacement  = second_position - first_position;
-            second_displacement = third_position - first_position;
+            first_displacement           = second_position - first_position;
+            second_displacement          = third_position - first_position;
             Vector3<float> deformation_v = inverse_01 * first_displacement + inverse_11 * second_displacement;
-            first_gradient              = (2.0F * v_first_coefficient) * deformation_v;
-            second_gradient             = (2.0F * v_second_coefficient) * deformation_v;
-            third_gradient              = (2.0F * v_third_coefficient) * deformation_v;
+            first_gradient               = (2.0F * v_first_coefficient) * deformation_v;
+            second_gradient              = (2.0F * v_second_coefficient) * deformation_v;
+            third_gradient               = (2.0F * v_third_coefficient) * deformation_v;
             project_constraint(dot(deformation_v, deformation_v) - 1.0F, stretch_stiffness_v, first_inverse_mass, second_inverse_mass, third_inverse_mass, first_gradient, second_gradient, third_gradient, first_position, second_position, third_position);
 
             first_displacement  = second_position - first_position;
             second_displacement = third_position - first_position;
-            deformation_u = inverse_00 * first_displacement + inverse_10 * second_displacement;
-            deformation_v = inverse_01 * first_displacement + inverse_11 * second_displacement;
-            first_gradient  = u_first_coefficient * deformation_v + v_first_coefficient * deformation_u;
-            second_gradient = u_second_coefficient * deformation_v + v_second_coefficient * deformation_u;
-            third_gradient  = u_third_coefficient * deformation_v + v_third_coefficient * deformation_u;
+            deformation_u       = inverse_00 * first_displacement + inverse_10 * second_displacement;
+            deformation_v       = inverse_01 * first_displacement + inverse_11 * second_displacement;
+            first_gradient      = u_first_coefficient * deformation_v + v_first_coefficient * deformation_u;
+            second_gradient     = u_second_coefficient * deformation_v + v_second_coefficient * deformation_u;
+            third_gradient      = u_third_coefficient * deformation_v + v_third_coefficient * deformation_u;
             project_constraint(dot(deformation_u, deformation_v), shear_stiffness, first_inverse_mass, second_inverse_mass, third_inverse_mass, first_gradient, second_gradient, third_gradient, first_position, second_position, third_position);
 
             store(positions, first, first_position);

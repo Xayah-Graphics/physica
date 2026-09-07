@@ -1,7 +1,7 @@
 module;
 
-#include "fast-projection-kernels.h"
 #include "../position-dynamics-kernels.h"
+#include "fast-projection-kernels.h"
 #include <cublas_v2.h>
 #include <physica/cuda.h>
 #include <simulation/field/device.cuh>
@@ -11,8 +11,7 @@ module physica.deformables.cloth.solvers.fast_projection;
 import std;
 
 namespace physica::deformables::cloth::solvers::fast_projection {
-    Solver::Solver(const Model<float>& model, Configuration configuration)
-        : time_step(configuration.time_step), outer_iteration_count(configuration.outer_iteration_count), pcg_iteration_count(configuration.pcg_iteration_count), gravity(configuration.gravity), cublas{}, rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
+    Solver::Solver(const Model<float>& model, Configuration configuration) : time_step(configuration.time_step), outer_iteration_count(configuration.outer_iteration_count), pcg_iteration_count(configuration.pcg_iteration_count), gravity(configuration.gravity), cublas{}, rest_lengths(model.stream, model.topology.edges.size()), fixed_vertex_mask(model.stream, model.particle_count), fixed_positions(model.stream, model.particle_count) {
         if (const cublasStatus_t status = cublasCreate(std::out_ptr(cublas)); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error(std::format("cublasCreate failed: {}", cublasGetStatusString(status)));
         if (const cublasStatus_t status = cublasSetStream(cublas.get(), model.stream.get()); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error(std::format("cublasSetStream failed: {}", cublasGetStatusString(status)));
         if (const cublasStatus_t status = cublasSetPointerMode(cublas.get(), CUBLAS_POINTER_MODE_DEVICE); status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error(std::format("cublasSetPointerMode failed: {}", cublasGetStatusString(status)));
@@ -27,7 +26,7 @@ namespace physica::deformables::cloth::solvers::fast_projection {
         std::vector<Vector3<float>> host_fixed_positions = model.configuration.rest_positions;
         for (const FixedVertex fixed_vertex : configuration.fixed_vertices) {
             host_fixed_vertex_mask[fixed_vertex.particle] = 1u;
-            host_fixed_positions[fixed_vertex.particle]    = fixed_vertex.position;
+            host_fixed_positions[fixed_vertex.particle]   = fixed_vertex.position;
         }
 
         ::cuda::copy_bytes(model.stream, host_rest_lengths, rest_lengths.values);
@@ -57,10 +56,10 @@ namespace physica::deformables::cloth::solvers::fast_projection {
 
     Solver::StepCache Solver::allocate_step_cache(const Model<float>& model) const {
         return {
-            .constraint_values        = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
-            .jacobian_directions      = simulation::VectorField<float>(model.stream, model.topology.edges.size()),
-            .jacobi_inverse_diagonal  = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
-            .lambdas                  = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+            .constraint_values       = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+            .jacobian_directions     = simulation::VectorField<float>(model.stream, model.topology.edges.size()),
+            .jacobi_inverse_diagonal = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
+            .lambdas                 = simulation::ScalarField<float>(model.stream, model.topology.edges.size()),
         };
     }
 

@@ -21,27 +21,27 @@ export namespace physica::examples::cloth::baraff_witkin {
     };
 
     struct Simulation final {
-        inline static constexpr std::uint32_t rows                  = 8u;
-        inline static constexpr std::uint32_t columns               = 12u;
-        inline static constexpr float width                         = 1.4F;
-        inline static constexpr float height                        = 0.9F;
-        inline static constexpr float time_step                     = 1.0F / 240.0F;
-        inline static constexpr std::uint32_t frame_count           = 240u;
-        inline static constexpr std::uint32_t pcg_iteration_count   = 128u;
-        inline static constexpr float gravity_y                     = -9.81F;
-        inline static constexpr float mass                          = 0.04F;
-        inline static constexpr float stretch_u_stiffness           = 1.2e6F;
-        inline static constexpr float stretch_v_stiffness           = 1.0e6F;
-        inline static constexpr float shear_stiffness               = 4.0e5F;
-        inline static constexpr float bend_u_stiffness              = 0.025F;
-        inline static constexpr float bend_v_stiffness              = 0.05F;
-        inline static constexpr float stretch_u_damping             = 1.2e4F;
-        inline static constexpr float stretch_v_damping             = 1.0e4F;
-        inline static constexpr float shear_damping                 = 4.0e3F;
-        inline static constexpr float bend_u_damping                = 0.0025F;
-        inline static constexpr float bend_v_damping                = 0.005F;
-        inline static constexpr float initial_perturbation          = 0.035F;
-        inline static constexpr std::uint32_t probe_particle        = (rows - 1u) * columns + columns / 2u;
+        inline static constexpr std::uint32_t rows                = 8u;
+        inline static constexpr std::uint32_t columns             = 12u;
+        inline static constexpr float width                       = 1.4F;
+        inline static constexpr float height                      = 0.9F;
+        inline static constexpr float time_step                   = 1.0F / 240.0F;
+        inline static constexpr std::uint32_t frame_count         = 240u;
+        inline static constexpr std::uint32_t pcg_iteration_count = 128u;
+        inline static constexpr float gravity_y                   = -9.81F;
+        inline static constexpr float mass                        = 0.04F;
+        inline static constexpr float stretch_u_stiffness         = 1.2e6F;
+        inline static constexpr float stretch_v_stiffness         = 1.0e6F;
+        inline static constexpr float shear_stiffness             = 4.0e5F;
+        inline static constexpr float bend_u_stiffness            = 0.025F;
+        inline static constexpr float bend_v_stiffness            = 0.05F;
+        inline static constexpr float stretch_u_damping           = 1.2e4F;
+        inline static constexpr float stretch_v_damping           = 1.0e4F;
+        inline static constexpr float shear_damping               = 4.0e3F;
+        inline static constexpr float bend_u_damping              = 0.0025F;
+        inline static constexpr float bend_v_damping              = 0.005F;
+        inline static constexpr float initial_perturbation        = 0.035F;
+        inline static constexpr std::uint32_t probe_particle      = (rows - 1u) * columns + columns / 2u;
         inline static constexpr std::array<std::uint32_t, 2u> fixed_particles{0u, columns - 1u};
 
         ::cuda::stream stream;
@@ -72,47 +72,39 @@ export namespace physica::examples::cloth::baraff_witkin {
     };
 
     Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(
-              model,
-              {
-                  .time_step           = time_step,
-                  .pcg_iteration_count = pcg_iteration_count,
-                  .gravity             = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
-                  .stretch_u_target    = 1.0F,
-                  .stretch_v_target    = 1.0F,
-                  .stretch_u_stiffness = stretch_u_stiffness,
-                  .stretch_v_stiffness = stretch_v_stiffness,
-                  .shear_stiffness     = shear_stiffness,
-                  .bend_u_stiffness    = bend_u_stiffness,
-                  .bend_v_stiffness    = bend_v_stiffness,
-                  .stretch_u_damping   = stretch_u_damping,
-                  .stretch_v_damping   = stretch_v_damping,
-                  .shear_damping       = shear_damping,
-                  .bend_u_damping      = bend_u_damping,
-                  .bend_v_damping      = bend_v_damping,
-                  .fixed_vertices =
-                      {
-                          {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
-                          {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
-                      },
-              }),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+        : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model,
+                                                                                                                                                     {
+                                                                                                                                                         .time_step           = time_step,
+                                                                                                                                                         .pcg_iteration_count = pcg_iteration_count,
+                                                                                                                                                         .gravity             = {.x = 0.0F, .y = gravity_y, .z = 0.0F},
+                                                                                                                                                         .stretch_u_target    = 1.0F,
+                                                                                                                                                         .stretch_v_target    = 1.0F,
+                                                                                                                                                         .stretch_u_stiffness = stretch_u_stiffness,
+                                                                                                                                                         .stretch_v_stiffness = stretch_v_stiffness,
+                                                                                                                                                         .shear_stiffness     = shear_stiffness,
+                                                                                                                                                         .bend_u_stiffness    = bend_u_stiffness,
+                                                                                                                                                         .bend_v_stiffness    = bend_v_stiffness,
+                                                                                                                                                         .stretch_u_damping   = stretch_u_damping,
+                                                                                                                                                         .stretch_v_damping   = stretch_v_damping,
+                                                                                                                                                         .shear_damping       = shear_damping,
+                                                                                                                                                         .bend_u_damping      = bend_u_damping,
+                                                                                                                                                         .bend_v_damping      = bend_v_damping,
+                                                                                                                                                         .fixed_vertices =
+                                                                                                                                                             {
+                                                                                                                                                                 {.particle = fixed_particles[0], .position = model.configuration.rest_positions[fixed_particles[0]]},
+                                                                                                                                                                 {.particle = fixed_particles[1], .position = model.configuration.rest_positions[fixed_particles[1]]},
+                                                                                                                                                             },
+                                                                                                                                                     }),
+          current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::initialize(model, current_state, next_state, control);
         const std::vector<float> masses(model.particle_count, mass);
         ::cuda::copy_bytes(stream, masses, parameters.masses.values);
         std::vector<Vector3<float>> initial_positions = model.configuration.rest_positions;
         for (std::uint32_t row = 0u; row < rows; ++row) {
             for (std::uint32_t column = 0u; column < columns; ++column) {
-                const std::uint32_t particle = row * columns + column;
-                const float row_phase        = std::numbers::pi_v<float> * static_cast<float>(row) / static_cast<float>(rows - 1u);
-                const float column_phase     = 2.0F * std::numbers::pi_v<float> * static_cast<float>(column) / static_cast<float>(columns - 1u);
+                const std::uint32_t particle  = row * columns + column;
+                const float row_phase         = std::numbers::pi_v<float> * static_cast<float>(row) / static_cast<float>(rows - 1u);
+                const float column_phase      = 2.0F * std::numbers::pi_v<float> * static_cast<float>(column) / static_cast<float>(columns - 1u);
                 initial_positions[particle].z = initial_perturbation * std::sin(row_phase) * std::sin(column_phase);
             }
         }
@@ -149,29 +141,29 @@ export namespace physica::examples::cloth::baraff_witkin {
         ::cuda::copy_bytes(stream, current_state.velocities.z, ::cuda::std::span<float>{state[5].data(), particle_count});
         stream.sync();
 
-        float maximum_material_stretch       = 0.0F;
+        float maximum_material_stretch        = 0.0F;
         float maximum_absolute_material_shear = 0.0F;
         for (std::size_t triangle_index = 0uz; triangle_index < model.configuration.triangles.size(); ++triangle_index) {
-            const deformables::cloth::Triangle triangle                               = model.configuration.triangles[triangle_index];
+            const deformables::cloth::Triangle triangle                              = model.configuration.triangles[triangle_index];
             const deformables::cloth::TriangleMaterialCoordinates<float> coordinates = model.configuration.material_coordinates[triangle_index];
-            const float delta_u_first  = coordinates.second.u - coordinates.first.u;
-            const float delta_v_first  = coordinates.second.v - coordinates.first.v;
-            const float delta_u_second = coordinates.third.u - coordinates.first.u;
-            const float delta_v_second = coordinates.third.v - coordinates.first.v;
-            const float inverse_determinant = 1.0F / (delta_u_first * delta_v_second - delta_u_second * delta_v_first);
-            const float inverse_00 = delta_v_second * inverse_determinant;
-            const float inverse_01 = -delta_u_second * inverse_determinant;
-            const float inverse_10 = -delta_v_first * inverse_determinant;
-            const float inverse_11 = delta_u_first * inverse_determinant;
+            const float delta_u_first                                                = coordinates.second.u - coordinates.first.u;
+            const float delta_v_first                                                = coordinates.second.v - coordinates.first.v;
+            const float delta_u_second                                               = coordinates.third.u - coordinates.first.u;
+            const float delta_v_second                                               = coordinates.third.v - coordinates.first.v;
+            const float inverse_determinant                                          = 1.0F / (delta_u_first * delta_v_second - delta_u_second * delta_v_first);
+            const float inverse_00                                                   = delta_v_second * inverse_determinant;
+            const float inverse_01                                                   = -delta_u_second * inverse_determinant;
+            const float inverse_10                                                   = -delta_v_first * inverse_determinant;
+            const float inverse_11                                                   = delta_u_first * inverse_determinant;
             const Vector3<float> first{.x = state[0][triangle.first], .y = state[1][triangle.first], .z = state[2][triangle.first]};
             const Vector3<float> second{.x = state[0][triangle.second], .y = state[1][triangle.second], .z = state[2][triangle.second]};
             const Vector3<float> third{.x = state[0][triangle.third], .y = state[1][triangle.third], .z = state[2][triangle.third]};
-            const Vector3<float> first_edge  = second - first;
-            const Vector3<float> second_edge = third - first;
+            const Vector3<float> first_edge   = second - first;
+            const Vector3<float> second_edge  = third - first;
             const Vector3<float> u_derivative = inverse_00 * first_edge + inverse_10 * second_edge;
             const Vector3<float> v_derivative = inverse_01 * first_edge + inverse_11 * second_edge;
-            maximum_material_stretch        = std::max(maximum_material_stretch, std::max(length(u_derivative), length(v_derivative)));
-            maximum_absolute_material_shear = std::max(maximum_absolute_material_shear, std::abs(dot(u_derivative, v_derivative)));
+            maximum_material_stretch          = std::max(maximum_material_stretch, std::max(length(u_derivative), length(v_derivative)));
+            maximum_absolute_material_shear   = std::max(maximum_absolute_material_shear, std::abs(dot(u_derivative, v_derivative)));
         }
 
         float maximum_fixed_position_error = 0.0F;

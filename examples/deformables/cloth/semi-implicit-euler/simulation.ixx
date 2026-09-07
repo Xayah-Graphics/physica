@@ -23,18 +23,18 @@ export namespace physica::examples::cloth::semi_implicit_euler {
     };
 
     struct Simulation final {
-        inline static constexpr std::uint32_t rows          = 4u;
-        inline static constexpr std::uint32_t columns       = 6u;
-        inline static constexpr float width                 = 1.0F;
-        inline static constexpr float height                = 0.6F;
-        inline static constexpr float time_step             = 1.0F / 600.0F;
+        inline static constexpr std::uint32_t rows           = 4u;
+        inline static constexpr std::uint32_t columns        = 6u;
+        inline static constexpr float width                  = 1.0F;
+        inline static constexpr float height                 = 0.6F;
+        inline static constexpr float time_step              = 1.0F / 600.0F;
         inline static constexpr std::uint32_t frame_count    = 120u;
-        inline static constexpr float gravity_y             = -9.81F;
-        inline static constexpr float mass                  = 0.05F;
-        inline static constexpr float stretch_stiffness     = 25.0F;
-        inline static constexpr float stretch_damping       = 0.4F;
-        inline static constexpr float bending_stiffness     = 0.5F;
-        inline static constexpr float bending_damping       = 0.1F;
+        inline static constexpr float gravity_y              = -9.81F;
+        inline static constexpr float mass                   = 0.05F;
+        inline static constexpr float stretch_stiffness      = 25.0F;
+        inline static constexpr float stretch_damping        = 0.4F;
+        inline static constexpr float bending_stiffness      = 0.5F;
+        inline static constexpr float bending_damping        = 0.1F;
         inline static constexpr std::uint32_t probe_particle = (rows - 1u) * columns + columns / 2u;
         inline static constexpr std::array<std::uint32_t, 2u> anchor_particles{0u, columns - 1u};
 
@@ -65,16 +65,7 @@ export namespace physica::examples::cloth::semi_implicit_euler {
         [[nodiscard]] Summary summarize(float initial_probe_y, float first_frame_probe_y);
     };
 
-    Simulation::Simulation()
-        : stream{::cuda::devices[0]},
-          model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream),
-          solver(model, {.force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .integrator = {.time_step = time_step}, .constraint = support::create_anchors(model.configuration, anchor_particles)}),
-          current_state(solver.allocate_state(model)),
-          next_state(solver.allocate_state(model)),
-          control(solver.allocate_control(model)),
-          parameters(solver.allocate_parameters(model)),
-          step_cache(solver.allocate_step_cache(model)),
-          workspace(solver.allocate_workspace(model)) {
+    Simulation::Simulation() : stream{::cuda::devices[0]}, model(support::create_grid({.rows = rows, .columns = columns, .width = width, .height = height}), stream), solver(model, {.force = {.gravity = {.x = 0.0F, .y = gravity_y, .z = 0.0F}}, .integrator = {.time_step = time_step}, .constraint = support::create_anchors(model.configuration, anchor_particles)}), current_state(solver.allocate_state(model)), next_state(solver.allocate_state(model)), control(solver.allocate_control(model)), parameters(solver.allocate_parameters(model)), step_cache(solver.allocate_step_cache(model)), workspace(solver.allocate_workspace(model)) {
         support::set_mass_spring_parameters(stream, parameters, {.mass = mass, .stretch_stiffness = stretch_stiffness, .stretch_damping = stretch_damping, .bending_stiffness = bending_stiffness, .bending_damping = bending_damping});
         support::initialize(model, current_state, next_state, control);
     }

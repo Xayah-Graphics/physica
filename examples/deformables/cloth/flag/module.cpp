@@ -125,7 +125,7 @@ namespace physica::examples::cloth_flag {
     Module::~Module() = default;
 
     void Module::setup(spectra::sdk::cuda::Setup& setup) {
-        const std::uint32_t particle_count = static_cast<std::uint32_t>(simulation->model.particle_count);
+        const std::uint32_t particle_count  = static_cast<std::uint32_t>(simulation->model.particle_count);
         [[maybe_unused]] const auto surface = setup.mesh<"surface">(particle_count, 0u);
         setup.mesh_field<"velocity">(particle_count);
         setup.mesh_field<"force">(particle_count);
@@ -169,7 +169,7 @@ namespace physica::examples::cloth_flag {
             module_cuda::write_vectors(simulation->stream, particle_count, simulation->step_cache.forces.x.data(), simulation->step_cache.forces.y.data(), simulation->step_cache.forces.z.data(), force.data());
         }
         if (output.requested<"strain">()) {
-            const std::span<float> strain = frame.mesh_field<"strain", float>(particle_count);
+            const std::span<float> strain                       = frame.mesh_field<"strain", float>(particle_count);
             const deformables::cloth::DeviceEdgeTopology& edges = simulation->model.topology.device.edges;
             module_cuda::write_strain(simulation->stream, particle_count, static_cast<std::uint32_t>(simulation->model.topology.edges.size()), edges.first.values.data(), edges.second.values.data(), simulation->parameters.force.stretch.rest_lengths.values.data(), simulation->current_state.positions.x.data(), simulation->current_state.positions.y.data(), simulation->current_state.positions.z.data(), strain.data());
         }
@@ -182,7 +182,7 @@ namespace physica::examples::cloth_flag {
     }
 
     Configuration Module::configuration(const Settings& source, const spectra::sdk::SceneInputs& inputs) {
-        const spectra::sdk::MeshInput& mesh = *std::ranges::find(inputs.meshes, std::string_view{"cloth"}, &spectra::sdk::MeshInput::id);
+        const spectra::sdk::MeshInput& mesh           = *std::ranges::find(inputs.meshes, std::string_view{"cloth"}, &spectra::sdk::MeshInput::id);
         const spectra::sdk::IndexSelectionInput& pins = *std::ranges::find(mesh.selections, std::string_view{"Pins"}, &spectra::sdk::IndexSelectionInput::id);
         Configuration result{
             .rest_positions       = std::vector<Vector3<float>>(mesh.positions.size()),
@@ -205,10 +205,10 @@ namespace physica::examples::cloth_flag {
         };
         for (std::size_t particle = 0u; particle != mesh.positions.size(); ++particle) result.rest_positions[particle] = {mesh.positions[particle].x, mesh.positions[particle].y, mesh.positions[particle].z};
         for (std::size_t triangle = 0u; triangle != result.triangles.size(); ++triangle) {
-            const std::uint32_t first  = mesh.indices[triangle * 3u];
-            const std::uint32_t second = mesh.indices[triangle * 3u + 1u];
-            const std::uint32_t third  = mesh.indices[triangle * 3u + 2u];
-            result.triangles[triangle] = {first, second, third};
+            const std::uint32_t first             = mesh.indices[triangle * 3u];
+            const std::uint32_t second            = mesh.indices[triangle * 3u + 1u];
+            const std::uint32_t third             = mesh.indices[triangle * 3u + 2u];
+            result.triangles[triangle]            = {first, second, third};
             result.material_coordinates[triangle] = {
                 {mesh.texture_coordinates[first].x, mesh.texture_coordinates[first].y},
                 {mesh.texture_coordinates[second].x, mesh.texture_coordinates[second].y},

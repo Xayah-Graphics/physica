@@ -82,19 +82,20 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
         }
 
         [[nodiscard]] __device__ const float* energy_hessian_block(const std::uint32_t contribution, const std::uint32_t edge_count, const std::uint32_t triangle_count, const float* const edge_hessians, const float* const triangle_hessians, const float* const hinge_hessians) {
-            const std::uint32_t edge_block_count = 4u * edge_count;
+            const std::uint32_t edge_block_count     = 4u * edge_count;
             const std::uint32_t triangle_block_count = 9u * triangle_count;
             if (contribution < edge_block_count) return edge_hessians + 9u * contribution;
             if (contribution < edge_block_count + triangle_block_count) return triangle_hessians + 9u * (contribution - edge_block_count);
             return hinge_hessians + 9u * (contribution - edge_block_count - triangle_block_count);
         }
 
-        [[nodiscard]] __device__ double potential_term(const std::uint32_t term, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float step, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction) {
+        [[nodiscard]] __device__ double potential_term(const std::uint32_t term, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float step, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses,
+            const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction) {
             const double mass_coefficient = 4.0 / (static_cast<double>(time_step) * time_step);
             if (term < particle_count) {
-                const Vector3<double> position = candidate_position(positions, direction, term, step);
+                const Vector3<double> position   = candidate_position(positions, direction, term, step);
                 const Vector3<double> difference = position - load_double(position_predictor, term);
-                const Vector3<float> external = load(external_forces, term);
+                const Vector3<float> external    = load(external_forces, term);
                 const Vector3<double> force{.x = static_cast<double>(masses[term]) * gravity.x + external.x, .y = static_cast<double>(masses[term]) * gravity.y + external.y, .z = static_cast<double>(masses[term]) * gravity.z + external.z};
                 return 0.5 * static_cast<double>(masses[term]) * mass_coefficient * ::physica::dot(difference, difference) - ::physica::dot(force, position);
             }
@@ -102,17 +103,17 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
             std::uint32_t local_term = term - particle_count;
             if (local_term < edge_count) {
                 const Vector3<double> difference = candidate_position(positions, direction, edge_second[local_term], step) - candidate_position(positions, direction, edge_first[local_term], step);
-                const double condition = 1.0 - ::physica::length(difference) / edge_rest_lengths[local_term];
+                const double condition           = 1.0 - ::physica::length(difference) / edge_rest_lengths[local_term];
                 return static_cast<double>(length_stiffness) * edge_rest_lengths[local_term] * condition * condition;
             }
 
             local_term -= edge_count;
             if (local_term < triangle_count) {
-                const Vector3<double> first = candidate_position(positions, direction, triangle_first[local_term], step);
+                const Vector3<double> first  = candidate_position(positions, direction, triangle_first[local_term], step);
                 const Vector3<double> second = candidate_position(positions, direction, triangle_second[local_term], step);
-                const Vector3<double> third = candidate_position(positions, direction, triangle_third[local_term], step);
-                const double area = 0.5 * ::physica::length(::physica::cross(second - first, third - first));
-                const double condition = 1.0 - area / triangle_rest_areas[local_term];
+                const Vector3<double> third  = candidate_position(positions, direction, triangle_third[local_term], step);
+                const double area            = 0.5 * ::physica::length(::physica::cross(second - first, third - first));
+                const double condition       = 1.0 - area / triangle_rest_areas[local_term];
                 return static_cast<double>(area_stiffness) * triangle_rest_areas[local_term] * condition * condition;
             }
 
@@ -124,7 +125,7 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
                 candidate_position(positions, direction, hinge_first_opposite[local_term], step),
                 candidate_position(positions, direction, hinge_second_opposite[local_term], step),
             };
-            const double angle = dihedral(vertices);
+            const double angle         = dihedral(vertices);
             const double elastic_delta = angle_delta(angle, hinge_rest_angles[local_term]);
             const double damping_delta = angle_delta(angle, previous_hinge_angles[local_term]);
             return static_cast<double>(bending_stiffness) * hinge_weights[local_term] * elastic_delta * elastic_delta + 0.5 * static_cast<double>(bending_damping) * hinge_weights[local_term] / time_step * damping_delta * damping_delta;
@@ -139,7 +140,7 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
                 store(candidate_positions, particle, load(fixed_positions, particle));
                 return;
             }
-            const Vector3<float> acceleration = load(accelerations, particle);
+            const Vector3<float> acceleration       = load(accelerations, particle);
             const Vector3<float> predicted_position = load(positions, particle) + time_step * load(velocities, particle) + 0.25F * time_step * time_step * acceleration;
             store(position_predictor, particle, predicted_position);
             store(velocity_predictor, particle, load(velocities, particle) + 0.5F * time_step * acceleration);
@@ -156,26 +157,26 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
         __global__ void evaluate_edges_kernel(const std::uint32_t edge_count, const float length_stiffness, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const float* const rest_lengths, const simulation::VectorView<const float> positions, float* const conditions, float* const energies, const simulation::VectorView<float> gradients, float* const hessians) {
             const std::uint32_t edge = blockIdx.x * blockDim.x + threadIdx.x;
             if (edge >= edge_count) return;
-            const SecondVector3<6u> first = variable<6u>(load(positions, edge_first[edge]), 0u);
-            const SecondVector3<6u> second = variable<6u>(load(positions, edge_second[edge]), 1u);
+            const SecondVector3<6u> first   = variable<6u>(load(positions, edge_first[edge]), 0u);
+            const SecondVector3<6u> second  = variable<6u>(load(positions, edge_second[edge]), 1u);
             const SecondOrder<6u> condition = SecondOrder<6u>::constant(1.0F) - discrete_shells::length(second - first) / SecondOrder<6u>::constant(rest_lengths[edge]);
-            const SecondOrder<6u> energy = SecondOrder<6u>::constant(length_stiffness * rest_lengths[edge]) * condition * condition;
-            conditions[edge] = condition.value;
-            energies[edge] = energy.value;
+            const SecondOrder<6u> energy    = SecondOrder<6u>::constant(length_stiffness * rest_lengths[edge]) * condition * condition;
+            conditions[edge]                = condition.value;
+            energies[edge]                  = energy.value;
             store_derivatives<6u, 2u>(energy, edge, gradients, hessians);
         }
 
         __global__ void evaluate_triangles_kernel(const std::uint32_t triangle_count, const float area_stiffness, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const float* const rest_areas, const simulation::VectorView<const float> positions, float* const conditions, float* const energies, const simulation::VectorView<float> gradients, float* const hessians) {
             const std::uint32_t triangle = blockIdx.x * blockDim.x + threadIdx.x;
             if (triangle >= triangle_count) return;
-            const SecondVector3<9u> first = variable<9u>(load(positions, triangle_first[triangle]), 0u);
-            const SecondVector3<9u> second = variable<9u>(load(positions, triangle_second[triangle]), 1u);
-            const SecondVector3<9u> third = variable<9u>(load(positions, triangle_third[triangle]), 2u);
-            const SecondOrder<9u> area = SecondOrder<9u>::constant(0.5F) * discrete_shells::length(discrete_shells::cross(second - first, third - first));
+            const SecondVector3<9u> first   = variable<9u>(load(positions, triangle_first[triangle]), 0u);
+            const SecondVector3<9u> second  = variable<9u>(load(positions, triangle_second[triangle]), 1u);
+            const SecondVector3<9u> third   = variable<9u>(load(positions, triangle_third[triangle]), 2u);
+            const SecondOrder<9u> area      = SecondOrder<9u>::constant(0.5F) * discrete_shells::length(discrete_shells::cross(second - first, third - first));
             const SecondOrder<9u> condition = SecondOrder<9u>::constant(1.0F) - area / SecondOrder<9u>::constant(rest_areas[triangle]);
-            const SecondOrder<9u> energy = SecondOrder<9u>::constant(area_stiffness * rest_areas[triangle]) * condition * condition;
-            conditions[triangle] = condition.value;
-            energies[triangle] = energy.value;
+            const SecondOrder<9u> energy    = SecondOrder<9u>::constant(area_stiffness * rest_areas[triangle]) * condition * condition;
+            conditions[triangle]            = condition.value;
+            energies[triangle]              = energy.value;
             store_derivatives<9u, 3u>(energy, triangle, gradients, hessians);
         }
 
@@ -188,40 +189,42 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
                 variable<12u>(load(positions, first_opposite[hinge]), 2u),
                 variable<12u>(load(positions, second_opposite[hinge]), 3u),
             };
-            const SecondOrder<12u> angle = dihedral(vertices);
-            const SecondOrder<12u> elastic_delta = angle_delta(angle, rest_angles[hinge]);
-            const SecondOrder<12u> damping_delta = angle_delta(angle, previous_angles[hinge]);
-            const SecondOrder<12u> energy = SecondOrder<12u>::constant(bending_stiffness * weights[hinge]) * elastic_delta * elastic_delta;
+            const SecondOrder<12u> angle             = dihedral(vertices);
+            const SecondOrder<12u> elastic_delta     = angle_delta(angle, rest_angles[hinge]);
+            const SecondOrder<12u> damping_delta     = angle_delta(angle, previous_angles[hinge]);
+            const SecondOrder<12u> energy            = SecondOrder<12u>::constant(bending_stiffness * weights[hinge]) * elastic_delta * elastic_delta;
             const SecondOrder<12u> damping_potential = SecondOrder<12u>::constant(0.5F * bending_damping * weights[hinge] / time_step) * damping_delta * damping_delta;
-            angles[hinge] = angle.value;
-            angle_deltas[hinge] = elastic_delta.value;
-            angle_rates[hinge] = damping_delta.value / time_step;
-            energies[hinge] = energy.value;
-            damping_potentials[hinge] = damping_potential.value;
+            angles[hinge]                            = angle.value;
+            angle_deltas[hinge]                      = elastic_delta.value;
+            angle_rates[hinge]                       = damping_delta.value / time_step;
+            energies[hinge]                          = energy.value;
+            damping_potentials[hinge]                = damping_potential.value;
             store_derivatives<12u, 4u>(angle, hinge, angle_gradients, angle_hessians);
             store_derivatives<12u, 4u>(energy, hinge, energy_gradients, energy_hessians);
             store_derivatives<12u, 4u>(damping_potential, hinge, damping_residuals, damping_jacobians);
         }
 
-        __global__ void assemble_system_kernel(const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const float mass_coefficient, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const std::uint32_t* const vertex_edge_offsets, const std::uint32_t* const vertex_edges, const std::uint32_t* const vertex_triangle_offsets, const std::uint32_t* const vertex_triangles, const std::uint32_t* const vertex_hinge_offsets, const std::uint32_t* const vertex_hinges, const std::uint32_t* const matrix_row_offsets, const std::uint32_t* const matrix_column_indices, const std::uint32_t* const energy_contribution_offsets, const std::uint32_t* const energy_contributions, const std::uint32_t* const damping_contribution_offsets, const std::uint32_t* const damping_contributions, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> edge_gradients, const float* const edge_hessians, const simulation::VectorView<const float> triangle_gradients, const float* const triangle_hessians, const simulation::VectorView<const float> hinge_gradients, const float* const hinge_hessians, const simulation::VectorView<const float> damping_residuals, const float* const damping_jacobians, const simulation::VectorView<float> energy_gradient, const simulation::VectorView<float> damping_residual, const simulation::VectorView<float> residual, float* const energy_hessian, float* const damping_jacobian, float* const unregularized_system) {
+        __global__ void assemble_system_kernel(const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const float mass_coefficient, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const std::uint32_t* const vertex_edge_offsets, const std::uint32_t* const vertex_edges, const std::uint32_t* const vertex_triangle_offsets, const std::uint32_t* const vertex_triangles, const std::uint32_t* const vertex_hinge_offsets, const std::uint32_t* const vertex_hinges, const std::uint32_t* const matrix_row_offsets, const std::uint32_t* const matrix_column_indices,
+            const std::uint32_t* const energy_contribution_offsets, const std::uint32_t* const energy_contributions, const std::uint32_t* const damping_contribution_offsets, const std::uint32_t* const damping_contributions, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> edge_gradients, const float* const edge_hessians, const simulation::VectorView<const float> triangle_gradients, const float* const triangle_hessians, const simulation::VectorView<const float> hinge_gradients, const float* const hinge_hessians, const simulation::VectorView<const float> damping_residuals, const float* const damping_jacobians, const simulation::VectorView<float> energy_gradient, const simulation::VectorView<float> damping_residual, const simulation::VectorView<float> residual, float* const energy_hessian, float* const damping_jacobian,
+            float* const unregularized_system) {
             const std::uint32_t row = blockIdx.x * blockDim.x + threadIdx.x;
             if (row >= particle_count) return;
             Vector3<float> elastic{};
             Vector3<float> damping{};
             for (std::uint32_t incidence = vertex_edge_offsets[row]; incidence < vertex_edge_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t edge = vertex_edges[incidence];
-                elastic = elastic + load(edge_gradients, 2u * edge + (edge_first[edge] == row ? 0u : 1u));
+                elastic                  = elastic + load(edge_gradients, 2u * edge + (edge_first[edge] == row ? 0u : 1u));
             }
             for (std::uint32_t incidence = vertex_triangle_offsets[row]; incidence < vertex_triangle_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t triangle = vertex_triangles[incidence];
-                const std::uint32_t local = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
-                elastic = elastic + load(triangle_gradients, 3u * triangle + local);
+                const std::uint32_t local    = triangle_first[triangle] == row ? 0u : triangle_second[triangle] == row ? 1u : 2u;
+                elastic                      = elastic + load(triangle_gradients, 3u * triangle + local);
             }
             for (std::uint32_t incidence = vertex_hinge_offsets[row]; incidence < vertex_hinge_offsets[row + 1u]; ++incidence) {
                 const std::uint32_t hinge = vertex_hinges[incidence];
                 const std::uint32_t local = hinge_local_vertex(row, hinge, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite);
-                elastic = elastic + load(hinge_gradients, 4u * hinge + local);
-                damping = damping + load(damping_residuals, 4u * hinge + local);
+                elastic                   = elastic + load(hinge_gradients, 4u * hinge + local);
+                damping                   = damping + load(damping_residuals, 4u * hinge + local);
             }
             store(energy_gradient, row, elastic);
             store(damping_residual, row, damping);
@@ -239,8 +242,8 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
                     for (std::uint32_t entry = 0u; entry < 9u; ++entry) damping_block[entry] += local[entry];
                 }
                 for (std::uint32_t entry = 0u; entry < 9u; ++entry) {
-                    energy_hessian[9u * block + entry] = elastic_block[entry];
-                    damping_jacobian[9u * block + entry] = damping_block[entry];
+                    energy_hessian[9u * block + entry]       = elastic_block[entry];
+                    damping_jacobian[9u * block + entry]     = damping_block[entry];
                     unregularized_system[9u * block + entry] = elastic_block[entry] + damping_block[entry];
                 }
                 if (matrix_column_indices[block] == row) {
@@ -261,7 +264,7 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
             }
             float minimum = FLT_MAX;
             for (std::uint32_t component = 0u; component < 3u; ++component) {
-                float diagonal = 0.0F;
+                float diagonal         = 0.0F;
                 float off_diagonal_sum = 0.0F;
                 for (std::uint32_t block = row_offsets[row]; block < row_offsets[row + 1u]; ++block) {
                     const std::uint32_t column = column_indices[block];
@@ -319,7 +322,7 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
             double value = 0.0;
             for (std::uint32_t particle = threadIdx.x; particle < particle_count; particle += blockDim.x) {
                 if (fixed_vertex_mask[particle] != 0u) continue;
-                const Vector3<float> first = load(gradient, particle);
+                const Vector3<float> first  = load(gradient, particle);
                 const Vector3<float> second = load(direction, particle);
                 value += static_cast<double>(first.x) * second.x + static_cast<double>(first.y) * second.y + static_cast<double>(first.z) * second.z;
             }
@@ -332,10 +335,11 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
             if (threadIdx.x == 0u) result[0] = partial[0];
         }
 
-        __global__ void evaluate_potential_kernel(const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, double* const potential) {
+        __global__ void evaluate_potential_kernel(const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses,
+            const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, double* const potential) {
             __shared__ double partial[block_size];
             const std::uint32_t term_count = particle_count + edge_count + triangle_count + hinge_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, edge_count, triangle_count, hinge_count, 0.0F, time_step, length_stiffness, area_stiffness, bending_stiffness, bending_damping, gravity, edge_first, edge_second, triangle_first, triangle_second, triangle_third, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite, edge_rest_lengths, triangle_rest_areas, hinge_rest_angles, previous_hinge_angles, hinge_weights, masses, external_forces, position_predictor, positions, positions);
             partial[threadIdx.x] = value;
             __syncthreads();
@@ -346,12 +350,13 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
             if (threadIdx.x == 0u) potential[0] = partial[0];
         }
 
-        __global__ void evaluate_candidate_potentials_kernel(const std::uint32_t candidate_count, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const float* const candidate_steps, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction, double* const potentials) {
+        __global__ void evaluate_candidate_potentials_kernel(const std::uint32_t candidate_count, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const float* const candidate_steps, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles,
+            const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction, double* const potentials) {
             __shared__ double partial[block_size];
             const std::uint32_t candidate = blockIdx.x;
             if (candidate >= candidate_count) return;
             const std::uint32_t term_count = particle_count + edge_count + triangle_count + hinge_count;
-            double value = 0.0;
+            double value                   = 0.0;
             for (std::uint32_t term = threadIdx.x; term < term_count; term += blockDim.x) value += potential_term(term, particle_count, edge_count, triangle_count, hinge_count, candidate_steps[candidate], time_step, length_stiffness, area_stiffness, bending_stiffness, bending_damping, gravity, edge_first, edge_second, triangle_first, triangle_second, triangle_third, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite, edge_rest_lengths, triangle_rest_areas, hinge_rest_angles, previous_hinge_angles, hinge_weights, masses, external_forces, position_predictor, positions, direction);
             partial[threadIdx.x] = value;
             __syncthreads();
@@ -416,7 +421,9 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(hinge_count), evaluate_hinges_kernel, hinge_count, time_step, bending_stiffness, bending_damping, edge_first, edge_second, first_opposite, second_opposite, rest_angles, previous_angles, weights, positions, angles, angle_deltas, angle_rates, energies, damping_potentials, angle_gradients, angle_hessians, energy_gradients, energy_hessians, damping_residuals, damping_jacobians);
     }
 
-    void assemble_system(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const float mass_coefficient, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const std::uint32_t* const vertex_edge_offsets, const std::uint32_t* const vertex_edges, const std::uint32_t* const vertex_triangle_offsets, const std::uint32_t* const vertex_triangles, const std::uint32_t* const vertex_hinge_offsets, const std::uint32_t* const vertex_hinges, const std::uint32_t* const matrix_row_offsets, const std::uint32_t* const matrix_column_indices, const std::uint32_t* const energy_contribution_offsets, const std::uint32_t* const energy_contributions, const std::uint32_t* const damping_contribution_offsets, const std::uint32_t* const damping_contributions, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> edge_gradients, const float* const edge_hessians, const simulation::VectorView<const float> triangle_gradients, const float* const triangle_hessians, const simulation::VectorView<const float> hinge_gradients, const float* const hinge_hessians, const simulation::VectorView<const float> damping_residuals, const float* const damping_jacobians, const simulation::VectorView<float> energy_gradient, const simulation::VectorView<float> damping_residual, const simulation::VectorView<float> residual, float* const energy_hessian, float* const damping_jacobian, float* const unregularized_system) {
+    void assemble_system(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const float mass_coefficient, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const std::uint32_t* const vertex_edge_offsets, const std::uint32_t* const vertex_edges, const std::uint32_t* const vertex_triangle_offsets, const std::uint32_t* const vertex_triangles, const std::uint32_t* const vertex_hinge_offsets, const std::uint32_t* const vertex_hinges, const std::uint32_t* const matrix_row_offsets, const std::uint32_t* const matrix_column_indices,
+        const std::uint32_t* const energy_contribution_offsets, const std::uint32_t* const energy_contributions, const std::uint32_t* const damping_contribution_offsets, const std::uint32_t* const damping_contributions, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> edge_gradients, const float* const edge_hessians, const simulation::VectorView<const float> triangle_gradients, const float* const triangle_hessians, const simulation::VectorView<const float> hinge_gradients, const float* const hinge_hessians, const simulation::VectorView<const float> damping_residuals, const float* const damping_jacobians, const simulation::VectorView<float> energy_gradient, const simulation::VectorView<float> damping_residual, const simulation::VectorView<float> residual, float* const energy_hessian, float* const damping_jacobian,
+        float* const unregularized_system) {
         if (particle_count == 0u) return;
         ::cuda::launch(stream, ::cuda::distribute<block_size>(particle_count), assemble_system_kernel, particle_count, edge_count, triangle_count, mass_coefficient, gravity, edge_first, edge_second, triangle_first, triangle_second, triangle_third, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite, vertex_edge_offsets, vertex_edges, vertex_triangle_offsets, vertex_triangles, vertex_hinge_offsets, vertex_hinges, matrix_row_offsets, matrix_column_indices, energy_contribution_offsets, energy_contributions, damping_contribution_offsets, damping_contributions, masses, external_forces, position_predictor, positions, edge_gradients, edge_hessians, triangle_gradients, triangle_hessians, hinge_gradients, hinge_hessians, damping_residuals, damping_jacobians, energy_gradient, damping_residual, residual, energy_hessian, damping_jacobian, unregularized_system);
     }
@@ -449,11 +456,13 @@ namespace physica::deformables::cloth::solvers::discrete_shells::kernels {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(block_size), evaluate_directional_derivative_kernel, particle_count, fixed_vertex_mask, gradient, direction, result);
     }
 
-    void evaluate_potential(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, double* const potential) {
+    void evaluate_potential(const ::cuda::stream_ref stream, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses,
+        const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, double* const potential) {
         ::cuda::launch(stream, ::cuda::distribute<block_size>(block_size), evaluate_potential_kernel, particle_count, edge_count, triangle_count, hinge_count, time_step, length_stiffness, area_stiffness, bending_stiffness, bending_damping, gravity, edge_first, edge_second, triangle_first, triangle_second, triangle_third, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite, edge_rest_lengths, triangle_rest_areas, hinge_rest_angles, previous_hinge_angles, hinge_weights, masses, external_forces, position_predictor, positions, potential);
     }
 
-    void evaluate_candidate_potentials(const ::cuda::stream_ref stream, const std::uint32_t candidate_count, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const float* const candidate_steps, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles, const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction, double* const potentials) {
+    void evaluate_candidate_potentials(const ::cuda::stream_ref stream, const std::uint32_t candidate_count, const std::uint32_t particle_count, const std::uint32_t edge_count, const std::uint32_t triangle_count, const std::uint32_t hinge_count, const float time_step, const float length_stiffness, const float area_stiffness, const float bending_stiffness, const float bending_damping, const Vector3<float> gravity, const float* const candidate_steps, const std::uint32_t* const edge_first, const std::uint32_t* const edge_second, const std::uint32_t* const triangle_first, const std::uint32_t* const triangle_second, const std::uint32_t* const triangle_third, const std::uint32_t* const hinge_edge_first, const std::uint32_t* const hinge_edge_second, const std::uint32_t* const hinge_first_opposite, const std::uint32_t* const hinge_second_opposite, const float* const edge_rest_lengths, const float* const triangle_rest_areas, const float* const hinge_rest_angles, const float* const previous_hinge_angles,
+        const float* const hinge_weights, const float* const masses, const simulation::VectorView<const float> external_forces, const simulation::VectorView<const float> position_predictor, const simulation::VectorView<const float> positions, const simulation::VectorView<const float> direction, double* const potentials) {
         if (candidate_count == 0u) return;
         ::cuda::launch(stream, ::cuda::distribute<block_size>(candidate_count * block_size), evaluate_candidate_potentials_kernel, candidate_count, particle_count, edge_count, triangle_count, hinge_count, time_step, length_stiffness, area_stiffness, bending_stiffness, bending_damping, gravity, candidate_steps, edge_first, edge_second, triangle_first, triangle_second, triangle_third, hinge_edge_first, hinge_edge_second, hinge_first_opposite, hinge_second_opposite, edge_rest_lengths, triangle_rest_areas, hinge_rest_angles, previous_hinge_angles, hinge_weights, masses, external_forces, position_predictor, positions, direction, potentials);
     }
