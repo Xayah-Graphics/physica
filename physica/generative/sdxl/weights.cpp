@@ -1,5 +1,12 @@
 module;
+#if defined(_WIN32)
 #include <Windows.h>
+#elif defined(__linux__)
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 #include "../../neural/inference-kernels.h"
 #include "kernels.h"
@@ -13,12 +20,22 @@ import physica.neural.inference_runtime;
 
 namespace physica::generative::sdxl {
     Checkpoint::Checkpoint(const std::filesystem::path& path, neural::InferenceRuntime& execution, Weights& storage) : runtime{execution}, weights{storage} {
+#if defined(_WIN32)
         file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file == INVALID_HANDLE_VALUE) throw std::system_error{static_cast<int>(GetLastError()), std::system_category(), "SDXL checkpoint open"};
         mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
         if (!mapping) throw std::system_error{static_cast<int>(GetLastError()), std::system_category(), "SDXL checkpoint mapping"};
         view = static_cast<const std::byte*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0));
         if (!view) throw std::system_error{static_cast<int>(GetLastError()), std::system_category(), "SDXL checkpoint view"};
+#elif defined(__linux__)
+        mapped_size = std::filesystem::file_size(path);
+        const int file = ::open(path.c_str(), O_RDONLY);
+        if (file == -1) throw std::system_error{errno, std::generic_category(), "SDXL checkpoint open"};
+        view = static_cast<const std::byte*>(::mmap(nullptr, mapped_size, PROT_READ, MAP_PRIVATE, file, 0));
+        const int mapping_error = errno;
+        ::close(file);
+        if (view == MAP_FAILED) throw std::system_error{mapping_error, std::generic_category(), "SDXL checkpoint mapping"};
+#endif
         std::uint64_t header_size;
         std::memcpy(&header_size, view, sizeof(header_size));
         index = nlohmann::json::parse(reinterpret_cast<const char*>(view + 8), reinterpret_cast<const char*>(view + 8 + header_size));
@@ -27,9 +44,13 @@ namespace physica::generative::sdxl {
 
     Checkpoint::~Checkpoint() {
         runtime.stream.sync();
+#if defined(_WIN32)
         UnmapViewOfFile(view);
         CloseHandle(mapping);
         CloseHandle(file);
+#elif defined(__linux__)
+        ::munmap(const_cast<std::byte*>(view), mapped_size);
+#endif
     }
 
     neural::TensorView Checkpoint::tensor(const std::string& name, const neural::Scalar scalar, const bool convolution, const bool transpose) {

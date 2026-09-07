@@ -26,8 +26,14 @@ export namespace physica::generative::sdxl {
         neural::Conv convolution(const std::string& prefix, neural::Scalar scalar, int stride = 1, int padding = 1);
 
     private:
+#if defined(_WIN32)
         void* file{};
         void* mapping{};
+#elif defined(__linux__)
+        std::size_t mapped_size{};
+#else
+#error SDXL checkpoint mapping requires Windows or Linux
+#endif
         const std::byte* view{};
         const std::byte* data{};
         nlohmann::json index;

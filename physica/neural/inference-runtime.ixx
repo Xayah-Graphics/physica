@@ -1,7 +1,7 @@
 module;
 
 #include <cublasLt.h>
-#include <cudnn_frontend.h>
+#include <cudnn.h>
 #include <physica/cuda.h>
 
 export module physica.neural.inference_runtime;
@@ -60,13 +60,6 @@ export namespace physica::neural {
         MatmulPlan& operator=(const MatmulPlan&) = delete;
     };
 
-    struct ConvPlan final {
-        std::array<int, 10> key;
-        cudnn_frontend::graph::Graph graph;
-
-        explicit ConvPlan(const std::array<int, 10>& key);
-    };
-
     struct InferenceRuntime final {
         ::cuda::stream_ref stream;
         std::size_t cache_hits{};
@@ -74,6 +67,9 @@ export namespace physica::neural {
         double tuning_seconds{};
 
     private:
+        struct ConvPlan;
+        struct AttentionPlan;
+
         cublasLtHandle_t blas{};
         cudnnHandle_t dnn{};
         ::cuda::device_buffer<std::byte> workspace;
@@ -84,12 +80,6 @@ export namespace physica::neural {
         std::list<MatmulPlan> matmuls;
         std::vector<std::array<int, 3>> geglus;
         std::list<ConvPlan> convolutions;
-        struct AttentionPlan final {
-            std::array<int, 10> key;
-            cudnn_frontend::graph::Graph graph;
-            ::cuda::device_buffer<std::int32_t> query_lengths;
-            AttentionPlan(::cuda::stream_ref stream, const std::array<int, 10>& shape);
-        };
         std::list<AttentionPlan> attentions;
 
     public:
@@ -110,5 +100,4 @@ export namespace physica::neural {
     void check(cudaError_t status);
     void check(cublasStatus_t status);
     void check(cudnnStatus_t status);
-    void check(cudnn_frontend::error_t status);
 } // namespace physica::neural

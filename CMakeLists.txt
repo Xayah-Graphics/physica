@@ -145,9 +145,10 @@ target_sources(
         physica/neural/inference-runtime.ixx
 )
 set_target_properties(physica-neural-inference PROPERTIES CUDA_ARCHITECTURES 120a-real)
+target_compile_definitions(physica-neural-inference PRIVATE
+        PHYSICA_CXX_COMPILER="${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}")
 target_compile_options(physica-neural-inference PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
-        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo;-Xcompiler=/utf-8>)
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
 target_include_directories(physica-neural-inference PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
 target_link_libraries(physica-neural-inference
         PUBLIC CCCL::libcudacxx CUDA::toolkit physica::cudnn-frontend CUDA::cublasLt
@@ -650,8 +651,7 @@ target_sources(
 )
 set_target_properties(physica-generative-sdxl PROPERTIES CUDA_ARCHITECTURES 120a-real)
 target_compile_options(physica-generative-sdxl PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:/utf-8>
-        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo;-Xcompiler=/utf-8>)
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
 target_link_libraries(physica-generative-sdxl
         PUBLIC physica-neural-inference
         PRIVATE nlohmann_json::nlohmann_json CUDA::cudart CUDA::cuda_driver)
@@ -661,13 +661,14 @@ target_link_libraries(physica-generative-sdxl
 # ============================================================================
 if (PHYSICA_EXAMPLES)
     add_executable(physica-example-sdxl-cli examples/generative/sdxl/main.cpp)
-    target_compile_options(physica-example-sdxl-cli PRIVATE /utf-8)
     target_link_libraries(physica-example-sdxl-cli PRIVATE
             physica-generative-sdxl physica-serialization physica::stb physica::cutlass nlohmann_json::nlohmann_json)
-    add_custom_command(TARGET physica-example-sdxl-cli POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PHYSICA_CUDNN_DLLS}
-                $<TARGET_FILE_DIR:physica-example-sdxl-cli>
-            COMMAND_EXPAND_LISTS)
+    if (WIN32)
+        add_custom_command(TARGET physica-example-sdxl-cli POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PHYSICA_CUDNN_DLLS}
+                    $<TARGET_FILE_DIR:physica-example-sdxl-cli>
+                COMMAND_EXPAND_LISTS)
+    endif ()
 
     add_executable(
             physica-example-flow-matching-cli

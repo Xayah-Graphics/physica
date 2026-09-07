@@ -20,6 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CUDNN_VERSION: "9.24.0.43"
+  CUDNN_SHA256: "88f72bd1ce384197cedbc68496c6052d7ff0bd9fd0b3c74470402cf737507e06"
   CUDSS_VERSION: "0.8.0.10"
   CUDSS_SHA256: "66d085917ba2aba0c61dd0cfde0ae284df9813709f60c4cd215c47f8929eb780"
 
@@ -49,13 +51,26 @@ jobs:
           Expand-Archive -LiteralPath $cudssArchive -DestinationPath $cudssDirectory
           $cudssRoot = Join-Path $cudssDirectory $cudssArchiveName
 
-          "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           $cudaRoot = Get-Item "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3"
-          "CUDA_PATH=$($cudaRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "CUDACXX=$($cudaRoot.FullName)\bin\nvcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "CUDSS_DIR=$(Join-Path $cudssRoot 'lib\cmake\cudss')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          (Join-Path $cudaRoot.FullName "bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          (Join-Path $cudssRoot "bin") | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "CUDA_PATH=$($cudaRoot.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CUDACXX=$($cudaRoot.FullName)\bin\nvcc.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CUDSS_DIR=$(Join-Path $cudssRoot 'lib\cmake\cudss')" | Out-File -FilePath $env:GITHUB_ENV -Append
+          (Join-Path $cudaRoot.FullName "bin") | Out-File -FilePath $env:GITHUB_PATH -Append
+          (Join-Path $cudssRoot "bin") | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Install cuDNN 9.24
+        shell: pwsh
+        run: |
+          $cudnnArchiveName = "cudnn-windows-x86_64-${env:CUDNN_VERSION}_cuda13-archive"
+          $cudnnArchive = Join-Path $env:RUNNER_TEMP "$cudnnArchiveName.zip"
+          $cudnnDirectory = Join-Path $env:RUNNER_TEMP "cudnn"
+          Invoke-WebRequest "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/$cudnnArchiveName.zip" -OutFile $cudnnArchive
+          if ((Get-FileHash -LiteralPath $cudnnArchive -Algorithm SHA256).Hash -ne $env:CUDNN_SHA256) { throw "cuDNN archive checksum mismatch" }
+          Expand-Archive -LiteralPath $cudnnArchive -DestinationPath $cudnnDirectory
+          $cudnnRoot = Join-Path $cudnnDirectory $cudnnArchiveName
+          "CUDNN_ROOT=$cudnnRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          (Join-Path $cudnnRoot "bin\x64") | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Enter Visual Studio developer environment
         shell: pwsh
@@ -63,12 +78,18 @@ jobs:
           $installation = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $developerCommand = Join-Path $installation "Common7\Tools\VsDevCmd.bat"
           cmd /d /s /c "`"$developerCommand`" -arch=x64 -host_arch=x64 && set" | ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append }
           }
 
       - name: Configure
         shell: pwsh
-        run: cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release "-Dcudss_DIR=$env:CUDSS_DIR" -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF
+        run: >-
+          cmake -S . -B cmake-build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-Dcudss_DIR=$env:CUDSS_DIR"
+          "-DPHYSICA_CUDNN_INCLUDE_DIRECTORY=$env:CUDNN_ROOT/include"
+          "-DPHYSICA_CUDNN_LIBRARY=$env:CUDNN_ROOT/lib/x64/cudnn.lib"
+          "-DPHYSICA_CUDNN_DLL=$env:CUDNN_ROOT/bin/x64/cudnn64_9.dll"
+          -DPHYSICA_EXAMPLES=ON -DPHYSICA_BUILD_SPECTRA=OFF
 
       - name: Build
         run: cmake --build cmake-build-release --parallel
