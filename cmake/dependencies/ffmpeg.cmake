@@ -1,10 +1,11 @@
 include_guard(GLOBAL)
 
 if (WIN32)
+    # Month-end builds are retained for two years; only the latest 14 daily builds are kept.
     FetchContent_Declare(
             ffmpeg
-            URL "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-20-13-45/ffmpeg-n8.1.2-44-g7c533d0f86-win64-lgpl-shared-8.1.zip"
-            URL_HASH SHA256=D311C8C7B86E06B54588E442652F963BAE165BD4D8393E73CC9EBB445B025547
+            URL "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-31-13-27/ffmpeg-n8.1.2-50-g1a748fe2cd-win64-lgpl-shared-8.1.zip"
+            URL_HASH SHA256=e9712ffbdb03ef71bbab660c75b835bfe698ef6fad0247c76d8d394a39a3db63
             SYSTEM
             EXCLUDE_FROM_ALL
     )
