@@ -36,7 +36,7 @@ jobs:
       - name: Install latest build toolchain
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel cmake cuda cudss ffmpeg gcc15 git ninja
+            base-devel cmake cuda cudss ffmpeg git ninja
           echo "/opt/cuda/bin" >> "${GITHUB_PATH}"
 
       - name: Checkout
@@ -48,9 +48,9 @@ jobs:
         run: |
           cmake -S . -B cmake-build-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
             -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
-            -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
+            -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
             -DPHYSICA_EXAMPLES=ON \
             -DPHYSICA_BUILD_SPECTRA=OFF
 

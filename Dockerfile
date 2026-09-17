@@ -12,7 +12,6 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
         cuda \
         cudss \
         ffmpeg \
-        gcc15 \
         git \
         ninja
 
@@ -23,9 +22,9 @@ COPY --link . .
 
 RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_COMPILER=g++ \
+        -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
         -DCMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc \
-        -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
+        -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
         -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
     && cmake --build cmake-build-release --parallel 30
