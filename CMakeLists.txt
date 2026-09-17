@@ -95,37 +95,6 @@ target_link_libraries(
 )
 
 # ============================================================================
-# Neural
-# ============================================================================
-add_library(physica-neural STATIC)
-target_sources(
-        physica-neural
-        PRIVATE
-        physica/neural/matmul.cpp
-        physica/neural/training-state-kernels.h
-        physica/neural/training-state.cpp
-        physica/neural/training-state.cu
-        physica/neural/transformer-kernels.h
-        physica/neural/transformer.cpp
-        physica/neural/transformer.cu
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/neural/matmul.ixx
-        physica/neural/training-state.ixx
-        physica/neural/transformer.ixx
-)
-target_include_directories(physica-neural PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-neural
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        PRIVATE
-        CUDA::cublas
-        CUDA::cublasLt
-)
-
-# ============================================================================
 # Simulation / Field
 # ============================================================================
 add_library(physica-simulation-field STATIC)
@@ -562,52 +531,9 @@ target_link_libraries(
 )
 
 # ============================================================================
-# Generative / Flow Matching
-# ============================================================================
-add_library(physica-generative-flow-matching STATIC)
-target_sources(
-        physica-generative-flow-matching
-        PRIVATE
-        physica/generative/dataset/cifar10.cpp
-        physica/generative/flow-matching/kernels.h
-        physica/generative/flow-matching/kernels.cu
-        physica/generative/flow-matching/model.cpp
-        physica/generative/flow-matching/sampling.cpp
-        physica/generative/flow-matching/flow-matching.cpp
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES FILES
-        physica/generative/dataset/cifar10.ixx
-        physica/generative/flow-matching/model.ixx
-        physica/generative/flow-matching/sampling.ixx
-        physica/generative/flow-matching/flow-matching.ixx
-)
-target_include_directories(physica-generative-flow-matching PUBLIC "${PHYSICA_CLION_CUDA_INCLUDE_DIRECTORY}")
-target_link_libraries(
-        physica-generative-flow-matching
-        PUBLIC
-        CCCL::libcudacxx
-        CUDA::toolkit
-        physica-neural
-        PRIVATE
-        CUDA::curand
-        physica-serialization
-)
-
-# ============================================================================
 # Examples
 # ============================================================================
 if (PHYSICA_EXAMPLES)
-    add_executable(
-            physica-example-flow-matching-cli
-            examples/generative/flow-matching/main.cpp
-    )
-    target_link_libraries(
-            physica-example-flow-matching-cli
-            PRIVATE
-            physica-generative-flow-matching
-            physica::stb
-    )
-
     add_executable(
             physica-example-instant-ngp-cli
             examples/reconstruction/instant-ngp/main.cpp

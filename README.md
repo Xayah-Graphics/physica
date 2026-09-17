@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/github/license/Xayah-Graphics/physica)](LICENSE)
 
 Physica is a C++23 and CUDA computer graphics research workspace for modern implementations of reconstruction,
-simulation, differentiable graphics, and generative modeling algorithms. Core algorithms are organized as reusable
+simulation, and differentiable graphics algorithms. Core algorithms are organized as reusable
 C++ modules, while standalone examples can expose live visualization providers to
 [Spectra](https://github.com/Xayah-Graphics/spectra).
 
@@ -18,7 +18,6 @@ C++ modules, while standalone examples can expose live visualization providers t
 - Gas simulation: smoke, keyframe control, and differentiable adjoint control
 - Liquids: PIC, FLIP, APIC, WCSPH, PCISPH, IISPH, DFSPH, and PBF
 - Deformables: differentiable cloth simulation
-- Generative modeling: class-conditioned Flow Matching with FlowDiT
 
 ## Build Instructions
 
