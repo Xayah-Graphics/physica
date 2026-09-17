@@ -36,7 +36,7 @@ jobs:
       - name: Install latest build toolchain
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel cmake cuda cudnn cudss ffmpeg git ninja
+            base-devel cmake cuda cudss ffmpeg git ninja
           echo "/opt/cuda/bin" >> "${GITHUB_PATH}"
 
       - name: Checkout

@@ -10,7 +10,6 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
         base-devel \
         cmake \
         cuda \
-        cudnn \
         cudss \
         ffmpeg \
         git \
