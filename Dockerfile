@@ -12,6 +12,7 @@ RUN --mount=type=cache,target=/var/cache/pacman/pkg,sharing=locked \
         cuda \
         cudss \
         ffmpeg \
+        gcc15 \
         git \
         ninja
 
@@ -27,7 +28,7 @@ RUN cmake -S . -B cmake-build-release -G Ninja \
         -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++-15 \
         -DPHYSICA_EXAMPLES=ON \
         -DPHYSICA_BUILD_SPECTRA=OFF \
-    && cmake --build cmake-build-release --parallel
+    && cmake --build cmake-build-release --parallel 30
 
 
 FROM archlinux:latest AS runtime

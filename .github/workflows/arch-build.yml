@@ -36,7 +36,7 @@ jobs:
       - name: Install latest build toolchain
         run: |
           pacman -Syu --noconfirm --needed \
-            base-devel cmake cuda cudss ffmpeg git ninja
+            base-devel cmake cuda cudss ffmpeg gcc15 git ninja
           echo "/opt/cuda/bin" >> "${GITHUB_PATH}"
 
       - name: Checkout
@@ -55,4 +55,4 @@ jobs:
             -DPHYSICA_BUILD_SPECTRA=OFF
 
       - name: Build
-        run: cmake --build cmake-build-release --parallel
+        run: cmake --build cmake-build-release --parallel 30
